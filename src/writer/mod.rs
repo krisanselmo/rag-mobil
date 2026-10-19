@@ -48,6 +48,9 @@ pub enum Step<'a> {
     PlanRejected(&'a [String]),
     /// Still invalid after the retry: invalid references were dropped.
     PlanRepaired(&'a [String]),
+    /// No usable plan even after the retry: the story is written in one
+    /// call instead (direct method), with this reason.
+    PlanAbandoned(&'a str),
     PlanReady(&'a StoryPlan),
     Drafting {
         part: usize,

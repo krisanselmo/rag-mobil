@@ -137,6 +137,7 @@ mod tests {
                 Step::Planning => "plan".into(),
                 Step::PlanRejected(_) => "plan-rejected".into(),
                 Step::PlanRepaired(_) => "plan-repaired".into(),
+                Step::PlanAbandoned(_) => "plan-abandoned".into(),
                 Step::PlanReady(_) => "plan-ready".into(),
                 Step::Drafting { part, total } => format!("draft {part}/{total}"),
                 Step::Reviewing => "review".into(),
@@ -244,6 +245,32 @@ mod tests {
                 .contains("« 99 99 999 » n'existe pas dans la boîte")
         );
         assert_eq!(story.written.calls, 5);
+    }
+
+    #[tokio::test]
+    async fn unusable_plan_falls_back_to_one_call() {
+        // What qwen2.5:3b did on set 3799: an unfaithful plan, then a
+        // "corrected" plan that isn't valid (no title).
+        let generator = ScriptedGenerator::new(&[
+            plan_json("99 99 999"),
+            r#"{"characters": [], "outline": []}"#.into(),
+            "# Une histoire\n\nIl était une fois…".into(),
+        ]);
+        let (story, recorder) = run(&generator, WriterOptions::default()).await;
+
+        assert_eq!(recorder.steps, ["plan", "plan-rejected", "plan-abandoned"]);
+        assert_eq!(
+            story.written.generation.text,
+            "# Une histoire\n\nIl était une fois…"
+        );
+        assert_eq!(recorder.text, story.written.generation.text);
+        assert!(story.written.plan.is_none());
+        assert_eq!(story.written.calls, 3);
+        let prompts = generator.prompts.lock().unwrap();
+        assert!(
+            prompts[2].1.system.contains("Dans ta boîte"),
+            "direct prompt"
+        );
     }
 
     #[tokio::test]

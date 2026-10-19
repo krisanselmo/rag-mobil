@@ -72,6 +72,8 @@ vont sur `stderr` (`rag-mobil 3666 > histoire.md` fonctionne).
 | `--fallback-model` | `claude-opus-4-8` | Modèle relancé une fois si Claude décline la requête |
 | `--no-fallback` | off | Désactive cette nouvelle tentative |
 | `--playmodb-url` / `PLAYMODB_BASE_URL` | `https://playmodb.org/cgi-bin` | Miroir PlaymoDB |
+| `--inventory-file` | — | Inventaire lu dans un fichier JSON (sortie de `--inventory-json`) |
+| `--replay` | — | Contourne le LLM : prompts et réponses dans des fichiers (voir Développement) |
 
 ## Architecture
 
@@ -114,7 +116,8 @@ ou pièces de rechange) sont écartées pour que le modèle ne compte pas deux f
 objet. Pour les sets que PlaymoDB n'a pas encore dénombrés, la quantité est inconnue (`?`).
 
 Le scraper s'identifie avec un User-Agent explicite et ne fait que deux requêtes par
-set. PlaymoDB est un site maintenu bénévolement par des fans : merci de ne pas l'utiliser
+set ; en cas d'erreur passagère (PlaymoDB répond souvent 508, limite de ressources de
+son hébergement), il retente jusqu'à 3 fois, après 1, 3 puis 6 secondes. PlaymoDB est un site maintenu bénévolement par des fans : merci de ne pas l'utiliser
 pour du scraping massif.
 
 ### Augment — contexte et prompt
@@ -159,14 +162,18 @@ Control*, ACL 2023), adaptée à la contrainte d'inventaire :
    l'inventaire, un personnage doit être une figurine, une figurine ne joue pas plus de
    rôles que d'exemplaires dans la boîte. En cas d'écart, le plan est redemandé une fois
    avec la liste des erreurs ; s'il reste des écarts, les références invalides sont
-   retirées. Cette étape remplace les modèles de classement entraînés de Re3.
+   retirées. Cette étape remplace les modèles de classement entraînés de Re3. Si le
+   plan reste inutilisable (JSON cassé, fréquent avec les petits modèles locaux),
+   l'histoire est écrite en un seul appel, comme avec `--method direct`.
 3. **Rédaction** (contrôle par plan détaillé de DOC) : une partie par étape, guidée par
    le plan, les personnages et objets de l'étape et le texte déjà écrit.
 4. **Relecture** (module *Edit* de Re3) : un relecteur liste en JSON les écarts avec la
    boîte (objet absent, quantité dépassée, apparence contredite) ; s'il y en a, une
    seule réécriture les corrige.
 5. **« Dans ta boîte »** : la liste finale des personnages et objets est générée **par
-   le code** à partir du plan validé, elle ne cite donc que des pièces de la boîte.
+   le code** à partir du plan validé, elle ne cite donc que des pièces de la boîte. Les
+   objets que PlaymoDB découpe en plusieurs lignes (corps et ailes du perroquet, coffre
+   et serrure, barque et rames…) y sont regroupés.
 
 Cela représente 5 à 9 appels au LLM au lieu d'un : l'histoire s'affiche à la fin, les
 étapes sur `stderr`. `--method direct` revient à un seul appel en streaming.
@@ -178,9 +185,34 @@ via le trait `Observer`.
 ## Développement
 
 ```bash
-cargo test     # hors-ligne : fixtures HTML, faux serveur Claude, rédaction avec un LLM scripté
+cargo test     # hors-ligne : fixtures HTML, faux serveur Claude, LLM scripté, bout en bout
 cargo clippy --all-targets
 cargo fmt
+```
+
+### Contourner le LLM (tests de bout en bout)
+
+`--replay DOSSIER` remplace le LLM par des fichiers : chaque appel écrit son prompt
+dans `DOSSIER/NN-text.prompt.txt` (ou `NN-json`) et lit la réponse dans
+`DOSSIER/NN-text.answer.txt`. S'il manque une réponse, le programme s'arrête en
+indiquant quel fichier écrire ; on relance et les réponses déjà écrites sont rejouées.
+Tout le reste du pipeline tourne pour de vrai. Avec `--inventory-file`, aucun accès
+réseau n'est nécessaire :
+
+```bash
+rag-mobil 3799 --inventory-json > 3799.json          # une fois
+rag-mobil 3799 --inventory-file 3799.json --replay session/
+# … écrire session/01-json.answer.txt (le plan), relancer, et ainsi de suite
+```
+
+Une session complète devient un test de bout en bout dans `tests/e2e/<set>/`
+(`inventory.json`, `answers/`, et les sorties attendues dans `expected/` : histoire
+finale et chaque prompt). `tests/e2e/3799/` en est un exemple : le set « Pirates Secret
+Island », dont les réponses ont été écrites par Claude, avec une relecture qui repère
+une clé absente de la boîte. Après un changement voulu des prompts ou de la sortie :
+
+```bash
+UPDATE_GOLDEN=1 cargo test --test e2e_replay
 ```
 
 ## Avertissement

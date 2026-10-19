@@ -1,13 +1,16 @@
 use std::io::Write;
+use std::path::PathBuf;
 use std::process::ExitCode;
 
 use clap::{Parser, ValueEnum};
 
 use rag_mobil::augment::{ContextOptions, StoryOptions};
-use rag_mobil::generator::{LlmConfig, LlmGenerator, ReasoningEffort, llm};
-use rag_mobil::retriever::{InventorySource, PlaymoDb, playmodb};
+use rag_mobil::generator::{
+    LlmConfig, LlmGenerator, ReasoningEffort, ReplayGenerator, StoryGenerator, llm,
+};
+use rag_mobil::retriever::{InventorySource, JsonFile, PlaymoDb, playmodb};
 use rag_mobil::writer::{Observer, Step, WriterOptions, WritingMethod, first_prompt};
-use rag_mobil::{RagError, RagPipeline, SetNumber};
+use rag_mobil::{RagError, RagPipeline, SetInventory, SetNumber};
 
 /// Méthode de rédaction.
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -112,6 +115,32 @@ struct Cli {
     /// Affiche le prompt augmenté et s'arrête (pas d'appel LLM).
     #[arg(long)]
     dry_run: bool,
+
+    /// Lit l'inventaire dans un fichier JSON (sortie de --inventory-json) au
+    /// lieu d'interroger PlaymoDB.
+    #[arg(long, value_name = "FICHIER")]
+    inventory_file: Option<PathBuf>,
+
+    /// Contourne le LLM : chaque prompt est écrit dans DOSSIER/NN-*.prompt.txt
+    /// et la réponse lue dans DOSSIER/NN-*.answer.txt ; relancez après avoir
+    /// écrit la réponse manquante.
+    #[arg(long, value_name = "DOSSIER")]
+    replay: Option<PathBuf>,
+}
+
+/// PlaymoDB, or a saved inventory.
+enum Source {
+    Web(PlaymoDb),
+    File(JsonFile),
+}
+
+impl InventorySource for Source {
+    async fn fetch(&self, set: &SetNumber) -> rag_mobil::Result<SetInventory> {
+        match self {
+            Self::Web(source) => source.fetch(set).await,
+            Self::File(source) => source.fetch(set).await,
+        }
+    }
 }
 
 #[tokio::main]
@@ -143,7 +172,10 @@ fn hint(err: &RagError) -> Option<String> {
 
 async fn run(cli: Cli) -> anyhow::Result<()> {
     let set = SetNumber::parse(&cli.set_number)?;
-    let source = PlaymoDb::new(&cli.playmodb_url)?;
+    let source = match &cli.inventory_file {
+        Some(path) => Source::File(JsonFile(path.clone())),
+        None => Source::Web(PlaymoDb::new(&cli.playmodb_url)?),
+    };
     let options = StoryOptions {
         language: cli.language,
         reader_age: cli.age,
@@ -169,20 +201,35 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
         return Ok(());
     }
 
-    let generator = LlmGenerator::new(LlmConfig {
-        model: cli.model,
-        effort: cli.effort.map(Into::into),
-        fallback_model: (!cli.no_fallback).then_some(cli.fallback_model),
-    });
-    let pipeline = RagPipeline::new(source, generator);
-
     let writer = WriterOptions {
         method: cli.method.into(),
         review: !cli.no_review,
     };
+    match cli.replay {
+        Some(dir) => tell_story(source, ReplayGenerator::new(dir), &set, &options, writer).await,
+        None => {
+            let generator = LlmGenerator::new(LlmConfig {
+                model: cli.model,
+                effort: cli.effort.map(Into::into),
+                fallback_model: (!cli.no_fallback).then_some(cli.fallback_model),
+            });
+            tell_story(source, generator, &set, &options, writer).await
+        }
+    }
+}
 
-    eprintln!("[rag-mobil] récupération de l'inventaire du set {set} sur PlaymoDB…");
-    let story = pipeline.run(&set, &options, writer, &mut Terminal).await?;
+async fn tell_story<G: StoryGenerator>(
+    source: Source,
+    generator: G,
+    set: &SetNumber,
+    options: &StoryOptions,
+    writer: WriterOptions,
+) -> anyhow::Result<()> {
+    if matches!(source, Source::Web(_)) {
+        eprintln!("[rag-mobil] récupération de l'inventaire du set {set} sur PlaymoDB…");
+    }
+    let pipeline = RagPipeline::new(source, generator);
+    let story = pipeline.run(set, options, writer, &mut Terminal).await?;
     println!();
 
     let g = &story.written.generation;
@@ -227,6 +274,9 @@ impl Observer for Terminal {
                 for error in errors {
                     eprintln!("  - {error}");
                 }
+            }
+            Step::PlanAbandoned(reason) => {
+                eprintln!("[rag-mobil] plan inutilisable ({reason}) : rédaction en un seul appel…")
             }
             Step::PlanReady(plan) => eprintln!(
                 "[rag-mobil] plan : « {} » — {} personnage(s), {} étape(s)",

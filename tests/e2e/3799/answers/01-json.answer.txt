@@ -1,0 +1,16 @@
+{
+  "title": "Le trésor de l'île aux tortues",
+  "premise": "Un pirate pressé débarque sur une petite île pour cacher son coffre dans une grotte secrète, mais il découvre qu'un trésor se partage mieux qu'il ne se cache.",
+  "setting": "Une île de sable entourée d'eau, avec deux palmiers, de grands buissons, une colline d'herbe, une cabane sur pilotis au toit de paille et des rochers gris qui cachent une grotte à porte secrète.",
+  "characters": [
+    {"name": "Robinson", "figure": "30 00 413", "portrait": "Le doyen de l'île, avec sa longue barbe blanche et ses cheveux blancs. Calme, il connaît chaque rocher et chaque tortue."},
+    {"name": "Tom", "figure": "30 00 391", "portrait": "Un naufragé aux cheveux roux, en chemise noire, curieux et toujours prêt à grimper aux palmiers."},
+    {"name": "Pépin", "figure": "30 13 020", "portrait": "Un pirate en gilet rouge avec une longue queue-de-cheval noire. Il fait le dur, mais il a bon cœur et très soif."}
+  ],
+  "outline": [
+    {"event": "Le matin sur l'île : Tom se balance dans le hamac de la cabane sur pilotis, Robinson cueille des noix de coco, le perroquet Coco chante sur sa balançoire et la chèvre Biquette broute.", "characters": ["Tom", "Robinson"], "objects": ["30 06 580", "30 60 370", "30 06 198", "30 60 926", "30 66 012"]},
+    {"event": "Une petite barque approche : Pépin rame de toutes ses forces, un coffre fermé à clé posé derrière lui. Il cherche un endroit pour le cacher et allume sa lanterne pour explorer les rochers.", "characters": ["Pépin"], "objects": ["30 05 806", "30 60 815", "30 60 895", "30 60 896", "30 65 079"]},
+    {"event": "Pépin ne trouve pas l'entrée de la grotte. Coco se pose sur un rocher qui sonne creux : c'est la porte secrète ! Elle est coincée par le sable, alors Tom et Robinson viennent aider Pépin avec la pelle et la gaffe.", "characters": ["Pépin", "Tom", "Robinson"], "objects": ["30 06 573", "30 06 540", "30 60 891", "30 06 198"]},
+    {"event": "Dans la grotte, Pépin ouvre son coffre : il contient trois sacs de graines de fleurs, son seul trésor. Ensemble, ils plantent les fleurs, partagent la cruche et les deux tasses, et deux tortues de mer viennent voir l'île fleurie. Pépin décide de rester.", "characters": ["Pépin", "Tom", "Robinson"], "objects": ["30 60 895", "30 05 002", "30 05 871", "30 60 604", "30 66 062"]}
+  ]
+}

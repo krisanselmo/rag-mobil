@@ -253,11 +253,52 @@ pub fn render_plan(plan: &StoryPlan, inventory: &SetInventory) -> String {
     out
 }
 
-/// Objects of one step, as labels.
+/// Objects of one step, as labels, with their companion pieces:
+/// `Parrot body (light blue) + Parrot wings (yellow)`.
 pub fn step_objects(step: &PlotPoint, inventory: &SetInventory) -> Vec<String> {
     step.objects
         .iter()
-        .map(|r| reference_label(inventory, r))
+        .map(|r| match find_part(inventory, r) {
+            Some(part) => std::iter::once(part)
+                .chain(companions(part, inventory))
+                .map(part_label)
+                .collect::<Vec<_>>()
+                .join(" + "),
+            None => r.clone(),
+        })
+        .collect()
+}
+
+/// Largest group of same-named pieces still treated as one object: beyond
+/// that, a shared first word means a family (castle walls, rocks...), not
+/// the pieces of a single object.
+const MAX_OBJECT_PIECES: usize = 3;
+
+fn first_word(name: &str) -> String {
+    name.split(|c: char| c.is_whitespace() || ",;:(".contains(c))
+        .find(|w| !w.is_empty())
+        .unwrap_or_default()
+        .to_lowercase()
+}
+
+/// Other inventory lines that are pieces of the same object as `part`.
+/// PlaymoDB lists some objects as several parts: "Parrot body" + "Parrot
+/// wings", "Trunk; body and lid" + "Trunk; base and lock", "Rowboat" +
+/// "Rowboat gear"... They share their first word and category, in a small
+/// group.
+pub fn companions<'a>(part: &Part, inventory: &'a SetInventory) -> Vec<&'a Part> {
+    let word = first_word(&part.name);
+    let group: Vec<&Part> = inventory
+        .parts
+        .iter()
+        .filter(|p| p.category == part.category && first_word(&p.name) == word)
+        .collect();
+    if group.len() > MAX_OBJECT_PIECES {
+        return Vec::new();
+    }
+    group
+        .into_iter()
+        .filter(|p| p.number != part.number)
         .collect()
 }
 
@@ -284,12 +325,14 @@ pub fn in_your_box(plan: &StoryPlan, inventory: &SetInventory, language: &str) -
         }
     }
 
+    // Each object comes with its companion pieces (parrot body → wings).
     let mut seen = HashSet::new();
     let objects: Vec<&Part> = plan
         .outline
         .iter()
         .flat_map(|s| &s.objects)
         .filter_map(|r| find_part(inventory, r))
+        .flat_map(|p| std::iter::once(p).chain(companions(p, inventory)))
         .filter(|p| !p.is_figure() && seen.insert(p.number.clone()))
         .collect();
     if !objects.is_empty() {
@@ -413,6 +456,39 @@ pub(crate) mod tests {
         assert!(validate(&clean, &inventory()).is_empty());
         assert_eq!(clean.characters.len(), 2);
         assert_eq!(clean.outline[1].objects.len(), 2);
+    }
+
+    #[test]
+    fn companions_complete_objects_split_in_pieces() {
+        let mut inventory = inventory();
+        inventory.parts.extend([
+            part("30 06 198", "Parrot body", "Animal", Some(1)),
+            part("30 06 199", "Parrot wings", "Animal", Some(1)),
+            part("30 60 895", "Trunk; body and lid", "Furniture", Some(1)),
+            part("30 60 896", "Trunk; base and lock", "Furniture", Some(1)),
+            part("30 06 574", "Hut floor", "Building", Some(1)),
+            part("30 06 575", "Hut Support (Stilt)", "Building", Some(5)),
+            part("30 06 576", "Hut roof support", "Building", Some(1)),
+            part("30 06 577", "Hut roof thatch", "Building", Some(1)),
+        ]);
+        let names = |number: &str| -> Vec<String> {
+            let part = find_part(&inventory, number).unwrap();
+            companions(part, &inventory)
+                .iter()
+                .map(|p| p.name.clone())
+                .collect()
+        };
+        assert_eq!(names("30 06 198"), ["Parrot wings"]);
+        assert_eq!(names("30 60 896"), ["Trunk; body and lid"]);
+        // A family of 4 hut pieces is a building, not one object.
+        assert!(names("30 06 574").is_empty());
+        // A part alone in its kind has no companion.
+        assert!(names("30 07 640").is_empty());
+
+        let mut plan = valid_plan();
+        plan.outline[0].objects.push("30 06 198".into());
+        let section = in_your_box(&plan, &inventory, "français");
+        assert!(section.contains("- 1× Parrot body\n- 1× Parrot wings\n"));
     }
 
     #[test]

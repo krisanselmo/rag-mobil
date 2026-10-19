@@ -1,0 +1,5 @@
+{"issues": [
+  {"excerpt": "Pépin tira son coffre dans la grotte, tourna la clé et souleva le couvercle.",
+   "problem": "La boîte contient un coffre avec une serrure (Trunk; base and lock), mais aucune clé : l'enfant ne pourra pas rejouer ce geste.",
+   "fix": "Faire ouvrir le coffre en faisant glisser le loquet de la serrure, sans clé."}
+]}

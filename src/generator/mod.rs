@@ -1,6 +1,7 @@
 //! **G** of RAG: generate the story from the augmented prompt.
 
 pub mod llm;
+pub mod replay;
 
 use std::future::Future;
 
@@ -11,6 +12,7 @@ use crate::error::Result;
 
 pub use genai::chat::ReasoningEffort;
 pub use llm::{LlmConfig, LlmGenerator};
+pub use replay::ReplayGenerator;
 
 /// The model's answer.
 #[derive(Debug, Clone)]

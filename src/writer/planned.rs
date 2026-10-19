@@ -10,8 +10,8 @@
 
 use serde::de::DeserializeOwned;
 
-use crate::augment::StoryOptions;
-use crate::error::{RagError, Result};
+use crate::augment::{StoryOptions, build_prompt};
+use crate::error::Result;
 use crate::generator::{Generation, StoryGenerator};
 use crate::model::SetInventory;
 use crate::writer::plan::{
@@ -56,7 +56,7 @@ async fn make_plan<G: StoryGenerator, O: Observer>(
     options: &StoryOptions,
     observer: &mut O,
     tally: &mut Tally,
-) -> Result<StoryPlan> {
+) -> Result<std::result::Result<StoryPlan, String>> {
     observer.step(Step::Planning);
     let base = prompts::plan(inventory, options);
     let schema = plan_schema();
@@ -69,7 +69,7 @@ async fn make_plan<G: StoryGenerator, O: Observer>(
         Ok(plan) => {
             let errors = validate(&plan, inventory);
             if errors.is_empty() {
-                return Ok(plan);
+                return Ok(Ok(plan));
             }
             errors
         }
@@ -83,17 +83,48 @@ async fn make_plan<G: StoryGenerator, O: Observer>(
         .generate_json(&retry, "story_plan", &schema)
         .await?;
     tally.add(&second);
-    let plan: StoryPlan = parse_json(&second.text)?;
+    let plan: StoryPlan = match parse_json(&second.text) {
+        Ok(plan) => plan,
+        Err(err) => return Ok(Err(format!("plan corrigé illisible ({err})"))),
+    };
     let errors = validate(&plan, inventory);
     if errors.is_empty() {
-        return Ok(plan);
+        return Ok(Ok(plan));
     }
     observer.step(Step::PlanRepaired(&errors));
     let plan = sanitize(plan, inventory);
     if plan.outline.is_empty() {
-        return Err(RagError::InvalidPlan(errors.join(" ; ")));
+        return Ok(Err(format!(
+            "plus aucune étape valide ({})",
+            errors.join(" ; ")
+        )));
     }
-    Ok(plan)
+    Ok(Ok(plan))
+}
+
+/// The plan couldn't be fixed (small local models often break the JSON):
+/// rather than failing, write the story in one call, like `--method direct`.
+async fn fall_back_to_direct<G: StoryGenerator, O: Observer>(
+    generator: &G,
+    inventory: &SetInventory,
+    options: &StoryOptions,
+    observer: &mut O,
+    mut tally: Tally,
+) -> Result<Written> {
+    let prompt = build_prompt(inventory, options);
+    let generation = generator.generate(&prompt, |t| observer.text(t)).await?;
+    tally.add(&generation);
+    Ok(Written {
+        generation: Generation {
+            text: generation.text,
+            model: tally.model,
+            truncated: tally.truncated,
+            output_tokens: tally.output_tokens,
+        },
+        plan: None,
+        issues: Vec::new(),
+        calls: tally.calls,
+    })
 }
 
 pub(crate) async fn write<G: StoryGenerator, O: Observer>(
@@ -106,7 +137,13 @@ pub(crate) async fn write<G: StoryGenerator, O: Observer>(
     let mut tally = Tally::default();
 
     // 1. Plan
-    let plan = make_plan(generator, inventory, options, observer, &mut tally).await?;
+    let plan = match make_plan(generator, inventory, options, observer, &mut tally).await? {
+        Ok(plan) => plan,
+        Err(reason) => {
+            observer.step(Step::PlanAbandoned(&reason));
+            return fall_back_to_direct(generator, inventory, options, observer, tally).await;
+        }
+    };
     observer.step(Step::PlanReady(&plan));
 
     // 2. Draft, one plot point at a time

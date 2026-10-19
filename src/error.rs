@@ -24,8 +24,21 @@ pub enum RagError {
     #[error("le modèle {model} a décliné la requête")]
     LlmRefusal { model: String },
 
-    #[error("impossible d'obtenir un plan fidèle à la boîte : {0}")]
-    InvalidPlan(String),
+    #[error(
+        "réponse manquante : écrivez {} (le prompt est dans {}) puis relancez",
+        answer.display(),
+        prompt.display()
+    )]
+    ReplayMissing {
+        prompt: std::path::PathBuf,
+        answer: std::path::PathBuf,
+    },
+
+    #[error("fichier {} : {source}", path.display())]
+    Io {
+        path: std::path::PathBuf,
+        source: std::io::Error,
+    },
 
     #[error("JSON invalide : {0}")]
     Json(#[from] serde_json::Error),
