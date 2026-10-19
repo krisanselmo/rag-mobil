@@ -58,6 +58,9 @@ pub enum RagError {
         source: std::io::Error,
     },
 
+    #[error("impression PDF impossible : {0}")]
+    Pdf(String),
+
     #[error("JSON invalide : {0}")]
     Json(#[from] serde_json::Error),
 }

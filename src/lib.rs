@@ -9,13 +9,14 @@
 //!    adapted from the open-source Re3/DOC story generators.
 //!
 //! [`pipeline::RagPipeline`] chains them; [`html`] renders the story as a
-//! page with the pictures of the parts.
+//! page with the pictures of the parts, [`pdf`] prints it.
 
 pub mod augment;
 pub mod error;
 pub mod generator;
 pub mod html;
 pub mod model;
+pub mod pdf;
 pub mod pipeline;
 pub mod retriever;
 pub mod writer;

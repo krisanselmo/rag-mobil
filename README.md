@@ -51,8 +51,9 @@ rag-mobil 3666 --language English --effort high
 # Rédaction en un seul appel, affichée au fil de l'écriture (plus rapide)
 rag-mobil 3666 --method direct
 
-# Livret HTML illustré, avec la mise en place de chaque scène
+# Livret illustré, avec la mise en place de chaque scène : HTML, ou PDF à imprimer
 rag-mobil 3799 --scene-setup --format html > livret.html
+rag-mobil 3799 --scene-setup --format pdf > livret.pdf
 
 # La boîte réelle : le perroquet est perdu, 2 hallebardes sur 4 aussi
 rag-mobil 3666 --missing "30 06 368" --missing "30 07 640:2"
@@ -79,7 +80,8 @@ vont sur `stderr` (`rag-mobil 3666 > histoire.md` fonctionne).
 | `--citations` / `RAG_MOBIL_CITATIONS` | off | Cite chaque pièce nommée par sa référence (voir ci-dessous) |
 | `--method` | `planned` | `planned` (plan, rédaction, relecture) ou `direct` (un appel) |
 | `--scene-setup` / `RAG_MOBIL_SCENE_SETUP` | off | Méthode `planned` : « Mise en place » avant chaque partie (voir ci-dessous) |
-| `-f, --format` / `RAG_MOBIL_FORMAT` | `markdown` | `markdown` ou `html` (livret illustré, voir ci-dessous) |
+| `-f, --format` / `RAG_MOBIL_FORMAT` | `markdown` | `markdown`, `html` ou `pdf` (livret illustré, voir ci-dessous) |
+| `--browser-arg` | — | `--format pdf` : argument passé au navigateur (ex. `--no-sandbox`) ; répétable |
 | `--missing REF[:N]` | — | Pièce absente de la boîte : toutes les copies, ou N ; répétable |
 | `--missing-file` / `RAG_MOBIL_MISSING_FILE` | — | Pièces absentes, une par ligne (voir ci-dessous) |
 | `--no-review` | off | Méthode `planned` : saute la relecture de fidélité |
@@ -146,20 +148,33 @@ Pour que chaque mise en place reste devant la bonne partie, la réécriture qui 
 relecture reçoit les parties séparées par des lignes `* * *` et doit les garder. Si elle
 les fusionne, l'histoire corrigée est gardée, sans mise en place (message sur `stderr`).
 
-### Livret HTML
+### Livret HTML et PDF
 
-`--format html` écrit une page HTML autonome (styles inclus, thème clair ou sombre,
-mise en page pour l'impression) au lieu du Markdown :
+`--format html` écrit une page HTML autonome (styles inclus, thème clair ou sombre)
+au lieu du Markdown :
 
+- une couverture : titre, portraits des personnages, prémisse, boîtes utilisées ;
 - une vignette de chaque pièce (champ `image` de l'inventaire, images de PlaymoDB) ;
 - la mise en place de chaque scène en cartes illustrées, avec `--scene-setup` ;
-- « Dans ta boîte » en cartes : personnages, objets, quantités, référence, boîte ;
+- « Dans ta boîte » en cartes à cocher : personnages, objets, quantités, référence, boîte ;
 - avec `--citations`, chaque `[réf. …]` du texte devient la vignette de la pièce.
 
 Le HTML que contiendrait le texte du LLM est affiché comme du texte, et seules les
 images en `http(s)` sont reprises. Les images sont chargées depuis PlaymoDB à
-l'ouverture de la page. Avec `--format html`, l'histoire s'affiche à la fin, même avec
-`--method direct`.
+l'ouverture de la page. Avec `--format html` ou `pdf`, l'histoire s'affiche à la fin,
+même avec `--method direct`.
+
+Imprimée (ou enregistrée en PDF depuis le navigateur), la page devient un livret A4 :
+couverture encadrée sur la première page, une page par scène avec une mise en place
+compacte, texte en 14 pt justifié avec césure, « Dans ta boîte » sur une nouvelle page
+avec une case à cocher par pièce pour rassembler les pièces avant de jouer, numéros de
+page (sauf sur la couverture).
+
+`--format pdf` fait cette impression directement : le livret est imprimé par un Chrome,
+Chromium ou Edge sans interface, déjà installé (cherché dans le `PATH` et aux
+emplacements habituels, ou indiqué par `RAG_MOBIL_BROWSER`). Le PDF s'écrit sur
+`stdout`, à rediriger vers un fichier. Le navigateur est cherché avant tout appel au
+LLM. Dans un conteneur lancé en root, Chromium demande `--browser-arg --no-sandbox`.
 
 ## Architecture
 
@@ -171,6 +186,7 @@ src/
 ├── model.rs             SetNumber, Part, SetInventory, pièces absentes
 ├── pipeline.rs          RagPipeline<S: InventorySource, G: StoryGenerator>
 ├── html.rs              --format html : livret illustré (pulldown-cmark)
+├── pdf.rs               --format pdf : le livret imprimé par Chrome sans interface
 ├── retriever/           R — récupération
 │   ├── mod.rs           trait InventorySource
 │   ├── playmodb.rs      client HTTP (2 pages en parallèle)

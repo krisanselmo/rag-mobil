@@ -15,7 +15,7 @@ use rag_mobil::retriever::{
     Answered, Cached, Fallback, HttpJson, InventorySource, JsonFile, PlaymoDb, cache, playmodb,
 };
 use rag_mobil::writer::{Observer, Step, WriterOptions, WritingMethod, first_prompt};
-use rag_mobil::{RagError, RagPipeline, SetInventory, SetNumber, html};
+use rag_mobil::{RagError, RagPipeline, SetInventory, SetNumber, html, pdf};
 
 /// Méthode de rédaction.
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -42,6 +42,8 @@ enum Format {
     Markdown,
     /// Page HTML autonome, avec les images des pièces (à lire ou imprimer).
     Html,
+    /// Le livret HTML imprimé en PDF (A4) par Chrome, Chromium ou Edge.
+    Pdf,
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -105,9 +107,15 @@ struct Cli {
     #[arg(long, env = "RAG_MOBIL_SCENE_SETUP", value_parser = BoolishValueParser::new())]
     scene_setup: bool,
 
-    /// Format de sortie.
+    /// Format de sortie ; pdf s'écrit dans un fichier (> livret.pdf).
     #[arg(short, long, value_enum, env = "RAG_MOBIL_FORMAT", default_value_t = Format::Markdown)]
     format: Format,
+
+    /// --format pdf : argument passé au navigateur (ex. --no-sandbox dans un
+    /// conteneur lancé en root). Répétable. Le navigateur se choisit avec
+    /// RAG_MOBIL_BROWSER.
+    #[arg(long, value_name = "ARG", allow_hyphen_values = true)]
+    browser_arg: Vec<String>,
 
     /// Pièce absente de la boîte (perdue, cassée), par sa référence : toutes
     /// les copies (30 07 640) ou N d'entre elles (30 07 640:2). Répétable.
@@ -430,12 +438,24 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
         review: !cli.no_review,
         scene_setup: cli.scene_setup,
     };
+    // Before any LLM call: a PDF needs a browser and a file.
+    let printer = match cli.format {
+        Format::Pdf => {
+            use std::io::IsTerminal;
+            if std::io::stdout().is_terminal() {
+                anyhow::bail!("--format pdf écrit un fichier : redirigez la sortie (> livret.pdf)");
+            }
+            Some((pdf::find_browser()?, cli.browser_arg))
+        }
+        _ => None,
+    };
     let telling = Telling {
         collection,
         sets: &sets,
         options: &options,
         writer,
         format: cli.format,
+        printer,
     };
     match cli.replay {
         Some(dir) => telling.tell(ReplayGenerator::new(dir)).await,
@@ -457,6 +477,8 @@ struct Telling<'a> {
     options: &'a StoryOptions,
     writer: WriterOptions,
     format: Format,
+    /// `--format pdf`: the browser and its extra arguments.
+    printer: Option<(PathBuf, Vec<String>)>,
 }
 
 impl Telling<'_> {
@@ -471,6 +493,14 @@ impl Telling<'_> {
         match self.format {
             Format::Markdown => println!(),
             Format::Html => print!("{}", html::render(&story, self.options)),
+            Format::Pdf => {
+                let (browser, args) = self.printer.expect("browser found before writing");
+                eprintln!("[rag-mobil] impression PDF ({})…", browser.display());
+                let bytes = pdf::print(&html::render(&story, self.options), &browser, &args)?;
+                let mut stdout = std::io::stdout();
+                stdout.write_all(&bytes)?;
+                stdout.flush()?;
+            }
         }
         summary(&story);
         Ok(())
