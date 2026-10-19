@@ -191,7 +191,7 @@ pub(crate) async fn write<G: StoryGenerator, O: Observer>(
     let text = format!(
         "# {}\n\n{story}\n\n{}",
         plan.title.trim(),
-        in_your_box(&plan, boxes, &options.language)
+        in_your_box(&plan, boxes, options)
     );
     observer.text(&text);
 

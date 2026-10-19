@@ -2,6 +2,7 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
+use clap::builder::BoolishValueParser;
 use clap::parser::ValueSource;
 use clap::{CommandFactory, FromArgMatches, Parser, ValueEnum};
 
@@ -65,20 +66,26 @@ struct Cli {
     set_numbers: Vec<String>,
 
     /// Langue de l'histoire.
-    #[arg(short, long, default_value = "français")]
+    #[arg(short, long, env = "RAG_MOBIL_LANGUAGE", default_value = "français")]
     language: String,
 
     /// Âge du lecteur.
-    #[arg(short, long, default_value_t = 7)]
+    #[arg(short, long, env = "RAG_MOBIL_AGE", default_value_t = 7)]
     age: u8,
 
     /// Longueur visée, en mots.
-    #[arg(short, long, default_value_t = 600)]
+    #[arg(short, long, env = "RAG_MOBIL_WORDS", default_value_t = 600)]
     words: u32,
 
     /// Souhait libre (ex. "une histoire de fantômes").
     #[arg(short, long)]
     theme: Option<String>,
+
+    /// Cite chaque pièce nommée par sa référence, juste après son nom :
+    /// [réf. 30 06 368], ou [réf. 30 06 198, 30 06 199] pour un objet en
+    /// plusieurs pièces. Pour un affichage qui les retire ou en fait des liens.
+    #[arg(long, env = "RAG_MOBIL_CITATIONS", value_parser = BoolishValueParser::new())]
+    citations: bool,
 
     /// Méthode de rédaction.
     #[arg(long, value_enum, default_value_t = Method::Planned)]
@@ -327,6 +334,7 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
         reader_age: cli.age,
         target_words: cli.words,
         extra_instructions: cli.theme,
+        citations: cli.citations,
         context: ContextOptions {
             include_all: cli.include_all,
         },

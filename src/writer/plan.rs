@@ -9,6 +9,7 @@ use std::fmt::Write;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
+use crate::augment::StoryOptions;
 use crate::model::{Collection, Part, SetInventory};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -253,6 +254,15 @@ pub fn part_label(part: &Part) -> String {
     }
 }
 
+/// The label, followed by the citation when the story cites its parts.
+pub fn cited_label(part: &Part, citations: bool) -> String {
+    if citations {
+        format!("{} [réf. {}]", part_label(part), part.number)
+    } else {
+        part_label(part)
+    }
+}
+
 fn reference_label(collection: &Collection, reference: &str) -> String {
     find_part(collection, reference).map_or_else(|| reference.to_owned(), part_label)
 }
@@ -283,7 +293,7 @@ pub fn render_plan(plan: &StoryPlan, collection: &Collection) -> String {
 /// Objects of one step, as labels, with their companion pieces:
 /// `Parrot body (light blue) + Parrot wings (yellow)`.
 /// A piece already shown with an earlier object of the step isn't repeated.
-pub fn step_objects(step: &PlotPoint, collection: &Collection) -> Vec<String> {
+pub fn step_objects(step: &PlotPoint, collection: &Collection, citations: bool) -> Vec<String> {
     let mut shown = HashSet::new();
     step.objects
         .iter()
@@ -297,7 +307,7 @@ pub fn step_objects(step: &PlotPoint, collection: &Collection) -> Vec<String> {
                 Some(
                     std::iter::once(*part)
                         .chain(companions)
-                        .map(part_label)
+                        .map(|p| cited_label(p, citations))
                         .collect::<Vec<_>>()
                         .join(" + "),
                 )
@@ -343,8 +353,9 @@ pub fn companions<'a>(part: &Part, set: &'a SetInventory) -> Vec<&'a Part> {
 /// The closing "In your box" section, built from the plan by code so that it
 /// only ever lists parts that really are in the boxes. With several boxes,
 /// each line says which box to look in.
-pub fn in_your_box(plan: &StoryPlan, collection: &Collection, language: &str) -> String {
-    let french = language.to_lowercase().starts_with("fr");
+pub fn in_your_box(plan: &StoryPlan, collection: &Collection, options: &StoryOptions) -> String {
+    let french = options.language.to_lowercase().starts_with("fr");
+    let label = |part: &Part| cited_label(part, options.citations);
     let (heading, figures_label, objects_label, box_word) = if french {
         ("Dans ta boîte", "Personnages", "Objets", "boîte")
     } else {
@@ -363,7 +374,7 @@ pub fn in_your_box(plan: &StoryPlan, collection: &Collection, language: &str) ->
         let _ = write!(out, "\n**{figures_label}**\n");
         for c in &plan.characters {
             let label = match holdings(collection, &c.figure).first() {
-                Some((set, part)) => format!("{}{}", part_label(part), origin(set)),
+                Some((set, part)) => format!("{}{}", label(part), origin(set)),
                 None => c.figure.clone(),
             };
             let _ = writeln!(out, "- {} — {label}", c.name);
@@ -391,7 +402,7 @@ pub fn in_your_box(plan: &StoryPlan, collection: &Collection, language: &str) ->
         let _ = write!(out, "\n**{objects_label}**\n");
         for (set, part) in objects {
             let quantity = part.quantity.map(|q| format!("{q}× ")).unwrap_or_default();
-            let _ = writeln!(out, "- {quantity}{}{}", part_label(part), origin(set));
+            let _ = writeln!(out, "- {quantity}{}{}", label(part), origin(set));
         }
     }
     out
@@ -401,6 +412,28 @@ pub fn in_your_box(plan: &StoryPlan, collection: &Collection, language: &str) ->
 pub(crate) mod tests {
     use super::*;
     use crate::model::SetNumber;
+
+    fn english() -> StoryOptions {
+        StoryOptions {
+            language: "English".into(),
+            ..StoryOptions::default()
+        }
+    }
+
+    #[test]
+    fn in_your_box_cites_references() {
+        let mut plan = valid_plan();
+        plan.outline[0].objects.push("30 07 640".into());
+        let boxes: Collection = inventory().into();
+        let cited = StoryOptions {
+            citations: true,
+            ..StoryOptions::default()
+        };
+        let section = in_your_box(&plan, &boxes, &cited);
+        assert!(section.contains("- Léon — Castle Trumpeter [réf. "));
+        assert!(section.contains("4× Halberd [réf. 30 07 640]\n"));
+        assert!(!in_your_box(&plan, &boxes, &StoryOptions::default()).contains("[réf."));
+    }
 
     pub(crate) fn part(number: &str, name: &str, category: &str, quantity: Option<u32>) -> Part {
         Part {
@@ -544,7 +577,7 @@ pub(crate) mod tests {
 
         let mut plan = valid_plan();
         plan.outline[0].objects.push("30 06 198".into());
-        let section = in_your_box(&plan, &boxes, "français");
+        let section = in_your_box(&plan, &boxes, &StoryOptions::default());
         assert!(section.contains("- 1× Parrot body\n- 1× Parrot wings\n"));
     }
 
@@ -553,12 +586,12 @@ pub(crate) mod tests {
         let mut plan = valid_plan();
         plan.outline[0].objects.push("30 07 640".into());
         let boxes: Collection = inventory().into();
-        let section = in_your_box(&plan, &boxes, "français");
+        let section = in_your_box(&plan, &boxes, &StoryOptions::default());
         assert!(section.starts_with("## Dans ta boîte"));
         assert!(section.contains("- Léon — Castle Trumpeter\n"));
         assert_eq!(section.matches("4× Halberd").count(), 1);
         assert!(section.contains("1× Horse (old-style)\n"));
-        assert!(in_your_box(&plan, &boxes, "English").starts_with("## In your box"));
+        assert!(in_your_box(&plan, &boxes, &english()).starts_with("## In your box"));
     }
 
     /// A second box: a pirate figure and two more halberds.
@@ -591,7 +624,7 @@ pub(crate) mod tests {
             objects: vec!["30 05 806".into(), "30 60 815".into(), "30 07 640".into()],
         };
         assert_eq!(
-            step_objects(&step, &inventory.into()),
+            step_objects(&step, &inventory.into(), false),
             ["Rowboat, one-seater + Rowboat gear", "Halberd"]
         );
     }
@@ -636,7 +669,7 @@ pub(crate) mod tests {
             figure: "30 00 961".into(),
             portrait: "pirate".into(),
         });
-        let section = in_your_box(&plan, &boxes, "français");
+        let section = in_your_box(&plan, &boxes, &StoryOptions::default());
         assert!(section.contains("- Léon — Castle Trumpeter (boîte 3666)\n"));
         assert!(
             section.contains("- Barbe-Jaune — Pirate, bald with yellow headband (boîte 5135)\n")

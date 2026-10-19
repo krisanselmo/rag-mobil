@@ -66,10 +66,11 @@ vont sur `stderr` (`rag-mobil 3666 > histoire.md` fonctionne).
 
 | Option | Défaut | Rôle |
 |---|---|---|
-| `-l, --language` | `français` | Langue de l'histoire |
-| `-a, --age` | `7` | Âge du lecteur |
-| `-w, --words` | `600` | Longueur visée |
+| `-l, --language` / `RAG_MOBIL_LANGUAGE` | `français` | Langue de l'histoire |
+| `-a, --age` / `RAG_MOBIL_AGE` | `7` | Âge du lecteur |
+| `-w, --words` / `RAG_MOBIL_WORDS` | `600` | Longueur visée |
 | `-t, --theme` | — | Souhait libre |
+| `--citations` / `RAG_MOBIL_CITATIONS` | off | Cite chaque pièce nommée par sa référence (voir ci-dessous) |
 | `--method` | `planned` | `planned` (plan, rédaction, relecture) ou `direct` (un appel) |
 | `--no-review` | off | Méthode `planned` : saute la relecture de fidélité |
 | `--include-all` | off | Garde aussi les notices papier dans le contexte |
@@ -85,6 +86,17 @@ vont sur `stderr` (`rag-mobil 3666 > histoire.md` fonctionne).
 | `--inventory-url` / `RAG_MOBIL_INVENTORY_URL` | — | Source HTTP d'inventaires (`{set}` = numéro du set), PlaymoDB en repli |
 | `--no-playmodb` | off | Avec `--inventory-url` : pas de repli sur PlaymoDB |
 | `--replay` | — | Contourne le LLM : prompts et réponses dans des fichiers (voir Développement) |
+
+Les variables d'environnement fixent les défauts d'un déploiement ; une option tapée l'emporte.
+
+### Citations des pièces
+
+Avec `--citations`, chaque figurine ou pièce nommée est suivie de sa référence d'inventaire,
+dans l'histoire comme dans « Dans ta boîte » : `[réf. 30 06 368]`, ou
+`[réf. 30 06 198, 30 06 199]` pour un objet en plusieurs pièces. Le format est stable : un
+affichage les retire (`\s*\[réf\.[^\]]*\]`) ou fait de chaque référence un lien vers la pièce.
+Dans la méthode `planned`, la section « Dans ta boîte » est écrite par le code, donc ses
+citations sont toujours exactes ; dans le texte, c'est le LLM qui les recopie.
 
 ## Architecture
 
