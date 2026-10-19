@@ -91,6 +91,8 @@ struct Cli {
 
     /// Modèle LLM ; le fournisseur est déduit du nom : claude-… (Anthropic),
     /// gpt-… (OpenAI), gemini-… (Gemini), ollama::<modèle> (local, gratuit)…
+    /// Avec RAG_MOBIL_OPENAI_BASE_URL, openai::<modèle> vise ce serveur compatible
+    /// OpenAI (llama.cpp, vLLM…) au lieu d'api.openai.com.
     #[arg(short, long, env = "RAG_MOBIL_MODEL", default_value = llm::DEFAULT_MODEL)]
     model: String,
 

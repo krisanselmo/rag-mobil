@@ -29,6 +29,7 @@ Puis, selon le fournisseur choisi :
 | `gpt-…` | OpenAI | `OPENAI_API_KEY` |
 | `gemini-…` | Google Gemini | `GEMINI_API_KEY` |
 | `ollama::<modèle>` (ex. `ollama::llama3.2`) | [Ollama](https://ollama.com), local et gratuit | `ollama pull <modèle>`, pas de clé |
+| `openai::<modèle>` + `RAG_MOBIL_OPENAI_BASE_URL` | un serveur compatible OpenAI, local ou non (llama.cpp, vLLM, LM Studio…) | l'adresse du serveur ; pas de clé si `OPENAI_API_KEY` est absente |
 
 D'autres fournisseurs sont pris en charge (Groq, DeepSeek, xAI, Cohere, OpenRouter, Bedrock…) :
 voir la [liste de genai](https://github.com/jeremychone/rust-genai).
@@ -52,6 +53,7 @@ rag-mobil 3666 --method direct
 # Autres fournisseurs
 rag-mobil 3666 -m gpt-5.4-mini
 rag-mobil 3666 -m ollama::llama3.2        # local, sans clé API
+RAG_MOBIL_OPENAI_BASE_URL=http://localhost:8080/v1 rag-mobil 3666 -m openai::ministral-3-3b  # llama.cpp, vLLM…
 
 # Sans appel au LLM (pas besoin de clé API)
 rag-mobil 3666 --inventory-json   # inventaire récupéré, en JSON
