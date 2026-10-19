@@ -55,6 +55,13 @@ rag-mobil 3666 --method direct
 rag-mobil 3799 --scene-setup --format html > livret.html
 rag-mobil 3799 --scene-setup --format pdf > livret.pdf
 
+# Histoire dont tu es le héros : paragraphes numérotés, choix, plusieurs fins
+rag-mobil 3799 --interactive --format pdf > aventure.pdf
+
+# Une saga : chaque histoire est la suite de la précédente, mêmes personnages
+rag-mobil 3799 --saga pirates.json      # épisode 1
+rag-mobil 3799 70145 --saga pirates.json  # épisode 2, avec une nouvelle boîte
+
 # La boîte réelle : le perroquet est perdu, 2 hallebardes sur 4 aussi
 rag-mobil 3666 --missing "30 06 368" --missing "30 07 640:2"
 
@@ -78,7 +85,9 @@ vont sur `stderr` (`rag-mobil 3666 > histoire.md` fonctionne).
 | `-w, --words` / `RAG_MOBIL_WORDS` | `600` | Longueur visée |
 | `-t, --theme` | — | Souhait libre |
 | `--citations` / `RAG_MOBIL_CITATIONS` | off | Cite chaque pièce nommée par sa référence (voir ci-dessous) |
-| `--method` | `planned` | `planned` (plan, rédaction, relecture) ou `direct` (un appel) |
+| `--method` | `planned` | `planned` (plan, rédaction, relecture), `direct` (un appel) ou `interactive` |
+| `--interactive` | off | Histoire dont tu es le héros (raccourci de `--method interactive`, voir ci-dessous) |
+| `--saga` / `RAG_MOBIL_SAGA` | — | Fichier JSON des épisodes : l'histoire en est la suite, puis s'y ajoute (voir ci-dessous) |
 | `--scene-setup` / `RAG_MOBIL_SCENE_SETUP` | off | Méthode `planned` : « Mise en place » avant chaque partie (voir ci-dessous) |
 | `-f, --format` / `RAG_MOBIL_FORMAT` | `markdown` | `markdown`, `html` ou `pdf` (livret illustré, voir ci-dessous) |
 | `--browser-arg` | — | `--format pdf` : argument passé au navigateur (ex. `--no-sandbox`) ; répétable |
@@ -109,6 +118,54 @@ dans l'histoire comme dans « Dans ta boîte » : `[réf. 30 06 368]`, ou
 affichage les retire (`\s*\[réf\.[^\]]*\]`) ou fait de chaque référence un lien vers la pièce.
 Dans la méthode `planned`, la section « Dans ta boîte » est écrite par le code, donc ses
 citations sont toujours exactes ; dans le texte, c'est le LLM qui les recopie.
+
+### Histoire dont tu es le héros
+
+Avec `--interactive`, le plan n'est plus une suite d'étapes mais un graphe : 6 à 9
+paragraphes, chacun terminé par 2 ou 3 choix qui renvoient à un autre paragraphe, et 2 à
+4 fins. Comme pour le plan linéaire, chaque personnage et chaque objet est une
+référence vérifiée contre la boîte ; le code vérifie aussi le graphe : chaque choix mène
+à un paragraphe qui existe, aucun paragraphe n'est inatteignable, pas de boucle, au
+moins 2 fins. En cas d'écart, le plan est redemandé une fois avec la liste des
+erreurs ; un graphe encore cassé fait écrire l'histoire en un seul appel (non
+interactive).
+
+Les paragraphes sont numérotés dans l'ordre de lecture (en largeur depuis le début), et
+chacun est rédigé avec, comme contexte, les paragraphes qui y mènent. La relecture voit
+tous les paragraphes ; seuls ceux dont elle cite un passage sont réécrits.
+
+```markdown
+## 1
+
+Coco le perroquet se posa sur le hamac de Tom…
+
+**Que choisis-tu ?**
+
+- Pépin propose de faire le tour de l'île en barque → **va au 2**
+- Robinson veut d'abord fouiller la grotte → **va au 3**
+```
+
+En HTML et en PDF, les choix sont des liens vers les paragraphes, et un paragraphe
+imprimé ne se coupe pas entre deux pages. `--scene-setup` ajoute la mise en place de
+chaque paragraphe.
+
+### Sagas
+
+`--saga pirates.json` enchaîne les histoires : le fichier (créé s'il n'existe pas)
+garde chaque épisode raconté — boîtes, titre, prémisse, personnages (nom, figurine,
+portrait) et étapes — et le plan de l'épisode suivant les reçoit dans
+`<episodes_precedents>`, avec la consigne de ne pas répéter l'intrigue. Les personnages
+déjà connus dont la figurine est dans la boîte sont proposés avec leur nom et leur
+caractère ; les autres ne peuvent qu'être évoqués.
+
+Le code vérifie la continuité, figurine par figurine : une figurine déjà connue garde son
+nom (« la figurine 30 13 020 s'appelait « Pépin » : garde ce nom »), et un nom déjà
+donné ne passe pas à une autre figurine. Le plan est redemandé une fois ; s'il reste des
+écarts, les noms d'origine sont remis. On peut changer de boîte d'un épisode à l'autre :
+seules les figurines présentes reviennent. L'épisode est ajouté au fichier une fois
+l'histoire écrite, sauf si le plan a échoué (rédaction en un seul appel). `--saga`
+demande la méthode `planned` ou `interactive` ; une histoire interactive est gardée
+sans ses étapes, puisque son déroulé dépend du lecteur.
 
 ### Pièces perdues ou cassées
 
@@ -185,6 +242,7 @@ src/
 ├── error.rs             RagError (thiserror), un variant par étape
 ├── model.rs             SetNumber, Part, SetInventory, pièces absentes
 ├── pipeline.rs          RagPipeline<S: InventorySource, G: StoryGenerator>
+├── saga.rs              --saga : épisodes précédents, continuité des personnages
 ├── html.rs              --format html : livret illustré (pulldown-cmark)
 ├── pdf.rs               --format pdf : le livret imprimé par Chrome sans interface
 ├── retriever/           R — récupération
@@ -204,6 +262,7 @@ src/
 └── writer/              rédaction
     ├── mod.rs           méthodes direct / planned, Observer (progression)
     ├── plan.rs          plan, vérification contre l'inventaire, mise en place, « Dans ta boîte »
+    ├── interactive.rs   histoire dont tu es le héros : graphe de paragraphes, vérifié
     ├── prompts.rs       prompts plan / rédaction / relecture / correction
     └── planned.rs       Plan → Rédaction → Relecture (adapté de Re3/DOC)
 ```

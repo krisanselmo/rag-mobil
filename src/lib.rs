@@ -19,6 +19,7 @@ pub mod model;
 pub mod pdf;
 pub mod pipeline;
 pub mod retriever;
+pub mod saga;
 pub mod writer;
 
 pub use error::{RagError, Result};

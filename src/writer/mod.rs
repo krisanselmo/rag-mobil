@@ -4,6 +4,7 @@
 //! - [`WritingMethod::Planned`]: Plan → Draft → Edit, adapted from the
 //!   open-source Re3 and DOC story generators (see `writer/planned.rs`).
 
+pub mod interactive;
 pub mod plan;
 mod planned;
 mod prompts;
@@ -13,6 +14,7 @@ use crate::error::Result;
 use crate::generator::{Generation, StoryGenerator};
 use crate::model::Collection;
 
+pub use interactive::{GamePlan, Paragraph};
 pub use plan::{Issue, PlannedCharacter, PlotPoint, SceneSetup, StoryPlan};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -22,6 +24,9 @@ pub enum WritingMethod {
     /// Plan, then draft each plot point, then review (several calls).
     #[default]
     Planned,
+    /// Like `Planned`, but the plan is a graph of paragraphs ending with
+    /// choices for the reader ("dont tu es le héros").
+    Interactive,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -91,6 +96,9 @@ pub struct Written {
     pub scenes: Vec<String>,
     /// Each scene is preceded by its setup (one scene per plot point).
     pub staged: bool,
+    /// Interactive method: one per scene, in the same order (paragraph `n`
+    /// is `scenes[n - 1]`). Empty otherwise.
+    pub paragraphs: Vec<Paragraph>,
     /// Issues found by the review (fixed in the final text).
     pub issues: Vec<Issue>,
     pub calls: u32,
@@ -101,6 +109,7 @@ pub fn first_prompt(boxes: &Collection, options: &StoryOptions, method: WritingM
     match method {
         WritingMethod::Direct => build_prompt(boxes, options),
         WritingMethod::Planned => prompts::plan(boxes, options),
+        WritingMethod::Interactive => prompts::game_plan(boxes, options),
     }
 }
 
@@ -120,10 +129,14 @@ pub async fn write<G: StoryGenerator, O: Observer>(
                 plan: None,
                 scenes: Vec::new(),
                 staged: false,
+                paragraphs: Vec::new(),
                 issues: Vec::new(),
                 calls: 1,
             })
         }
         WritingMethod::Planned => planned::write(generator, boxes, options, writer, observer).await,
+        WritingMethod::Interactive => {
+            interactive::write(generator, boxes, options, writer, observer).await
+        }
     }
 }

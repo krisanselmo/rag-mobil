@@ -28,7 +28,9 @@ pub fn render(story: &Story, options: &StoryOptions) -> String {
     let (title, body) = match &written.plan {
         Some(plan) => {
             let mut body = cover_html(plan, collection, &texts);
-            if written.staged {
+            if !written.paragraphs.is_empty() {
+                body.push_str(&gamebook_html(written, plan, collection, &labels));
+            } else if written.staged {
                 for (scene, step) in written.scenes.iter().zip(&plan.outline) {
                     body.push_str("<section class=\"scene\">\n");
                     let setup = scene_setup(step, plan, collection);
@@ -283,6 +285,56 @@ fn labels_of(pieces: &[&Part]) -> String {
     )
 }
 
+/// Interactive story: numbered paragraphs, each ending with links to the
+/// paragraphs its choices lead to.
+fn gamebook_html(
+    written: &crate::writer::Written,
+    plan: &StoryPlan,
+    collection: &Collection,
+    labels: &Labels,
+) -> String {
+    let mut out = format!("<p class=\"how\">🎲 {}</p>\n", labels.interactive);
+    let paragraphs = written
+        .scenes
+        .iter()
+        .zip(&written.paragraphs)
+        .zip(&plan.outline);
+    for (i, ((text, paragraph), step)) in paragraphs.enumerate() {
+        let n = i + 1;
+        let _ = write!(
+            out,
+            "<section class=\"paragraph\" id=\"p{n}\">\n<h2 class=\"number\">{n}</h2>\n"
+        );
+        if written.staged {
+            let setup = scene_setup(step, plan, collection);
+            if !setup.is_empty() {
+                out.push_str(&setup_html(&setup, labels));
+            }
+        }
+        out.push_str(&markdown(text, collection));
+        if paragraph.choices.is_empty() {
+            let _ = writeln!(out, "<p class=\"end\">— {} —</p>", labels.the_end);
+        } else {
+            let _ = write!(
+                out,
+                "<nav class=\"choices\">\n<p>{}</p>\n<ul>",
+                labels.choose
+            );
+            for (label, target) in &paragraph.choices {
+                let _ = write!(
+                    out,
+                    "<li><a href=\"#p{target}\">{} <span>→ {} <b>{target}</b></span></a></li>",
+                    escape(label),
+                    labels.go_to
+                );
+            }
+            out.push_str("</ul>\n</nav>\n");
+        }
+        out.push_str("</section>\n");
+    }
+    out
+}
+
 fn setup_html(setup: &SceneSetup<'_>, labels: &Labels) -> String {
     let mut out = format!(
         "<aside class=\"setup\">\n<h3>🧱 {}</h3>\n<ul class=\"cards\">",
@@ -426,6 +478,23 @@ figcaption i, figcaption small { color: var(--muted); }
 .cast img { display: block; height: 9rem; max-width: 100%; margin: 0 auto .4rem; object-fit: contain; }
 .cast .no-image { line-height: 9rem; }
 .premise { font-style: italic; max-width: 32rem; margin: 0 auto 1rem; }
+.how { font: .95rem system-ui, sans-serif; text-align: center; color: var(--muted); }
+.paragraph { border-top: 2px dashed var(--line); margin-top: 2rem; padding-top: .5rem; }
+h2.number {
+  border: 0; margin: .5rem auto 1rem; padding: 0; width: 2.6rem; height: 2.6rem;
+  line-height: 2.6rem; border-radius: 50%; text-align: center;
+  background: var(--accent); color: #fff; font-size: 1.3rem;
+}
+.choices {
+  font-family: system-ui, sans-serif; background: var(--setup); border-radius: 12px;
+  padding: .6rem 1rem; margin: 1rem 0; break-inside: avoid;
+}
+.choices p { margin: 0 0 .4rem; font-weight: 600; }
+.choices ul { list-style: none; margin: 0; padding: 0; }
+.choices li { margin: .3rem 0; }
+.choices a { color: var(--ink); text-decoration: none; }
+.choices a span { color: var(--accent); white-space: nowrap; }
+.end { text-align: center; font-weight: bold; letter-spacing: .1em; color: var(--accent); }
 footer {
   max-width: 46rem; margin: 2rem auto; padding: 0 1rem;
   font-size: .75rem; color: var(--muted); text-align: center;
@@ -456,6 +525,9 @@ footer {
   .cast img { height: 11rem; }
   .cast li { width: 8.5rem; font-size: 13pt; }
   .scene + .scene { break-before: page; }
+  /* A gamebook paragraph stays on one page, with its number and choices. */
+  .paragraph { break-inside: avoid; margin-top: 1.2rem; }
+  .how { margin: 0 0 .5rem; }
   /* Compact setups: the story keeps most of the page. */
   .setup { margin: 0 0 1.2rem; padding: .4rem .7rem .7rem; }
   .setup h3 { font-size: 9pt; margin: .2rem 0 .4rem; }
@@ -498,6 +570,7 @@ mod tests {
                 plan: plan.then(valid_plan),
                 scenes: scenes.iter().map(|s| (*s).to_owned()).collect(),
                 staged,
+                paragraphs: vec![],
                 issues: vec![],
                 calls: 1,
             },
@@ -583,6 +656,29 @@ mod tests {
              title=\"Halberd — réf. 30 07 640\">réf. 30 07 640</span>\
              <span class=\"ref\">réf. 99 99 999</span> à la main.</p>"
         ));
+    }
+
+    #[test]
+    fn interactive_story_links_its_paragraphs() {
+        use crate::writer::Paragraph;
+        let mut story = story("", true, &["Début <i>!</i>", "Fin heureuse."], false);
+        story.written.paragraphs = vec![
+            Paragraph {
+                choices: vec![("Suivre <le> cheval".into(), 2)],
+            },
+            Paragraph { choices: vec![] },
+        ];
+        let html = render(&story, &StoryOptions::default());
+        assert!(html.contains("<p class=\"how\">🎲 C'est toi qui choisis la suite"));
+        assert!(
+            html.contains("<section class=\"paragraph\" id=\"p1\">\n<h2 class=\"number\">1</h2>")
+        );
+        assert!(html.contains(
+            "<li><a href=\"#p2\">Suivre &lt;le&gt; cheval <span>→ va au <b>2</b></span></a></li>"
+        ));
+        assert!(html.contains("<p class=\"end\">— Fin —</p>"));
+        assert!(!html.contains("class=\"scene\""));
+        assert!(!html.contains("class=\"setup\""), "not staged");
     }
 
     #[test]

@@ -22,15 +22,15 @@ use crate::writer::{Observer, Step, WriterOptions, Written, prompts};
 
 /// Aggregated stats over the calls of one story.
 #[derive(Default)]
-struct Tally {
-    calls: u32,
-    output_tokens: Option<u64>,
-    truncated: bool,
-    model: String,
+pub(crate) struct Tally {
+    pub(crate) calls: u32,
+    pub(crate) output_tokens: Option<u64>,
+    pub(crate) truncated: bool,
+    pub(crate) model: String,
 }
 
 impl Tally {
-    fn add(&mut self, generation: &Generation) {
+    pub(crate) fn add(&mut self, generation: &Generation) {
         self.calls += 1;
         self.output_tokens = match (self.output_tokens, generation.output_tokens) {
             (Some(a), Some(b)) => Some(a + b),
@@ -43,7 +43,7 @@ impl Tally {
 
 /// Parses a JSON object, tolerating code fences or prose around it
 /// (providers without structured outputs).
-fn parse_json<T: DeserializeOwned>(text: &str) -> Result<T> {
+pub(crate) fn parse_json<T: DeserializeOwned>(text: &str) -> Result<T> {
     let json = match (text.find('{'), text.rfind('}')) {
         (Some(start), Some(end)) if start < end => &text[start..=end],
         _ => text,
@@ -66,9 +66,14 @@ async fn make_plan<G: StoryGenerator, O: Observer>(
         .generate_json(&base, "story_plan", &schema)
         .await?;
     tally.add(&first);
+    let check = |plan: &StoryPlan| {
+        let mut errors = validate(plan, boxes);
+        errors.extend(options.saga.validate(plan, boxes));
+        errors
+    };
     let errors = match parse_json::<StoryPlan>(&first.text) {
         Ok(plan) => {
-            let errors = validate(&plan, boxes);
+            let errors = check(&plan);
             if errors.is_empty() {
                 return Ok(Ok(plan));
             }
@@ -88,12 +93,12 @@ async fn make_plan<G: StoryGenerator, O: Observer>(
         Ok(plan) => plan,
         Err(err) => return Ok(Err(format!("plan corrigé illisible ({err})"))),
     };
-    let errors = validate(&plan, boxes);
+    let errors = check(&plan);
     if errors.is_empty() {
         return Ok(Ok(plan));
     }
     observer.step(Step::PlanRepaired(&errors));
-    let plan = sanitize(plan, boxes);
+    let plan = options.saga.restore_names(sanitize(plan, boxes), boxes);
     if plan.outline.is_empty() {
         return Ok(Err(format!(
             "plus aucune étape valide ({})",
@@ -105,7 +110,7 @@ async fn make_plan<G: StoryGenerator, O: Observer>(
 
 /// The plan couldn't be fixed (small local models often break the JSON):
 /// rather than failing, write the story in one call, like `--method direct`.
-async fn fall_back_to_direct<G: StoryGenerator, O: Observer>(
+pub(crate) async fn fall_back_to_direct<G: StoryGenerator, O: Observer>(
     generator: &G,
     boxes: &Collection,
     options: &StoryOptions,
@@ -125,6 +130,7 @@ async fn fall_back_to_direct<G: StoryGenerator, O: Observer>(
         plan: None,
         scenes: Vec::new(),
         staged: false,
+        paragraphs: Vec::new(),
         issues: Vec::new(),
         calls: tally.calls,
     })
@@ -265,6 +271,7 @@ pub(crate) async fn write<G: StoryGenerator, O: Observer>(
         plan: Some(plan),
         scenes,
         staged,
+        paragraphs: Vec::new(),
         issues,
         calls: tally.calls,
     })

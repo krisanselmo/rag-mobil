@@ -440,6 +440,12 @@ pub struct Labels {
     pub scene_setup: &'static str,
     /// `boîte`, as in `(boîte 3666)`.
     pub a_box: &'static str,
+    /// How to read an interactive story.
+    pub interactive: &'static str,
+    pub choose: &'static str,
+    /// `va au`, as in `va au 3`.
+    pub go_to: &'static str,
+    pub the_end: &'static str,
 }
 
 impl Labels {
@@ -451,6 +457,11 @@ impl Labels {
                 objects: "Objets",
                 scene_setup: "Mise en place",
                 a_box: "boîte",
+                interactive: "C'est toi qui choisis la suite : commence au paragraphe 1, \
+                              puis suis tes choix.",
+                choose: "Que choisis-tu ?",
+                go_to: "va au",
+                the_end: "Fin",
             }
         } else {
             Self {
@@ -459,6 +470,11 @@ impl Labels {
                 objects: "Objects",
                 scene_setup: "Set the scene",
                 a_box: "box",
+                interactive: "You choose what happens: start at paragraph 1, then follow \
+                              your choices.",
+                choose: "What do you choose?",
+                go_to: "go to",
+                the_end: "The End",
             }
         }
     }

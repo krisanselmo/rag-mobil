@@ -14,6 +14,7 @@ use rag_mobil::model::{Collection, MissingPart};
 use rag_mobil::retriever::{
     Answered, Cached, Fallback, HttpJson, InventorySource, JsonFile, PlaymoDb, cache, playmodb,
 };
+use rag_mobil::saga::{Episode, Saga};
 use rag_mobil::writer::{Observer, Step, WriterOptions, WritingMethod, first_prompt};
 use rag_mobil::{RagError, RagPipeline, SetInventory, SetNumber, html, pdf};
 
@@ -24,6 +25,9 @@ enum Method {
     Planned,
     /// Un seul appel, l'histoire s'affiche au fil de l'écriture.
     Direct,
+    /// Histoire dont le lecteur choisit la suite : paragraphes numérotés et
+    /// choix (comme --interactive).
+    Interactive,
 }
 
 impl From<Method> for WritingMethod {
@@ -31,6 +35,7 @@ impl From<Method> for WritingMethod {
         match method {
             Method::Planned => Self::Planned,
             Method::Direct => Self::Direct,
+            Method::Interactive => Self::Interactive,
         }
     }
 }
@@ -101,6 +106,18 @@ struct Cli {
     /// Méthode de rédaction.
     #[arg(long, value_enum, default_value_t = Method::Planned)]
     method: Method,
+
+    /// Histoire dont tu es le héros : des paragraphes numérotés, chacun
+    /// terminé par des choix qui renvoient à la suite, et plusieurs fins
+    /// (raccourci de --method interactive).
+    #[arg(long, conflicts_with = "method")]
+    interactive: bool,
+
+    /// Saga : fichier JSON des épisodes déjà racontés (créé s'il n'existe
+    /// pas). L'histoire en est la suite, avec les mêmes noms pour les mêmes
+    /// figurines, et s'y ajoute comme nouvel épisode.
+    #[arg(long, env = "RAG_MOBIL_SAGA", value_name = "FICHIER")]
+    saga: Option<PathBuf>,
 
     /// Méthode planned : avant chaque partie, une « Mise en place » liste les
     /// personnages et objets à installer, d'après le plan validé.
@@ -383,6 +400,23 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
         }
         (None, None) => Source::Playmo(playmo()?),
     };
+    let method = if cli.interactive {
+        WritingMethod::Interactive
+    } else {
+        cli.method.into()
+    };
+    let saga = match &cli.saga {
+        Some(path) if method == WritingMethod::Direct => {
+            eprintln!(
+                "[rag-mobil] --saga ignoré : il demande la méthode planned ou interactive \
+                 ({} non lu)",
+                path.display()
+            );
+            Saga::default()
+        }
+        Some(path) => Saga::load(path)?,
+        None => Saga::default(),
+    };
     let options = StoryOptions {
         language: cli.language,
         reader_age: cli.age,
@@ -392,6 +426,7 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
         context: ContextOptions {
             include_all: cli.include_all,
         },
+        saga,
     };
 
     let mut missing = match &cli.missing_file {
@@ -421,7 +456,7 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
             };
             println!("{json}");
         } else {
-            let prompt = first_prompt(&collection, &options, cli.method.into());
+            let prompt = first_prompt(&collection, &options, method);
             println!(
                 "=== SYSTEM ===\n{}\n\n=== USER ===\n{}",
                 prompt.system, prompt.user
@@ -430,11 +465,15 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
         return Ok(());
     }
 
-    if cli.scene_setup && matches!(cli.method, Method::Direct) {
+    if cli.scene_setup && method == WritingMethod::Direct {
         eprintln!("[rag-mobil] --scene-setup ignoré : il demande la méthode planned");
     }
+    let saga = cli.saga.filter(|_| method != WritingMethod::Direct);
+    if saga.is_some() {
+        eprintln!("[rag-mobil] saga : épisode {}", options.saga.next_number());
+    }
     let writer = WriterOptions {
-        method: cli.method.into(),
+        method,
         review: !cli.no_review,
         scene_setup: cli.scene_setup,
     };
@@ -456,6 +495,7 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
         writer,
         format: cli.format,
         printer,
+        saga,
     };
     match cli.replay {
         Some(dir) => telling.tell(ReplayGenerator::new(dir)).await,
@@ -479,6 +519,8 @@ struct Telling<'a> {
     format: Format,
     /// `--format pdf`: the browser and its extra arguments.
     printer: Option<(PathBuf, Vec<String>)>,
+    /// `--saga`: where to add the new episode.
+    saga: Option<PathBuf>,
 }
 
 impl Telling<'_> {
@@ -503,6 +545,27 @@ impl Telling<'_> {
             }
         }
         summary(&story);
+        if let Some(path) = &self.saga {
+            match &story.written.plan {
+                Some(plan) => {
+                    let mut saga = self.options.saga.clone();
+                    let linear = story.written.paragraphs.is_empty();
+                    saga.episodes
+                        .push(Episode::new(&story.collection, plan, linear));
+                    saga.save(path)?;
+                    eprintln!(
+                        "[rag-mobil] épisode {} ajouté à {}",
+                        saga.episodes.len(),
+                        path.display()
+                    );
+                }
+                None => eprintln!(
+                    "[rag-mobil] pas de plan (rédaction en un seul appel) : épisode non \
+                     ajouté à {}",
+                    path.display()
+                ),
+            }
+        }
         Ok(())
     }
 }

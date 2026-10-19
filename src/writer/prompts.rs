@@ -15,9 +15,31 @@ pub(crate) fn outline_length(words: u32) -> usize {
     }
 }
 
-pub(crate) fn plan(boxes: &Collection, options: &StoryOptions) -> Prompt {
+/// The inventory, then the previous episodes of a saga, if any.
+fn plan_context(boxes: &Collection, options: &StoryOptions) -> String {
     let context = build_context(boxes, &options.context);
+    let saga = options.saga.context(boxes);
+    if saga.is_empty() {
+        context
+    } else {
+        format!("{context}\n\n{saga}")
+    }
+}
+
+/// The reader's request, then the saga's, if any.
+fn plan_request(boxes: &Collection, options: &StoryOptions) -> String {
     let request = reader_request(boxes, options);
+    let saga = options.saga.request();
+    if saga.is_empty() {
+        request
+    } else {
+        format!("{request}\n{saga}")
+    }
+}
+
+pub(crate) fn plan(boxes: &Collection, options: &StoryOptions) -> Prompt {
+    let context = plan_context(boxes, options);
+    let request = plan_request(boxes, options);
     let steps = outline_length(options.target_words);
     Prompt {
         system: format!(
@@ -61,6 +83,130 @@ pub(crate) fn plan_fix(base: &Prompt, previous: &str, errors: &[String]) -> Prom
     }
 }
 
+/// Plan of an interactive story: a graph of paragraphs linked by choices.
+pub(crate) fn game_plan(boxes: &Collection, options: &StoryOptions) -> Prompt {
+    let context = plan_context(boxes, options);
+    let request = plan_request(boxes, options);
+    Prompt {
+        system: format!(
+            "{}\n\n\
+             Avant d'écrire, tu prépares le plan d'une histoire interactive, dont le \
+             lecteur choisit la suite (comme un livre « dont tu es le héros ») : une \
+             prémisse, un décor, les personnages, puis des paragraphes reliés par des \
+             choix. Réponds uniquement avec le JSON demandé.",
+            storyteller_rules(options)
+        ),
+        user: format!(
+            "{context}\n\n{request}\n\n\
+             Prépare le plan de cette histoire interactive en 6 à 9 paragraphes. Le premier \
+             paragraphe est le début. Chaque paragraphe qui n'est pas une fin se termine \
+             par 2 choix (3 au plus) proposés au lecteur, chacun menant à un autre \
+             paragraphe, désigné par son identifiant ; deux choix peuvent mener au même \
+             paragraphe. Un paragraphe sans choix est une fin : prévois 2 à 4 fins \
+             différentes, toutes heureuses ou rassurantes. Pas de boucle : un choix mène \
+             toujours plus loin dans l'histoire, et chaque paragraphe est atteint par au \
+             moins un choix. Chaque personnage correspond à une figurine différente de \
+             <personnages>, désignée par sa référence ; une même figurine ne peut jouer \
+             plusieurs personnages que si la boîte en contient plusieurs. Pour chaque \
+             paragraphe, indique les personnages présents (par leur nom) et les références \
+             des objets, animaux ou véhicules de <pieces> qu'ils utilisent ; un choix est \
+             une décision courte, adressée au lecteur (« Pépin entre dans la grotte »). \
+             Rédige les textes du plan en {language}.",
+            language = options.language,
+        ),
+    }
+}
+
+/// Characters of a step with their figure, and its objects.
+fn step_cast(
+    boxes: &Collection,
+    options: &StoryOptions,
+    plan: &StoryPlan,
+    index: usize,
+) -> (Vec<String>, Vec<String>) {
+    let step = &plan.outline[index];
+    let characters = step
+        .characters
+        .iter()
+        .map(|name| {
+            plan.characters
+                .iter()
+                .find(|c| c.name.trim().eq_ignore_ascii_case(name.trim()))
+                .and_then(|c| find_part(boxes, &c.figure))
+                .map_or_else(
+                    || name.clone(),
+                    |p| format!("{name} ({})", cited_label(p, options.citations)),
+                )
+        })
+        .collect();
+    (characters, step_objects(step, boxes, options.citations))
+}
+
+/// One paragraph of an interactive story, knowing the paragraphs that lead
+/// to it and the choices it ends with (none for an ending).
+pub(crate) fn paragraph(
+    boxes: &Collection,
+    options: &StoryOptions,
+    plan: &StoryPlan,
+    path: &str,
+    index: usize,
+    choices: &[&str],
+    words: usize,
+) -> Prompt {
+    let context = build_context(boxes, &options.context);
+    let mut user = format!(
+        "{context}\n\n<plan>\n{}</plan>\n\n",
+        render_plan(plan, boxes)
+    );
+    if !path.is_empty() {
+        let _ = write!(
+            user,
+            "<histoire_jusqu_ici>\n{path}\n</histoire_jusqu_ici>\n\n"
+        );
+    }
+    let (characters, objects) = step_cast(boxes, options, plan, index);
+    let position = if index == 0 {
+        "C'est le début : installe le décor et présente les personnages.".to_owned()
+    } else if choices.is_empty() {
+        "C'est une des fins de l'histoire : conclus-la, de façon heureuse ou rassurante.".to_owned()
+    } else {
+        String::new()
+    };
+    let ending = if choices.is_empty() {
+        String::new()
+    } else {
+        format!(
+            "Le paragraphe s'arrête au moment où il faut choisir entre : {}. N'écris pas \
+             ces choix, ils seront ajoutés après ton texte.",
+            choices.join(" ; ")
+        )
+    };
+    let _ = write!(
+        user,
+        "Écris le paragraphe {n} en {language}, pour un enfant de {age} ans, d'environ \
+         {words} mots.\n\
+         Ce qui se passe : {event}\n\
+         Personnages présents : {characters}\n\
+         Objets de la boîte à utiliser : {objects}\n\
+         {position}{sep}{ending}",
+        n = index + 1,
+        language = options.language,
+        age = options.reader_age,
+        event = plan.outline[index].event,
+        characters = or_none(&characters),
+        objects = or_none(&objects),
+        sep = if position.is_empty() || ending.is_empty() {
+            ""
+        } else {
+            "\n"
+        },
+    );
+    Prompt {
+        system: format!("{}\n\n{DRAFT_STYLE}", storyteller_rules(options)),
+        user,
+    }
+}
+
 const DRAFT_STYLE: &str = "\
 Tu rédiges l'histoire partie par partie, en suivant un plan validé. Style : adapté \
 à l'âge demandé, chaleureux, sans violence graphique, avec des dialogues. Écris \
@@ -92,21 +238,7 @@ pub(crate) fn draft(
         );
     }
 
-    let characters: Vec<String> = step
-        .characters
-        .iter()
-        .map(|name| {
-            plan.characters
-                .iter()
-                .find(|c| c.name.trim().eq_ignore_ascii_case(name.trim()))
-                .and_then(|c| find_part(boxes, &c.figure))
-                .map_or_else(
-                    || name.clone(),
-                    |p| format!("{name} ({})", cited_label(p, options.citations)),
-                )
-        })
-        .collect();
-    let objects = step_objects(step, boxes, options.citations);
+    let (characters, objects) = step_cast(boxes, options, plan, index);
     let position = if index == 0 {
         "C'est le début : installe le décor et présente les personnages."
     } else if index + 1 == total {
