@@ -1,0 +1,161 @@
+=== SYSTEM ===
+Tu es relecteur pour une maison d'édition jeunesse. Tu vérifies qu'une histoire peut être rejouée avec le contenu exact d'une boîte Playmobil, dont l'inventaire est fourni entre balises <set>. Réponds uniquement avec le JSON demandé.
+
+=== USER ===
+<set numero="3799" nom="Pirates Secret Island" theme="Pirates" sous_theme="Building" sortie="1991/10" source="https://playmodb.org/cgi-bin/showinv.pl?setnum=3799">
+<personnages>
+- 1× Castaway [réf. 30 00 391] — avec : Torso, plain (male) - black ; Wig (hair), classic male - orange
+- 1× Crusoe (long white beard) [réf. 30 00 413] — avec : Wig (hair), classic male - white ; Beard, long - white
+- 1× Pirate, red vest and ponytail [réf. 30 13 020] — avec : Wig (hair), long ponytail - black
+</personnages>
+<pieces categorie="Animal">
+- 1× Parrot body (light blue) [réf. 30 06 198]
+- 1× Parrot wings (yellow) [réf. 30 06 199]
+- 1× Goat (white) [réf. 30 66 012]
+- 2× Sea turtle (brown/tan) [réf. 30 66 062]
+</pieces>
+<pieces categorie="Building">
+- 1× Hut floor (dark brown) [réf. 30 06 574]
+- 5× Hut Support (Stilt) (dark brown) [réf. 30 06 575]
+- 1× Hut roof support (dark brown) [réf. 30 06 576]
+- 1× Hut roof thatch (light brown) [réf. 30 06 577]
+- 4× Hut side (dark brown) [réf. 30 06 578]
+- 2× Hut Hammock Bracket (dark brown) [réf. 30 06 579]
+</pieces>
+<pieces categorie="Cloth">
+- 2× String (?) [réf. 30 80 327]
+</pieces>
+<pieces categorie="Furniture">
+- 1× Barrel, wooden (brown) [réf. 30 02 378]
+- 3× Bag, closed at top with handgrip (yellow) [réf. 30 05 002]
+- 1× Basket, round (light brown) [réf. 30 05 882]
+- 1× Bottle (clear pink) [réf. 30 06 370]
+- 1× Trunk lid bars (dark metal) [réf. 30 06 394]
+- 1× Hammock (light yellow) [réf. 30 06 580]
+- 4× Loop to attach to rock (brass) [réf. 30 06 582]
+- 1× Jug and 2 cups (light blue) [réf. 30 60 604]
+- 1× Basket with Base (marino yellow) [réf. 30 60 806]
+- 1× Bottle, Wide, with Bottom (clear amber) [réf. 30 60 826]
+- 1× Trunk; body and lid (light brown) [réf. 30 60 895]
+- 1× Trunk; base and lock (dark metal) [réf. 30 60 896]
+- 1× Parrot swing with pin (brass) [réf. 30 60 926]
+- 1× Lantern (silver/yellow) [réf. 30 65 079]
+</pieces>
+<pieces categorie="Plant">
+- 9× Flower blossom (dark pink) [réf. 30 05 871]
+- 4× Flower stem (single) (dark green) [réf. 30 06 092]
+- 1× Climbing vine (green) [réf. 30 06 581]
+- 2× Palm tree trunk, straight (brown) [réf. 30 06 888]
+- 3× Palm tree leaves and coconuts (green) [réf. 30 60 370]
+- 5× Bush, large (3 parts) (dusty green) [réf. 30 60 787] — avec : Bush, large (inner part) - dusty green ; Bush, large (outer part) - dusty green
+</pieces>
+<pieces categorie="Scenery">
+- 1× Island base, large (mustard) [réf. 30 06 504]
+- 1× Rock formation with cave (dark grey) [réf. 30 06 540]
+- 1× Grassy mound, large, for island (green) [réf. 30 06 541]
+- 1× Rock Formation (dark grey) [réf. 30 06 572]
+- 1× Rock formation, secret door (dark grey) [réf. 30 06 573]
+- 1× Rock formations (dark grey) [réf. 30 60 925]
+</pieces>
+<pieces categorie="Tool">
+- 3× Pistol, flared barrel (grey) [réf. 30 03 089]
+- 1× Sword, saber (curved) (gold) [réf. 30 06 368]
+- 2× Rifle, flintlock (musket) (dark brown) [réf. 30 06 607]
+- 1× Cooking gear, wooden (spoon, scoop, fork, bowl) (tan) [réf. 30 60 805]
+- 1× Tools: boathook, axe, short-handled spade / shovel (light grey) [réf. 30 60 891]
+</pieces>
+<pieces categorie="Vehicle">
+- 1× Rowboat, one-seater (dark brown) [réf. 30 05 806]
+- 1× Rowboat gear: seat, oarlocks, paddles (light brown) [réf. 30 60 815]
+</pieces>
+<pieces categorie="Wearable">
+- 1× Feather, wide, slightly curved (red) [réf. 30 04 724]
+- 1× Hat, soft, tail on side (light green) [réf. 30 06 219]
+- 1× Headband, looped over (red) [réf. 30 06 605]
+- 1× Hat, tricorne, with hole for feather (black, white stripe) [réf. 30 64 140] — avec : Hat, tricorne, with hole for feather - black
+- 1× Chain for prisoner (steel) [réf. 30 80 510]
+</pieces>
+</set>
+<set numero="70145" nom="Diving Scooter" theme="Rescue" sous_theme="Vehicle" sortie="2021/03/15" source="https://playmodb.org/cgi-bin/showinv.pl?setnum=70145">
+<personnages>
+- ?× (no name) [réf. 30 00 8544]
+</personnages>
+<pieces categorie="Animal">
+- ?× Fish, sword- (swordfish), small (dark blue, light blue belly and eye) [réf. 30 66 6973]
+</pieces>
+<pieces categorie="TO BE ASSIGNED">
+- ?× UW-Raketenscoot.-Antr. [réf. 30 09 6833]
+- ?× UW-Raketenscoot.-Aufs. [réf. 30 62 7097]
+</pieces>
+<pieces categorie="Tool">
+- ?× Hose from scuba tank to mask (black) [réf. 30 02 971]
+</pieces>
+<pieces categorie="Vehicle">
+- ?× Propellor for boat, small [réf. 30 09 6843]
+- ?× Pin for propellor, pointed end [réf. 30 09 6853]
+- ?× Body of torpedo jet, wedge-shaped with wings [réf. 30 66 2764]
+</pieces>
+<pieces categorie="Wearable">
+- ?× Helmet for diver with diving mask (dark grey) [réf. 30 07 3232]
+- ?× Flipper, notch in front, fits over boot [réf. 30 09 5352]
+- ?× Vest with attachment for diving tanks [réf. 30 09 6793]
+- ?× Diver's scuba airtank (grey) [réf. 30 24 106]
+</pieces>
+</set>
+
+<histoire>
+Ce matin-là, la baie de l'île aux palmiers était bleue et calme comme un miroir. Au milieu de l'eau, Pépin, le pirate au gilet rouge et à la longue queue-de-cheval noire, pêchait dans sa petite barque brune. Sur son épaule, Coco, le perroquet bleu aux ailes jaunes, surveillait le bouchon.
+
+— Ça mord, Coco ? Ça mord ? chuchotait Pépin.
+
+Pour mieux voir les poissons, il se pencha au-dessus de l'eau… et plouf ! Sa lanterne glissa du banc et tomba dans la mer. Elle coula, coula, jusqu'à disparaître tout au fond.
+
+— Ma lanterne ! cria Pépin. Je ne pourrai plus explorer les grottes, le soir !
+
+Sur la plage, Tom, le naufragé aux cheveux roux, et Robinson, le sage à la longue barbe blanche, accoururent.
+— C'est bien trop profond, soupira Robinson. Même les tortues ont du mal à descendre jusque-là.
+Et personne, sur l'île, ne savait plonger aussi loin.
+
+Soudain, l'eau se mit à bouillonner près des rochers. Blop, blop, blop ! Un drôle d'engin en forme de torpille, avec deux petites ailes et une hélice qui tournait à toute vitesse, surgit au milieu des bulles. C'était un scooter sous-marin !
+
+Accrochée à son guidon, une plongeuse ôta son casque gris foncé à masque et secoua la tête en souriant.
+— Bonjour ! Je m'appelle Marine. J'explore les fonds de la baie. J'ai entendu un grand plouf… Il y a un problème ?
+
+Pépin lui raconta tout, en agitant les bras.
+— Une lanterne au fond de l'eau ? Pas de souci, dit Marine. C'est mon métier !
+
+Elle vérifia son gilet de plongée et sa bouteille d'air grise, reliée à son masque par un tuyau noir. Puis elle enfila ses palmes et remit son casque.
+— Tu es sûre que ce n'est pas trop profond ? demanda Tom, inquiet.
+— Avec mon scooter, je descends très loin, répondit-elle. À tout à l'heure !
+
+Et elle replongea dans un nuage de bulles.
+
+Au fond de la baie, tout était bleu et silencieux. Marine glissait entre les rochers gris, en éclairant chaque recoin. Pas de lanterne…
+
+Tout à coup, un petit poisson bleu foncé au ventre clair lui barra le passage. Il avait un long nez pointu : c'était un espadon !
+— Bonjour, petit espadon, dit Marine dans un nuage de bulles. Tu n'aurais pas vu une lanterne ?
+
+L'espadon tourna deux fois autour d'elle, puis fila entre les algues. Marine le suivit avec ses palmes. Il la mena jusqu'à deux tortues de mer, brunes et paisibles, qui se reposaient sur le sable.
+
+Les tortues levèrent la tête et nagèrent lentement vers un gros rocher. Sous le rocher s'ouvrait l'entrée d'une grotte. Et là, coincée contre la pierre, quelque chose brillait d'argent et de jaune : la lanterne de Pépin !
+
+Marine tira doucement, une fois, deux fois… La lanterne se décoinça enfin.
+
+Quelques minutes plus tard, le scooter sous-marin refit surface près de la plage. Marine leva bien haut la lanterne.
+— La voilà !
+— Hourra ! cria Pépin en dansant sur le sable. Coco, notre lanterne est sauvée !
+
+Pour remercier la plongeuse, Robinson remplit le panier de noix de coco, et Tom sortit les ustensiles de cuisine en bois : la cuillère, la louche, la fourchette et le bol. Ensemble, ils préparèrent une délicieuse soupe à la noix de coco.
+
+Quand le soleil se coucha, Pépin alluma sa lanterne sur la plage. Sa lumière jaune dansait sur les vagues, et tout le monde mangea en riant et en racontant ses aventures.
+— Tu restes dormir sur l'île ? demanda Tom.
+— Avec plaisir ! répondit Marine.
+
+Cette nuit-là, la plongeuse s'endormit dans le hamac de la cabane, bercée par le bruit de la mer. Et tout au fond de la baie, l'espadon et les deux tortues veillaient sur l'île.
+</histoire>
+
+Relève les problèmes de fidélité à la boîte :
+- un personnage qui agit sans correspondre à une figurine de <personnages> ;
+- un objet, animal ou véhicule utilisé qui n'est pas dans <pieces>, ou en plus grand nombre que dans la boîte ;
+- une apparence (vêtements, couleurs, coiffure) qui contredit la figurine.
+Ne relève pas ce qui est seulement évoqué, imaginé par les personnages ou construit avec les pièces de décor. Ne relève que de vrais problèmes : une liste vide est une bonne réponse. Écris en français.

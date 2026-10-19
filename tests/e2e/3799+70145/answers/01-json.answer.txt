@@ -1,0 +1,17 @@
+{
+  "title": "La lanterne au fond de la baie",
+  "premise": "Le pirate Pépin laisse tomber sa précieuse lanterne au fond de la mer ; une plongeuse arrivée sur un drôle de scooter sous-marin va la chercher, aidée par les animaux de l'île.",
+  "setting": "La petite île aux palmiers, avec sa cabane sur pilotis et ses rochers gris pleins de grottes, entourée d'une baie bleue et profonde.",
+  "characters": [
+    {"name": "Pépin", "figure": "30 13 020", "portrait": "Le pirate au gilet rouge et à la longue queue-de-cheval noire, maladroit mais plein de bonne volonté."},
+    {"name": "Tom", "figure": "30 00 391", "portrait": "Le naufragé aux cheveux roux et à la chemise noire, toujours prêt à aider."},
+    {"name": "Robinson", "figure": "30 00 413", "portrait": "Le sage de l'île, à la longue barbe blanche, qui connaît tous les animaux de la baie."},
+    {"name": "Marine", "figure": "30 00 8544", "portrait": "Une plongeuse courageuse et souriante, qui explore les fonds marins avec son casque à masque, ses palmes et sa bouteille d'air."}
+  ],
+  "outline": [
+    {"event": "Pépin pêche dans sa barque au milieu de la baie, avec Coco le perroquet. En se penchant, il fait tomber sa lanterne, qui coule tout au fond. Tom et Robinson accourent sur la plage, mais personne ne sait plonger si profond.", "characters": ["Pépin", "Tom", "Robinson"], "objects": ["30 05 806", "30 60 815", "30 65 079", "30 06 198"]},
+    {"event": "Un drôle d'engin sort de l'eau dans un bouillon de bulles : un scooter sous-marin avec une hélice. Marine, la plongeuse, enlève son casque et se présente. Elle propose d'aller chercher la lanterne avec son gilet, sa bouteille d'air et ses palmes.", "characters": ["Marine", "Pépin", "Tom", "Robinson"], "objects": ["30 66 2764", "30 09 6833", "30 62 7097", "30 09 6843", "30 09 6853", "30 07 3232", "30 09 6793", "30 24 106", "30 02 971", "30 09 5352"]},
+    {"event": "Sous l'eau, Marine cherche entre les rochers. Un petit espadon lui barre le passage, puis l'emmène jusqu'aux deux tortues de mer, qui lui montrent l'entrée d'une grotte : la lanterne y brille, coincée contre un rocher.", "characters": ["Marine"], "objects": ["30 66 6973", "30 66 062", "30 06 540", "30 65 079"]},
+    {"event": "Marine remonte avec la lanterne. Pour la remercier, les amis préparent un repas avec le panier de noix de coco et les ustensiles de cuisine en bois, allument la lanterne sur la plage, et Marine passe la nuit dans le hamac de la cabane.", "characters": ["Marine", "Pépin", "Tom", "Robinson"], "objects": ["30 65 079", "30 05 882", "30 60 805", "30 06 580"]}
+  ]
+}

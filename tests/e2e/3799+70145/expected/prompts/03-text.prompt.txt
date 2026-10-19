@@ -1,0 +1,150 @@
+=== SYSTEM ===
+Tu es un conteur pour enfants spécialisé dans l'univers Playmobil. Tu écris des histoires qu'un enfant pourra rejouer avec le contenu exact d'une boîte Playmobil posée devant lui.
+
+L'inventaire officiel de la boîte t'est fourni entre balises <set>. Il provient de PlaymoDB, une base de données de fans, et c'est ta seule source de vérité sur ce que contient la boîte. La fidélité à cet inventaire est ce qui rend l'histoire utile : l'enfant doit pouvoir trouver chaque personnage et chaque objet cités.
+
+Règles de fidélité :
+- Les personnages principaux sont les figurines de <personnages>. Tu peux leur donner un prénom et un caractère, mais leur apparence (vêtements, couleurs, coiffure, accessoires) doit correspondre à leur description. N'invente pas de personnage supplémentaire qui jouerait un rôle actif ; un personnage hors boîte ne peut être qu'évoqué ("le roi voisin", "un dragon dont on parle").
+- Les objets, animaux, véhicules et éléments de décor que les personnages utilisent doivent figurer dans <pieces>. Respecte les quantités : s'il y a 2 chevaux, il n'y en a pas 3. Une quantité "?" signifie qu'elle est inconnue.
+- Les pièces purement techniques (connecteurs, clips, charnières, morceaux de mur) ne sont pas des objets de l'histoire, mais elles indiquent ce qu'on peut construire (un château, une tour, un pont-levis...) : sers-t'en pour planter le décor.
+- Les noms des pièces sont en anglais dans l'inventaire ; traduis-les naturellement dans la langue de l'histoire. Chaque pièce est suivie de sa référence [réf. …] : elle sert au plan, ne la cite jamais dans l'histoire.
+
+Tu rédiges l'histoire partie par partie, en suivant un plan validé. Style : adapté à l'âge demandé, chaleureux, sans violence graphique, avec des dialogues. Écris uniquement la partie demandée, en prose : ni titre, ni intertitre, ni commentaire, ni liste de pièces.
+
+=== USER ===
+<set numero="3799" nom="Pirates Secret Island" theme="Pirates" sous_theme="Building" sortie="1991/10" source="https://playmodb.org/cgi-bin/showinv.pl?setnum=3799">
+<personnages>
+- 1× Castaway [réf. 30 00 391] — avec : Torso, plain (male) - black ; Wig (hair), classic male - orange
+- 1× Crusoe (long white beard) [réf. 30 00 413] — avec : Wig (hair), classic male - white ; Beard, long - white
+- 1× Pirate, red vest and ponytail [réf. 30 13 020] — avec : Wig (hair), long ponytail - black
+</personnages>
+<pieces categorie="Animal">
+- 1× Parrot body (light blue) [réf. 30 06 198]
+- 1× Parrot wings (yellow) [réf. 30 06 199]
+- 1× Goat (white) [réf. 30 66 012]
+- 2× Sea turtle (brown/tan) [réf. 30 66 062]
+</pieces>
+<pieces categorie="Building">
+- 1× Hut floor (dark brown) [réf. 30 06 574]
+- 5× Hut Support (Stilt) (dark brown) [réf. 30 06 575]
+- 1× Hut roof support (dark brown) [réf. 30 06 576]
+- 1× Hut roof thatch (light brown) [réf. 30 06 577]
+- 4× Hut side (dark brown) [réf. 30 06 578]
+- 2× Hut Hammock Bracket (dark brown) [réf. 30 06 579]
+</pieces>
+<pieces categorie="Cloth">
+- 2× String (?) [réf. 30 80 327]
+</pieces>
+<pieces categorie="Furniture">
+- 1× Barrel, wooden (brown) [réf. 30 02 378]
+- 3× Bag, closed at top with handgrip (yellow) [réf. 30 05 002]
+- 1× Basket, round (light brown) [réf. 30 05 882]
+- 1× Bottle (clear pink) [réf. 30 06 370]
+- 1× Trunk lid bars (dark metal) [réf. 30 06 394]
+- 1× Hammock (light yellow) [réf. 30 06 580]
+- 4× Loop to attach to rock (brass) [réf. 30 06 582]
+- 1× Jug and 2 cups (light blue) [réf. 30 60 604]
+- 1× Basket with Base (marino yellow) [réf. 30 60 806]
+- 1× Bottle, Wide, with Bottom (clear amber) [réf. 30 60 826]
+- 1× Trunk; body and lid (light brown) [réf. 30 60 895]
+- 1× Trunk; base and lock (dark metal) [réf. 30 60 896]
+- 1× Parrot swing with pin (brass) [réf. 30 60 926]
+- 1× Lantern (silver/yellow) [réf. 30 65 079]
+</pieces>
+<pieces categorie="Plant">
+- 9× Flower blossom (dark pink) [réf. 30 05 871]
+- 4× Flower stem (single) (dark green) [réf. 30 06 092]
+- 1× Climbing vine (green) [réf. 30 06 581]
+- 2× Palm tree trunk, straight (brown) [réf. 30 06 888]
+- 3× Palm tree leaves and coconuts (green) [réf. 30 60 370]
+- 5× Bush, large (3 parts) (dusty green) [réf. 30 60 787] — avec : Bush, large (inner part) - dusty green ; Bush, large (outer part) - dusty green
+</pieces>
+<pieces categorie="Scenery">
+- 1× Island base, large (mustard) [réf. 30 06 504]
+- 1× Rock formation with cave (dark grey) [réf. 30 06 540]
+- 1× Grassy mound, large, for island (green) [réf. 30 06 541]
+- 1× Rock Formation (dark grey) [réf. 30 06 572]
+- 1× Rock formation, secret door (dark grey) [réf. 30 06 573]
+- 1× Rock formations (dark grey) [réf. 30 60 925]
+</pieces>
+<pieces categorie="Tool">
+- 3× Pistol, flared barrel (grey) [réf. 30 03 089]
+- 1× Sword, saber (curved) (gold) [réf. 30 06 368]
+- 2× Rifle, flintlock (musket) (dark brown) [réf. 30 06 607]
+- 1× Cooking gear, wooden (spoon, scoop, fork, bowl) (tan) [réf. 30 60 805]
+- 1× Tools: boathook, axe, short-handled spade / shovel (light grey) [réf. 30 60 891]
+</pieces>
+<pieces categorie="Vehicle">
+- 1× Rowboat, one-seater (dark brown) [réf. 30 05 806]
+- 1× Rowboat gear: seat, oarlocks, paddles (light brown) [réf. 30 60 815]
+</pieces>
+<pieces categorie="Wearable">
+- 1× Feather, wide, slightly curved (red) [réf. 30 04 724]
+- 1× Hat, soft, tail on side (light green) [réf. 30 06 219]
+- 1× Headband, looped over (red) [réf. 30 06 605]
+- 1× Hat, tricorne, with hole for feather (black, white stripe) [réf. 30 64 140] — avec : Hat, tricorne, with hole for feather - black
+- 1× Chain for prisoner (steel) [réf. 30 80 510]
+</pieces>
+</set>
+<set numero="70145" nom="Diving Scooter" theme="Rescue" sous_theme="Vehicle" sortie="2021/03/15" source="https://playmodb.org/cgi-bin/showinv.pl?setnum=70145">
+<personnages>
+- ?× (no name) [réf. 30 00 8544]
+</personnages>
+<pieces categorie="Animal">
+- ?× Fish, sword- (swordfish), small (dark blue, light blue belly and eye) [réf. 30 66 6973]
+</pieces>
+<pieces categorie="TO BE ASSIGNED">
+- ?× UW-Raketenscoot.-Antr. [réf. 30 09 6833]
+- ?× UW-Raketenscoot.-Aufs. [réf. 30 62 7097]
+</pieces>
+<pieces categorie="Tool">
+- ?× Hose from scuba tank to mask (black) [réf. 30 02 971]
+</pieces>
+<pieces categorie="Vehicle">
+- ?× Propellor for boat, small [réf. 30 09 6843]
+- ?× Pin for propellor, pointed end [réf. 30 09 6853]
+- ?× Body of torpedo jet, wedge-shaped with wings [réf. 30 66 2764]
+</pieces>
+<pieces categorie="Wearable">
+- ?× Helmet for diver with diving mask (dark grey) [réf. 30 07 3232]
+- ?× Flipper, notch in front, fits over boot [réf. 30 09 5352]
+- ?× Vest with attachment for diving tanks [réf. 30 09 6793]
+- ?× Diver's scuba airtank (grey) [réf. 30 24 106]
+</pieces>
+</set>
+
+<plan>
+Titre : La lanterne au fond de la baie
+Prémisse : Le pirate Pépin laisse tomber sa précieuse lanterne au fond de la mer ; une plongeuse arrivée sur un drôle de scooter sous-marin va la chercher, aidée par les animaux de l'île.
+Décor : La petite île aux palmiers, avec sa cabane sur pilotis et ses rochers gris pleins de grottes, entourée d'une baie bleue et profonde.
+Personnages :
+- Pépin (figurine : Pirate, red vest and ponytail) : Le pirate au gilet rouge et à la longue queue-de-cheval noire, maladroit mais plein de bonne volonté.
+- Tom (figurine : Castaway) : Le naufragé aux cheveux roux et à la chemise noire, toujours prêt à aider.
+- Robinson (figurine : Crusoe (long white beard)) : Le sage de l'île, à la longue barbe blanche, qui connaît tous les animaux de la baie.
+- Marine (figurine : (no name)) : Une plongeuse courageuse et souriante, qui explore les fonds marins avec son casque à masque, ses palmes et sa bouteille d'air.
+Étapes :
+1. Pépin pêche dans sa barque au milieu de la baie, avec Coco le perroquet. En se penchant, il fait tomber sa lanterne, qui coule tout au fond. Tom et Robinson accourent sur la plage, mais personne ne sait plonger si profond.
+2. Un drôle d'engin sort de l'eau dans un bouillon de bulles : un scooter sous-marin avec une hélice. Marine, la plongeuse, enlève son casque et se présente. Elle propose d'aller chercher la lanterne avec son gilet, sa bouteille d'air et ses palmes.
+3. Sous l'eau, Marine cherche entre les rochers. Un petit espadon lui barre le passage, puis l'emmène jusqu'aux deux tortues de mer, qui lui montrent l'entrée d'une grotte : la lanterne y brille, coincée contre un rocher.
+4. Marine remonte avec la lanterne. Pour la remercier, les amis préparent un repas avec le panier de noix de coco et les ustensiles de cuisine en bois, allument la lanterne sur la plage, et Marine passe la nuit dans le hamac de la cabane.
+</plan>
+
+<histoire_jusqu_ici>
+Ce matin-là, la baie de l'île aux palmiers était bleue et calme comme un miroir. Au milieu de l'eau, Pépin, le pirate au gilet rouge et à la longue queue-de-cheval noire, pêchait dans sa petite barque brune. Sur son épaule, Coco, le perroquet bleu aux ailes jaunes, surveillait le bouchon.
+
+— Ça mord, Coco ? Ça mord ? chuchotait Pépin.
+
+Pour mieux voir les poissons, il se pencha au-dessus de l'eau… et plouf ! Sa lanterne glissa du banc et tomba dans la mer. Elle coula, coula, jusqu'à disparaître tout au fond.
+
+— Ma lanterne ! cria Pépin. Je ne pourrai plus explorer les grottes, le soir !
+
+Sur la plage, Tom, le naufragé aux cheveux roux, et Robinson, le sage à la longue barbe blanche, accoururent.
+— C'est bien trop profond, soupira Robinson. Même les tortues ont du mal à descendre jusque-là.
+Et personne, sur l'île, ne savait plonger aussi loin.
+</histoire_jusqu_ici>
+
+Écris la partie 2/4 en français, pour un enfant de 7 ans, d'environ 150 mots.
+Ce qui se passe : Un drôle d'engin sort de l'eau dans un bouillon de bulles : un scooter sous-marin avec une hélice. Marine, la plongeuse, enlève son casque et se présente. Elle propose d'aller chercher la lanterne avec son gilet, sa bouteille d'air et ses palmes.
+Personnages présents : Marine ((no name)) ; Pépin (Pirate, red vest and ponytail) ; Tom (Castaway) ; Robinson (Crusoe (long white beard))
+Objets de la boîte à utiliser : Body of torpedo jet, wedge-shaped with wings ; UW-Raketenscoot.-Antr. ; UW-Raketenscoot.-Aufs. ; Propellor for boat, small ; Pin for propellor, pointed end ; Helmet for diver with diving mask (dark grey) ; Vest with attachment for diving tanks ; Diver's scuba airtank (grey) ; Hose from scuba tank to mask (black) ; Flipper, notch in front, fits over boot
+Ne conclus pas encore l'histoire.

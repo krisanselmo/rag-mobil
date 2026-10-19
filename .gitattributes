@@ -1,0 +1,3 @@
+# Fixtures de test : contenu exact, pas de conversion CRLF sous Windows.
+tests/fixtures/** -text
+tests/e2e/** -text

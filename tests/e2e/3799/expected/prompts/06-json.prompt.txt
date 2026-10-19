@@ -1,0 +1,142 @@
+=== SYSTEM ===
+Tu es relecteur pour une maison d'édition jeunesse. Tu vérifies qu'une histoire peut être rejouée avec le contenu exact d'une boîte Playmobil, dont l'inventaire est fourni entre balises <set>. Réponds uniquement avec le JSON demandé.
+
+=== USER ===
+<set numero="3799" nom="Pirates Secret Island" theme="Pirates" sous_theme="Building" sortie="1991/10" source="https://playmodb.org/cgi-bin/showinv.pl?setnum=3799">
+<personnages>
+- 1× Castaway [réf. 30 00 391] — avec : Torso, plain (male) - black ; Wig (hair), classic male - orange
+- 1× Crusoe (long white beard) [réf. 30 00 413] — avec : Wig (hair), classic male - white ; Beard, long - white
+- 1× Pirate, red vest and ponytail [réf. 30 13 020] — avec : Wig (hair), long ponytail - black
+</personnages>
+<pieces categorie="Animal">
+- 1× Parrot body (light blue) [réf. 30 06 198]
+- 1× Parrot wings (yellow) [réf. 30 06 199]
+- 1× Goat (white) [réf. 30 66 012]
+- 2× Sea turtle (brown/tan) [réf. 30 66 062]
+</pieces>
+<pieces categorie="Building">
+- 1× Hut floor (dark brown) [réf. 30 06 574]
+- 5× Hut Support (Stilt) (dark brown) [réf. 30 06 575]
+- 1× Hut roof support (dark brown) [réf. 30 06 576]
+- 1× Hut roof thatch (light brown) [réf. 30 06 577]
+- 4× Hut side (dark brown) [réf. 30 06 578]
+- 2× Hut Hammock Bracket (dark brown) [réf. 30 06 579]
+</pieces>
+<pieces categorie="Cloth">
+- 2× String (?) [réf. 30 80 327]
+</pieces>
+<pieces categorie="Furniture">
+- 1× Barrel, wooden (brown) [réf. 30 02 378]
+- 3× Bag, closed at top with handgrip (yellow) [réf. 30 05 002]
+- 1× Basket, round (light brown) [réf. 30 05 882]
+- 1× Bottle (clear pink) [réf. 30 06 370]
+- 1× Trunk lid bars (dark metal) [réf. 30 06 394]
+- 1× Hammock (light yellow) [réf. 30 06 580]
+- 4× Loop to attach to rock (brass) [réf. 30 06 582]
+- 1× Jug and 2 cups (light blue) [réf. 30 60 604]
+- 1× Basket with Base (marino yellow) [réf. 30 60 806]
+- 1× Bottle, Wide, with Bottom (clear amber) [réf. 30 60 826]
+- 1× Trunk; body and lid (light brown) [réf. 30 60 895]
+- 1× Trunk; base and lock (dark metal) [réf. 30 60 896]
+- 1× Parrot swing with pin (brass) [réf. 30 60 926]
+- 1× Lantern (silver/yellow) [réf. 30 65 079]
+</pieces>
+<pieces categorie="Plant">
+- 9× Flower blossom (dark pink) [réf. 30 05 871]
+- 4× Flower stem (single) (dark green) [réf. 30 06 092]
+- 1× Climbing vine (green) [réf. 30 06 581]
+- 2× Palm tree trunk, straight (brown) [réf. 30 06 888]
+- 3× Palm tree leaves and coconuts (green) [réf. 30 60 370]
+- 5× Bush, large (3 parts) (dusty green) [réf. 30 60 787] — avec : Bush, large (inner part) - dusty green ; Bush, large (outer part) - dusty green
+</pieces>
+<pieces categorie="Scenery">
+- 1× Island base, large (mustard) [réf. 30 06 504]
+- 1× Rock formation with cave (dark grey) [réf. 30 06 540]
+- 1× Grassy mound, large, for island (green) [réf. 30 06 541]
+- 1× Rock Formation (dark grey) [réf. 30 06 572]
+- 1× Rock formation, secret door (dark grey) [réf. 30 06 573]
+- 1× Rock formations (dark grey) [réf. 30 60 925]
+</pieces>
+<pieces categorie="Tool">
+- 3× Pistol, flared barrel (grey) [réf. 30 03 089]
+- 1× Sword, saber (curved) (gold) [réf. 30 06 368]
+- 2× Rifle, flintlock (musket) (dark brown) [réf. 30 06 607]
+- 1× Cooking gear, wooden (spoon, scoop, fork, bowl) (tan) [réf. 30 60 805]
+- 1× Tools: boathook, axe, short-handled spade / shovel (light grey) [réf. 30 60 891]
+</pieces>
+<pieces categorie="Vehicle">
+- 1× Rowboat, one-seater (dark brown) [réf. 30 05 806]
+- 1× Rowboat gear: seat, oarlocks, paddles (light brown) [réf. 30 60 815]
+</pieces>
+<pieces categorie="Wearable">
+- 1× Feather, wide, slightly curved (red) [réf. 30 04 724]
+- 1× Hat, soft, tail on side (light green) [réf. 30 06 219]
+- 1× Headband, looped over (red) [réf. 30 06 605]
+- 1× Hat, tricorne, with hole for feather (black, white stripe) [réf. 30 64 140] — avec : Hat, tricorne, with hole for feather - black
+- 1× Chain for prisoner (steel) [réf. 30 80 510]
+</pieces>
+</set>
+
+<histoire>
+Au milieu de la mer bleue, il y avait une toute petite île de sable doré. On y trouvait deux palmiers, de gros buissons verts, une colline d'herbe et, perchée sur des pilotis, une cabane au toit de paille.
+
+Dans la cabane, Tom, le naufragé aux cheveux roux, se balançait doucement dans son hamac jaune.
+— Quelle belle journée pour ne rien faire ! soupira-t-il en bâillant.
+
+En bas, Robinson, le vieil habitant de l'île à la longue barbe blanche, cueillait des noix de coco au pied d'un palmier.
+— Ne rien faire ? Et qui va m'aider à remplir le panier, paresseux ? dit-il en riant.
+
+Sur sa balançoire dorée, Coco, le perroquet bleu aux ailes jaunes, chantait à tue-tête :
+— Coco-coco ! Bonjour l'île !
+
+Et Biquette, la chèvre blanche, broutait l'herbe de la colline sans se soucier de personne. Tout était calme… pour l'instant.
+
+Soudain, Coco se tut et pencha la tête.
+— Bateau ! Bateau ! cria-t-il.
+
+Une petite barque brune approchait sur les vagues. Dedans, un pirate en gilet rouge, avec une longue queue-de-cheval noire, ramait de toutes ses forces. Derrière lui, sur le banc, était posé un coffre en bois avec une grosse serrure de fer.
+
+— Hisse… et ho ! Hisse… et ho ! grognait le pirate. Je suis Pépin, le pirate le plus rusé des sept mers, et personne ne trouvera mon trésor !
+
+La barque glissa sur le sable. Pépin sauta dans l'eau, tira son coffre jusqu'à la plage et regarda autour de lui. Il n'avait pas vu la cabane cachée derrière les palmiers.
+
+— Il me faut une cachette secrète, chuchota-t-il.
+
+Il alluma sa lanterne et partit vers les grands rochers gris, en traînant le coffre derrière lui. Mais il avait chaud, et surtout… il avait très soif.
+
+Pépin tourna autour des rochers. Il les tapota, les poussa, les renifla même. Rien !
+— Cette grotte n'a pas de porte ! ronchonna-t-il.
+
+Coco, curieux, s'envola et se posa sur un gros rocher. Toc, toc, fit son bec. Le rocher sonnait creux !
+— Porte secrète ! Porte secrète ! chanta le perroquet.
+
+Pépin sursauta et poussa le rocher de toutes ses forces. Mais la porte secrète était coincée par le sable. Il poussa, tira, souffla… elle ne bougeait pas d'un millimètre.
+
+— Besoin d'un coup de main ? demanda une voix.
+
+C'était Tom, descendu de son hamac, suivi de Robinson.
+— Qui êtes-vous ? s'écria Pépin, un peu gêné.
+— Les habitants de l'île, sourit Robinson en caressant sa barbe blanche. Et ce rocher, on le connaît bien !
+
+Tom prit la pelle pour dégager le sable. Robinson glissa le crochet de la gaffe sous le rocher. Un, deux, trois… crrrac ! La porte secrète s'ouvrit enfin sur une grotte fraîche et sombre.
+
+Pépin tira son coffre dans la grotte, tourna la clé et souleva le couvercle. Tom ouvrit de grands yeux : pas d'or, pas de perles… seulement trois sacs jaunes !
+— Ce sont des graines de fleurs, avoua Pépin en rougissant. Mon seul trésor. Sur mon bateau, rien ne pousse…
+— Alors plantons-les ici ! proposa Robinson.
+
+Tout l'après-midi, ils creusèrent et semèrent. Bientôt, neuf belles fleurs roses s'ouvrirent au soleil, au pied des palmiers.
+
+Pour fêter ça, Robinson sortit sa cruche bleue et ses deux tasses. Il n'y avait que deux tasses pour trois amis… Alors Pépin éclata de rire et but directement à la cruche !
+— Glou, glou… Enfin, je n'ai plus soif !
+
+Au bord de l'eau, deux tortues de mer sortirent la tête pour admirer l'île fleurie.
+— Tu repars demain ? demanda Tom.
+Pépin regarda les fleurs, Coco et ses nouveaux amis.
+— Non, dit-il. Un trésor, c'est bien mieux quand on le partage.
+</histoire>
+
+Relève les problèmes de fidélité à la boîte :
+- un personnage qui agit sans correspondre à une figurine de <personnages> ;
+- un objet, animal ou véhicule utilisé qui n'est pas dans <pieces>, ou en plus grand nombre que dans la boîte ;
+- une apparence (vêtements, couleurs, coiffure) qui contredit la figurine.
+Ne relève pas ce qui est seulement évoqué, imaginé par les personnages ou construit avec les pièces de décor. Ne relève que de vrais problèmes : une liste vide est une bonne réponse. Écris en français.

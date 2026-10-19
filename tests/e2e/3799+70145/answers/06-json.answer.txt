@@ -1,0 +1,8 @@
+{"issues": [
+  {"excerpt": "Pépin, le pirate au gilet rouge et à la longue queue-de-cheval noire, pêchait dans sa petite barque brune. Sur son épaule, Coco, le perroquet bleu aux ailes jaunes, surveillait le bouchon.",
+   "problem": "Aucune des deux boîtes ne contient de canne à pêche ni de bouchon : l'enfant ne peut pas rejouer la pêche.",
+   "fix": "Faire observer les poissons à Pépin depuis sa barque, sans matériel de pêche."},
+  {"excerpt": "Marine glissait entre les rochers gris, en éclairant chaque recoin.",
+   "problem": "La plongeuse n'a pas de lampe dans la boîte 70145 ; la seule lanterne est celle qui est tombée au fond.",
+   "fix": "Faire regarder Marine dans chaque recoin à travers son masque, sans l'éclairer."}
+]}
