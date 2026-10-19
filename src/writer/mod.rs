@@ -13,7 +13,7 @@ use crate::error::Result;
 use crate::generator::{Generation, StoryGenerator};
 use crate::model::Collection;
 
-pub use plan::{Issue, PlannedCharacter, PlotPoint, StoryPlan};
+pub use plan::{Issue, PlannedCharacter, PlotPoint, SceneSetup, StoryPlan};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum WritingMethod {
@@ -29,6 +29,9 @@ pub struct WriterOptions {
     pub method: WritingMethod,
     /// Planned method only: review the draft and fix fidelity issues.
     pub review: bool,
+    /// Planned method only: before each part of the story, a "Mise en place"
+    /// listing the characters and objects to put on the table, from the plan.
+    pub scene_setup: bool,
 }
 
 impl Default for WriterOptions {
@@ -36,6 +39,7 @@ impl Default for WriterOptions {
         Self {
             method: WritingMethod::Planned,
             review: true,
+            scene_setup: false,
         }
     }
 }
@@ -60,6 +64,9 @@ pub enum Step<'a> {
     /// The review answer wasn't valid JSON: the draft is kept as is.
     ReviewUnreadable,
     Revising(&'a [Issue]),
+    /// The revision didn't keep the parts of the story apart: the scene
+    /// setups are left out.
+    SceneSetupDropped,
 }
 
 /// Receives the story text and the progress of the writing.
@@ -78,6 +85,12 @@ pub struct Written {
     /// Final text, with stats aggregated over every call.
     pub generation: Generation,
     pub plan: Option<StoryPlan>,
+    /// Planned method: the story itself (no title, no "In your box"), one
+    /// entry per plot point, or a single one when the revision merged them.
+    /// Empty with the direct method.
+    pub scenes: Vec<String>,
+    /// Each scene is preceded by its setup (one scene per plot point).
+    pub staged: bool,
     /// Issues found by the review (fixed in the final text).
     pub issues: Vec<Issue>,
     pub calls: u32,
@@ -105,12 +118,12 @@ pub async fn write<G: StoryGenerator, O: Observer>(
             Ok(Written {
                 generation,
                 plan: None,
+                scenes: Vec::new(),
+                staged: false,
                 issues: Vec::new(),
                 calls: 1,
             })
         }
-        WritingMethod::Planned => {
-            planned::write(generator, boxes, options, writer.review, observer).await
-        }
+        WritingMethod::Planned => planned::write(generator, boxes, options, writer, observer).await,
     }
 }

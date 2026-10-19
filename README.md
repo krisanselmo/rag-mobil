@@ -51,6 +51,12 @@ rag-mobil 3666 --language English --effort high
 # Rédaction en un seul appel, affichée au fil de l'écriture (plus rapide)
 rag-mobil 3666 --method direct
 
+# Livret HTML illustré, avec la mise en place de chaque scène
+rag-mobil 3799 --scene-setup --format html > livret.html
+
+# La boîte réelle : le perroquet est perdu, 2 hallebardes sur 4 aussi
+rag-mobil 3666 --missing "30 06 368" --missing "30 07 640:2"
+
 # Autres fournisseurs
 rag-mobil 3666 -m gpt-5.4-mini
 rag-mobil 3666 -m ollama::llama3.2        # local, sans clé API
@@ -72,6 +78,10 @@ vont sur `stderr` (`rag-mobil 3666 > histoire.md` fonctionne).
 | `-t, --theme` | — | Souhait libre |
 | `--citations` / `RAG_MOBIL_CITATIONS` | off | Cite chaque pièce nommée par sa référence (voir ci-dessous) |
 | `--method` | `planned` | `planned` (plan, rédaction, relecture) ou `direct` (un appel) |
+| `--scene-setup` / `RAG_MOBIL_SCENE_SETUP` | off | Méthode `planned` : « Mise en place » avant chaque partie (voir ci-dessous) |
+| `-f, --format` / `RAG_MOBIL_FORMAT` | `markdown` | `markdown` ou `html` (livret illustré, voir ci-dessous) |
+| `--missing REF[:N]` | — | Pièce absente de la boîte : toutes les copies, ou N ; répétable |
+| `--missing-file` / `RAG_MOBIL_MISSING_FILE` | — | Pièces absentes, une par ligne (voir ci-dessous) |
 | `--no-review` | off | Méthode `planned` : saute la relecture de fidélité |
 | `--include-all` | off | Garde aussi les notices papier dans le contexte |
 | `-m, --model` / `RAG_MOBIL_MODEL` | `claude-opus-5-5` | Modèle ; le fournisseur est déduit du nom |
@@ -98,6 +108,59 @@ affichage les retire (`\s*\[réf\.[^\]]*\]`) ou fait de chaque référence un li
 Dans la méthode `planned`, la section « Dans ta boîte » est écrite par le code, donc ses
 citations sont toujours exactes ; dans le texte, c'est le LLM qui les recopie.
 
+### Pièces perdues ou cassées
+
+L'inventaire décrit la boîte neuve ; la vraie boîte a souvent perdu des pièces. `--missing`
+les retire de l'inventaire avant tout le reste : le plan ne peut plus les choisir, la
+relecture les signale, « Dans ta boîte » ne les cite pas.
+
+```bash
+rag-mobil 3666 --missing "30 06 368"          # toutes les copies
+rag-mobil 3666 --missing "30 07 640:2"        # 2 hallebardes perdues sur 4
+rag-mobil 3666 --missing-file ma-boite.txt    # la liste, gardée dans un fichier
+```
+
+```text
+# ma-boite.txt : une pièce par ligne, au format de --missing
+30 06 368        # le perroquet
+30 07 640:2
+```
+
+La référence s'écrit avec ou sans espaces (`3007640`, `réf. 30 07 640`). Avec plusieurs
+boîtes, les copies sont retirées de la première boîte qui les contient, puis des
+suivantes. Une pièce dont la quantité est inconnue (`?`) n'est retirée que sans `:N`.
+Chaque pièce est rapportée sur `stderr` (`retirée`, `1 restant(s)`, `absente des
+boîtes, ignorée`). `--inventory-json` montre l'inventaire après retrait.
+
+### Mise en place des scènes
+
+Avec `--scene-setup` (méthode `planned`), chaque partie de l'histoire commence par ce
+qu'il faut installer pour la jouer, tiré du plan validé et écrit **par le code**, donc
+sans pièce inventée :
+
+```markdown
+> 🧱 **Mise en place** : Pépin (Pirate, red vest and ponytail) ; Rowboat, one-seater (dark brown) + Rowboat gear: seat, oarlocks, paddles (light brown), Lantern (silver/yellow)
+```
+
+Pour que chaque mise en place reste devant la bonne partie, la réécriture qui suit la
+relecture reçoit les parties séparées par des lignes `* * *` et doit les garder. Si elle
+les fusionne, l'histoire corrigée est gardée, sans mise en place (message sur `stderr`).
+
+### Livret HTML
+
+`--format html` écrit une page HTML autonome (styles inclus, thème clair ou sombre,
+mise en page pour l'impression) au lieu du Markdown :
+
+- une vignette de chaque pièce (champ `image` de l'inventaire, images de PlaymoDB) ;
+- la mise en place de chaque scène en cartes illustrées, avec `--scene-setup` ;
+- « Dans ta boîte » en cartes : personnages, objets, quantités, référence, boîte ;
+- avec `--citations`, chaque `[réf. …]` du texte devient la vignette de la pièce.
+
+Le HTML que contiendrait le texte du LLM est affiché comme du texte, et seules les
+images en `http(s)` sont reprises. Les images sont chargées depuis PlaymoDB à
+l'ouverture de la page. Avec `--format html`, l'histoire s'affiche à la fin, même avec
+`--method direct`.
+
 ## Architecture
 
 ```
@@ -105,8 +168,9 @@ src/
 ├── main.rs              CLI (clap)
 ├── lib.rs
 ├── error.rs             RagError (thiserror), un variant par étape
-├── model.rs             SetNumber, Part, SetInventory
+├── model.rs             SetNumber, Part, SetInventory, pièces absentes
 ├── pipeline.rs          RagPipeline<S: InventorySource, G: StoryGenerator>
+├── html.rs              --format html : livret illustré (pulldown-cmark)
 ├── retriever/           R — récupération
 │   ├── mod.rs           trait InventorySource
 │   ├── playmodb.rs      client HTTP (2 pages en parallèle)
@@ -123,7 +187,7 @@ src/
 │   └── llm.rs           générateur multi-fournisseurs (genai) + repli en cas de refus
 └── writer/              rédaction
     ├── mod.rs           méthodes direct / planned, Observer (progression)
-    ├── plan.rs          plan, schémas JSON, vérification du plan contre l'inventaire
+    ├── plan.rs          plan, vérification contre l'inventaire, mise en place, « Dans ta boîte »
     ├── prompts.rs       prompts plan / rédaction / relecture / correction
     └── planned.rs       Plan → Rédaction → Relecture (adapté de Re3/DOC)
 ```

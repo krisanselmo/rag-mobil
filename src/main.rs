@@ -10,12 +10,12 @@ use rag_mobil::augment::{ContextOptions, StoryOptions};
 use rag_mobil::generator::{
     LlmConfig, LlmGenerator, ReasoningEffort, ReplayGenerator, StoryGenerator, llm,
 };
-use rag_mobil::model::Collection;
+use rag_mobil::model::{Collection, MissingPart};
 use rag_mobil::retriever::{
     Answered, Cached, Fallback, HttpJson, InventorySource, JsonFile, PlaymoDb, cache, playmodb,
 };
 use rag_mobil::writer::{Observer, Step, WriterOptions, WritingMethod, first_prompt};
-use rag_mobil::{RagError, RagPipeline, SetInventory, SetNumber};
+use rag_mobil::{RagError, RagPipeline, SetInventory, SetNumber, html};
 
 /// Méthode de rédaction.
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -33,6 +33,15 @@ impl From<Method> for WritingMethod {
             Method::Direct => Self::Direct,
         }
     }
+}
+
+/// Format de l'histoire sur la sortie standard.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+enum Format {
+    /// Markdown, affiché au fil de l'écriture avec --method direct.
+    Markdown,
+    /// Page HTML autonome, avec les images des pièces (à lire ou imprimer).
+    Html,
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -90,6 +99,25 @@ struct Cli {
     /// Méthode de rédaction.
     #[arg(long, value_enum, default_value_t = Method::Planned)]
     method: Method,
+
+    /// Méthode planned : avant chaque partie, une « Mise en place » liste les
+    /// personnages et objets à installer, d'après le plan validé.
+    #[arg(long, env = "RAG_MOBIL_SCENE_SETUP", value_parser = BoolishValueParser::new())]
+    scene_setup: bool,
+
+    /// Format de sortie.
+    #[arg(short, long, value_enum, env = "RAG_MOBIL_FORMAT", default_value_t = Format::Markdown)]
+    format: Format,
+
+    /// Pièce absente de la boîte (perdue, cassée), par sa référence : toutes
+    /// les copies (30 07 640) ou N d'entre elles (30 07 640:2). Répétable.
+    #[arg(long, value_name = "REF[:N]", value_parser = MissingPart::parse)]
+    missing: Vec<MissingPart>,
+
+    /// Fichier des pièces absentes : une par ligne, au format de --missing ;
+    /// lignes vides et commentaires (#) ignorés.
+    #[arg(long, env = "RAG_MOBIL_MISSING_FILE", value_name = "FICHIER")]
+    missing_file: Option<PathBuf>,
 
     /// Méthode planned : pas de relecture de fidélité à la fin.
     #[arg(long)]
@@ -297,6 +325,24 @@ fn hint(err: &RagError) -> Option<String> {
     }
 }
 
+/// `--missing-file`: one missing part per line, `#` starting a comment.
+fn read_missing_file(path: &PathBuf) -> anyhow::Result<Vec<MissingPart>> {
+    let text = std::fs::read_to_string(path).map_err(|source| RagError::Io {
+        path: path.clone(),
+        source,
+    })?;
+    let mut missing = Vec::new();
+    for (n, line) in text.lines().enumerate() {
+        let line = line.split('#').next().unwrap_or_default().trim();
+        if !line.is_empty() {
+            let part = MissingPart::parse(line)
+                .map_err(|err| anyhow::anyhow!("{}, ligne {} : {err}", path.display(), n + 1))?;
+            missing.push(part);
+        }
+    }
+    Ok(missing)
+}
+
 async fn run(cli: Cli) -> anyhow::Result<()> {
     let mut sets: Vec<SetNumber> = Vec::new();
     for raw in &cli.set_numbers {
@@ -340,9 +386,25 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
         },
     };
 
+    let mut missing = match &cli.missing_file {
+        Some(path) => read_missing_file(path)?,
+        None => Vec::new(),
+    };
+    missing.extend(cli.missing);
+    let (mut collection, origins) = source.fetch_all(&sets).await?;
+    let offline = cli.inventory_json || cli.dry_run;
+    if !offline {
+        eprintln!("[rag-mobil] inventaires : {origins}");
+    }
+    if !missing.is_empty() {
+        eprintln!("[rag-mobil] pièces absentes de la boîte :");
+        for line in collection.remove_missing(&missing) {
+            eprintln!("  - {line}");
+        }
+    }
+
     // Offline modes: retrieval (+ augmentation) only.
-    if cli.inventory_json || cli.dry_run {
-        let (collection, _) = source.fetch_all(&sets).await?;
+    if offline {
         if cli.inventory_json {
             // One set: the inventory itself; several: an array.
             let json = match collection.sets.as_slice() {
@@ -360,36 +422,62 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
         return Ok(());
     }
 
+    if cli.scene_setup && matches!(cli.method, Method::Direct) {
+        eprintln!("[rag-mobil] --scene-setup ignoré : il demande la méthode planned");
+    }
     let writer = WriterOptions {
         method: cli.method.into(),
         review: !cli.no_review,
+        scene_setup: cli.scene_setup,
+    };
+    let telling = Telling {
+        collection,
+        sets: &sets,
+        options: &options,
+        writer,
+        format: cli.format,
     };
     match cli.replay {
-        Some(dir) => tell_story(source, ReplayGenerator::new(dir), &sets, &options, writer).await,
+        Some(dir) => telling.tell(ReplayGenerator::new(dir)).await,
         None => {
             let generator = LlmGenerator::new(LlmConfig {
                 model: cli.model,
                 effort: cli.effort.map(Into::into),
                 fallback_model: (!cli.no_fallback).then_some(cli.fallback_model),
             });
-            tell_story(source, generator, &sets, &options, writer).await
+            telling.tell(generator).await
         }
     }
 }
 
-async fn tell_story<G: StoryGenerator>(
-    source: Source,
-    generator: G,
-    sets: &[SetNumber],
-    options: &StoryOptions,
+/// What to tell, once the inventories are fetched.
+struct Telling<'a> {
+    collection: Collection,
+    sets: &'a [SetNumber],
+    options: &'a StoryOptions,
     writer: WriterOptions,
-) -> anyhow::Result<()> {
-    let (collection, origins) = source.fetch_all(sets).await?;
-    eprintln!("[rag-mobil] inventaires : {origins}");
-    let pipeline = RagPipeline::new(Fetched(collection), generator);
-    let story = pipeline.run(sets, options, writer, &mut Terminal).await?;
-    println!();
+    format: Format,
+}
 
+impl Telling<'_> {
+    async fn tell<G: StoryGenerator>(self, generator: G) -> anyhow::Result<()> {
+        let pipeline = RagPipeline::new(Fetched(self.collection), generator);
+        let mut terminal = Terminal {
+            stream: self.format == Format::Markdown,
+        };
+        let story = pipeline
+            .run(self.sets, self.options, self.writer, &mut terminal)
+            .await?;
+        match self.format {
+            Format::Markdown => println!(),
+            Format::Html => print!("{}", html::render(&story, self.options)),
+        }
+        summary(&story);
+        Ok(())
+    }
+}
+
+fn summary(story: &rag_mobil::Story) {
     let g = &story.written.generation;
     eprintln!(
         "[rag-mobil] {} — {} pièces distinctes, {} figurine(s) — modèle {}, {} appel(s){}",
@@ -405,14 +493,18 @@ async fn tell_story<G: StoryGenerator>(
     if g.truncated {
         eprintln!("[rag-mobil] attention : histoire tronquée (limite max_tokens atteinte)");
     }
-    Ok(())
 }
 
-/// Story on stdout, progress on stderr.
-struct Terminal;
+/// Story on stdout (unless rendered at the end), progress on stderr.
+struct Terminal {
+    stream: bool,
+}
 
 impl Observer for Terminal {
     fn text(&mut self, chunk: &str) {
+        if !self.stream {
+            return;
+        }
         let mut stdout = std::io::stdout();
         let _ = stdout.write_all(chunk.as_bytes());
         let _ = stdout.flush();
@@ -453,6 +545,10 @@ impl Observer for Terminal {
                     eprintln!("  - {}", issue.problem);
                 }
             }
+            Step::SceneSetupDropped => eprintln!(
+                "[rag-mobil] mise en place retirée : la correction n'a pas gardé les parties \
+                 séparées"
+            ),
         }
     }
 }

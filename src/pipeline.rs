@@ -175,6 +175,7 @@ mod tests {
                 Step::Reviewing => "review".into(),
                 Step::ReviewUnreadable => "review-unreadable".into(),
                 Step::Revising(_) => "revise".into(),
+                Step::SceneSetupDropped => "setup-dropped".into(),
             });
         }
     }
@@ -217,7 +218,7 @@ mod tests {
         let generator = ScriptedGenerator::default();
         let writer = WriterOptions {
             method: WritingMethod::Direct,
-            review: true,
+            ..WriterOptions::default()
         };
         let (story, recorder) = run(&generator, writer).await;
 
@@ -263,6 +264,83 @@ mod tests {
         assert!(draft2.contains("Barbe-Rousse cherche partout."));
         assert!(draft2.contains("Objets de la boîte à utiliser : Treasure chest"));
         assert!(draft2.contains("conclus l'histoire"));
+    }
+
+    fn staged() -> WriterOptions {
+        WriterOptions {
+            scene_setup: true,
+            ..WriterOptions::default()
+        }
+    }
+
+    #[tokio::test]
+    async fn scene_setup_precedes_each_part() {
+        let generator = ScriptedGenerator::new(&[
+            plan_json("30 00 001"),
+            "Barbe-Rousse cherche partout.".into(),
+            "Il ouvre enfin le coffre.".into(),
+            r#"{"issues": []}"#.into(),
+        ]);
+        let (story, _) = run(&generator, staged()).await;
+
+        let text = &story.written.generation.text;
+        assert!(text.contains(
+            "# Le trésor de Barbe-Rousse\n\n\
+             > 🧱 **Mise en place** : Barbe-Rousse (Pirate captain)\n\n\
+             Barbe-Rousse cherche partout.\n\n\
+             > 🧱 **Mise en place** : Barbe-Rousse (Pirate captain) ; Treasure chest\n\n\
+             Il ouvre enfin le coffre.\n\n## Dans ta boîte"
+        ));
+        assert!(story.written.staged);
+        assert_eq!(story.written.scenes.len(), 2);
+    }
+
+    fn one_issue() -> String {
+        json!({"issues": [{"excerpt": "un cheval", "problem": "pas de cheval", "fix": "à pied"}]})
+            .to_string()
+    }
+
+    #[tokio::test]
+    async fn revision_keeps_the_scenes_apart() {
+        let generator = ScriptedGenerator::new(&[
+            plan_json("30 00 001"),
+            "Il part avec un cheval.".into(),
+            "Il trouve le coffre.".into(),
+            one_issue(),
+            "Il part à pied.\n\n* * *\n\nIl trouve le coffre.".into(),
+        ]);
+        let (story, recorder) = run(&generator, staged()).await;
+
+        assert_eq!(recorder.steps.last().unwrap(), "revise");
+        assert_eq!(
+            story.written.scenes,
+            ["Il part à pied.", "Il trouve le coffre."]
+        );
+        let text = &story.written.generation.text;
+        assert!(!text.contains("* * *"));
+        assert_eq!(text.matches("Mise en place").count(), 2);
+        let prompts = generator.prompts.lock().unwrap();
+        let revise = &prompts[4].1.user;
+        assert!(revise.contains("Il part avec un cheval.\n\n* * *\n\nIl trouve le coffre."));
+        assert!(revise.contains("en 2 parties séparées par des lignes « * * * »"));
+    }
+
+    #[tokio::test]
+    async fn revision_that_merges_the_scenes_drops_the_setups() {
+        let generator = ScriptedGenerator::new(&[
+            plan_json("30 00 001"),
+            "Il part avec un cheval.".into(),
+            "Il trouve le coffre.".into(),
+            one_issue(),
+            "Il part à pied.\n\nIl trouve le coffre.".into(),
+        ]);
+        let (story, recorder) = run(&generator, staged()).await;
+
+        assert_eq!(recorder.steps.last().unwrap(), "setup-dropped");
+        assert!(!story.written.staged);
+        let text = &story.written.generation.text;
+        assert!(!text.contains("Mise en place"));
+        assert!(text.contains("Il part à pied.\n\nIl trouve le coffre."));
     }
 
     #[tokio::test]

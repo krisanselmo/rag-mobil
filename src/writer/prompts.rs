@@ -170,12 +170,19 @@ fourni entre balises <set>. Réponds uniquement avec le JSON demandé."
     }
 }
 
-/// Rewrites the story, fixing only the reviewed issues.
+/// Line between two parts of the story, for a reviser that must keep them
+/// apart (scene setups).
+pub(crate) const SCENE_BREAK: &str = "* * *";
+
+/// Rewrites the story, fixing only the reviewed issues. With `scenes`, the
+/// story is made of that many parts separated by [`SCENE_BREAK`] lines, to
+/// keep.
 pub(crate) fn revise(
     boxes: &Collection,
     options: &StoryOptions,
     story: &str,
     issues: &[Issue],
+    scenes: Option<usize>,
 ) -> Prompt {
     let context = build_context(boxes, &options.context);
     let mut user = format!(
@@ -195,6 +202,13 @@ pub(crate) fn revise(
          garde tout le reste à l'identique. Ni titre, ni commentaire, ni liste de pièces.",
         options.language
     );
+    if let Some(count) = scenes {
+        let _ = write!(
+            user,
+            " L'histoire est en {count} parties séparées par des lignes « {SCENE_BREAK} » : \
+             garde ces séparateurs, au même endroit."
+        );
+    }
     Prompt {
         system: format!(
             "{}\n\nTu corriges une histoire existante.",
