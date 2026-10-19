@@ -4,7 +4,7 @@
 
 Générateur d'histoires Playmobil basé sur du **RAG** (Retrieval-Augmented Generation) :
 à partir d'un ou plusieurs numéros de set, `rag-mobil` récupère l'inventaire exact des boîtes sur
-[PlaymoDB](https://playmodb.org) puis demande à un LLM (Claude par défaut, ou OpenAI,
+[PlaymoDB](https://playmodb.org) (ou dans [une autre base](#sources-dinventaire)) puis demande à un LLM (Claude par défaut, ou OpenAI,
 Gemini, Groq, un modèle local via Ollama…) d'écrire une histoire qu'un enfant
 peut rejouer **avec ce qu'il a vraiment dans sa boîte** : mêmes figurines, mêmes objets,
 mêmes quantités.
@@ -12,7 +12,8 @@ mêmes quantités.
 ```
 numéro de set ──► Retrieve ──► Augment ──► Rédaction ─────────────────► histoire
                   PlaymoDB     contexte    Plan → Rédaction → Relecture
-                  (scraping)   + prompt    (Re3/DOC), via un LLM (genai)
+                  ou autre     + prompt    (Re3/DOC), via un LLM (genai)
+                  source
 ```
 
 ## Installation
@@ -81,6 +82,8 @@ vont sur `stderr` (`rag-mobil 3666 > histoire.md` fonctionne).
 | `--refresh` | off | Interroge PlaymoDB même si le cache est à jour |
 | `--no-cache` | off | N'utilise pas le cache |
 | `--inventory-file` | — | Inventaires lus dans un fichier JSON (sortie de `--inventory-json`) |
+| `--inventory-url` / `RAG_MOBIL_INVENTORY_URL` | — | Source HTTP d'inventaires (`{set}` = numéro du set), PlaymoDB en repli |
+| `--no-playmodb` | off | Avec `--inventory-url` : pas de repli sur PlaymoDB |
 | `--replay` | — | Contourne le LLM : prompts et réponses dans des fichiers (voir Développement) |
 
 ## Architecture
@@ -95,7 +98,11 @@ src/
 ├── retriever/           R — récupération
 │   ├── mod.rs           trait InventorySource
 │   ├── playmodb.rs      client HTTP (2 pages en parallèle)
-│   └── parser.rs        parsing HTML pur, testé sur fixtures
+│   ├── parser.rs        parsing HTML pur, testé sur fixtures
+│   ├── cache.rs         cache disque, un fichier JSON par set
+│   ├── json_file.rs     --inventory-file
+│   ├── http_json.rs     source HTTP au format v1 (--inventory-url)
+│   └── fallback.rs      une source, puis une autre pour les sets inconnus
 ├── augment/             A — augmentation
 │   ├── context.rs       inventaire → contexte structuré (<set>, <personnages>, <pieces>)
 │   └── prompt.rs        prompt système (règles de fidélité) + message utilisateur
@@ -108,6 +115,40 @@ src/
     ├── prompts.rs       prompts plan / rédaction / relecture / correction
     └── planned.rs       Plan → Rédaction → Relecture (adapté de Re3/DOC)
 ```
+
+### Sources d'inventaire
+
+Par défaut, les inventaires viennent de PlaymoDB (voir ci-dessous). Toute autre base peut
+les fournir, au [format d'inventaire v1](docs/format-inventaire.md) (schéma JSON :
+[`schema/inventory-v1.schema.json`](schema/inventory-v1.schema.json)), le même que
+celui de `--inventory-json` et du cache :
+
+```bash
+# Un service qui répond GET /api/inventories/<set> ; PlaymoDB pour les sets qu'il ne connaît pas
+rag-mobil 3666 70145 --inventory-url 'http://localhost:8096/api/inventories/{set}'
+
+# Ce service seulement
+rag-mobil 3666 --inventory-url 'http://localhost:8096/api/inventories/{set}' --no-playmodb
+
+# Un fichier
+rag-mobil 3666 --inventory-file mes-boites.json
+```
+
+| Source | Quand | Repli |
+|---|---|---|
+| `--inventory-file` | un fichier, un set ou un tableau | aucun |
+| `--inventory-url` / `RAG_MOBIL_INVENTORY_URL` | service HTTP, `{set}` remplacé par le numéro | PlaymoDB (avec cache) si le service répond `404`, sauf `--no-playmodb` |
+| (rien) | PlaymoDB, avec cache sauf `--no-cache` | aucun |
+
+Avec `--inventory-url`, seule une réponse `404` passe la main à PlaymoDB ; une autre
+erreur (service en panne, JSON invalide, autre set que celui demandé, inventaire vide)
+arrête le programme. `--cache-dir`, `--refresh` et `--no-cache` s'appliquent au repli
+PlaymoDB. `--inventory-file` donné sur la ligne de commande l'emporte sur
+`RAG_MOBIL_INVENTORY_URL`. La ligne `[rag-mobil] inventaires : 3666 (localhost:8096),
+70145 (cache)` indique d'où vient chaque set.
+
+Dans un inventaire, la catégorie `Klicky` (PlaymoDB) ou `figure` désigne une figurine,
+c'est-à-dire un personnage possible ; les autres pièces sont regroupées par catégorie.
 
 ### Retrieve — PlaymoDB
 
@@ -202,8 +243,8 @@ Cela représente 5 à 9 appels au LLM au lieu d'un : l'histoire s'affiche à la 
 étapes sur `stderr`. `--method direct` revient à un seul appel en streaming.
 
 Un autre LLM peut être branché en implémentant le trait `StoryGenerator`, une autre
-source de données (cache local, autre base) via `InventorySource`, et le déroulé suivi
-via le trait `Observer`.
+source de données via `InventorySource` (ou sans code, avec `--inventory-url`), et le
+déroulé suivi via le trait `Observer`.
 
 ## Développement
 
@@ -247,4 +288,4 @@ UPDATE_GOLDEN=1 cargo test --test e2e_replay
 
 Projet non officiel, sans lien avec geobra Brandstätter Stiftung & Co. KG.
 PLAYMOBIL® est une marque déposée de geobra Brandstätter Stiftung & Co. KG.
-Les données d'inventaire proviennent de [PlaymoDB](https://playmodb.org).
+Par défaut, les données d'inventaire proviennent de [PlaymoDB](https://playmodb.org).

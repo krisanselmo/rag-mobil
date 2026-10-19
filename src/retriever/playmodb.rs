@@ -2,16 +2,10 @@ use std::time::Duration;
 
 use crate::error::{RagError, Result};
 use crate::model::{SetInventory, SetNumber};
-use crate::retriever::InventorySource;
 use crate::retriever::parser::{merge, parse_listinv, parse_showinv};
+use crate::retriever::{InventorySource, USER_AGENT};
 
 pub const DEFAULT_BASE_URL: &str = "https://playmodb.org/cgi-bin";
-
-const USER_AGENT: &str = concat!(
-    "rag-mobil/",
-    env!("CARGO_PKG_VERSION"),
-    " (+https://github.com/krisanselmo/rag-mobil)"
-);
 
 /// Scrapes PlaymoDB (two pages per set, fetched concurrently).
 pub struct PlaymoDb {
@@ -81,7 +75,7 @@ impl InventorySource for PlaymoDb {
 
         let show = parse_showinv(&show_html);
         if !show.found {
-            return Err(RagError::SetNotFound(set.to_string()));
+            return Err(RagError::SetNotFound(format!("{set} (absent de PlaymoDB)")));
         }
         let parts = merge(&show, parse_listinv(&list_html));
         if parts.is_empty() {

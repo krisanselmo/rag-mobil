@@ -33,29 +33,36 @@ impl std::fmt::Display for SetNumber {
 /// One line of a set inventory.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Part {
-    /// PlaymoDB part number, e.g. `30 00 4950`.
+    /// Part reference, e.g. PlaymoDB's `30 00 4950`.
     pub number: String,
     pub name: String,
     pub color: Option<String>,
-    /// `None` when PlaymoDB lists the part without a count.
+    /// `None` when the source lists the part without a count.
     pub quantity: Option<u32>,
-    /// PlaymoDB category (`Klicky`, `Animal`, `Furniture`, ...).
+    /// Free text (`Klicky`, `Animal`, `Furniture`, ...); see [`Part::is_figure`].
     pub category: String,
     /// Sub-components listed under the part (e.g. a figure's wig).
     pub components: Vec<String>,
 }
 
 impl Part {
+    /// A figure (a character): category `Klicky` (PlaymoDB) or `figure`, any case.
     pub fn is_figure(&self) -> bool {
-        self.category.eq_ignore_ascii_case(CATEGORY_FIGURES)
+        [CATEGORY_FIGURES, CATEGORY_FIGURE]
+            .iter()
+            .any(|c| self.category.eq_ignore_ascii_case(c))
     }
 }
 
 /// PlaymoDB's category for the figures ("Klickys").
 pub const CATEGORY_FIGURES: &str = "Klicky";
+/// Source-neutral category for the figures.
+pub const CATEGORY_FIGURE: &str = "figure";
 pub const CATEGORY_UNKNOWN: &str = "Other";
 
-/// The retrieved document: everything we know about a set.
+/// The retrieved document: everything we know about a set. Its JSON form is
+/// the inventory format v1 (`docs/format-inventaire.md`,
+/// `schema/inventory-v1.schema.json`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SetInventory {
     pub set_number: SetNumber,
@@ -116,5 +123,31 @@ impl Collection {
 impl From<SetInventory> for Collection {
     fn from(set: SetInventory) -> Self {
         Self::new(vec![set])
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn part(category: &str) -> Part {
+        Part {
+            number: "1".into(),
+            name: "x".into(),
+            color: None,
+            quantity: None,
+            category: category.into(),
+            components: vec![],
+        }
+    }
+
+    #[test]
+    fn figures_are_klicky_or_figure() {
+        for category in ["Klicky", "klicky", "KLICKY", "figure", "Figure", "FIGURE"] {
+            assert!(part(category).is_figure(), "{category}");
+        }
+        for category in ["Animal", "Figures", "Klickys", "", "Other"] {
+            assert!(!part(category).is_figure(), "{category}");
+        }
     }
 }

@@ -2,14 +2,17 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use clap::{Parser, ValueEnum};
+use clap::parser::ValueSource;
+use clap::{CommandFactory, FromArgMatches, Parser, ValueEnum};
 
 use rag_mobil::augment::{ContextOptions, StoryOptions};
 use rag_mobil::generator::{
     LlmConfig, LlmGenerator, ReasoningEffort, ReplayGenerator, StoryGenerator, llm,
 };
 use rag_mobil::model::Collection;
-use rag_mobil::retriever::{Cached, InventorySource, JsonFile, PlaymoDb, cache, playmodb};
+use rag_mobil::retriever::{
+    Answered, Cached, Fallback, HttpJson, InventorySource, JsonFile, PlaymoDb, cache, playmodb,
+};
 use rag_mobil::writer::{Observer, Step, WriterOptions, WritingMethod, first_prompt};
 use rag_mobil::{RagError, RagPipeline, SetInventory, SetNumber};
 
@@ -52,7 +55,7 @@ impl From<Effort> for ReasoningEffort {
     }
 }
 
-/// Génère une histoire Playmobil fidèle au contenu d'une boîte (inventaire PlaymoDB + LLM).
+/// Génère une histoire Playmobil fidèle au contenu d'une boîte (inventaire + LLM).
 #[derive(Debug, Parser)]
 #[command(version, about)]
 struct Cli {
@@ -126,6 +129,19 @@ struct Cli {
     #[arg(long, value_name = "FICHIER")]
     inventory_file: Option<PathBuf>,
 
+    /// Source d'inventaires HTTP au format v1 (docs/format-inventaire.md) ;
+    /// {set} est remplacé par le numéro du set, ex.
+    /// http://localhost:8096/api/inventories/{set}. Un set qu'elle ne connaît
+    /// pas (HTTP 404) est demandé à PlaymoDB. Incompatible avec
+    /// --inventory-file, qui l'emporte sur la variable d'environnement.
+    #[arg(long, env = "RAG_MOBIL_INVENTORY_URL", value_name = "MODELE")]
+    inventory_url: Option<String>,
+
+    /// Avec --inventory-url : pas de repli sur PlaymoDB, un set inconnu de la
+    /// source est une erreur.
+    #[arg(long)]
+    no_playmodb: bool,
+
     /// Dossier du cache des inventaires PlaymoDB [défaut :
     /// ~/.cache/rag-mobil/playmodb, ou l'équivalent du système].
     #[arg(long, env = "RAG_MOBIL_CACHE_DIR", value_name = "DOSSIER")]
@@ -146,44 +162,90 @@ struct Cli {
     replay: Option<PathBuf>,
 }
 
-/// PlaymoDB (cached or not), or saved inventories.
-enum Source {
+/// PlaymoDB, behind the on-disk cache or not.
+enum Playmo {
     Web(PlaymoDb),
     Cached(Cached<PlaymoDb>),
-    File(JsonFile),
 }
 
-impl Source {
-    /// Where each set will come from, e.g. `3666 (cache), 5135 (PlaymoDB)`.
-    fn describe(&self, sets: &[SetNumber]) -> String {
-        sets.iter()
-            .map(|set| {
-                let origin = match self {
-                    Self::Web(_) => "PlaymoDB",
-                    Self::Cached(cache) if cache.cached(set).is_some() => "cache",
-                    Self::Cached(_) => "PlaymoDB",
-                    Self::File(_) => "fichier",
-                };
-                format!("{set} ({origin})")
-            })
-            .collect::<Vec<_>>()
-            .join(", ")
+impl Playmo {
+    fn origin(&self, set: &SetNumber) -> String {
+        match self {
+            Self::Cached(cache) if cache.cached(set).is_some() => "cache".into(),
+            _ => "PlaymoDB".into(),
+        }
     }
 }
 
-impl InventorySource for Source {
+impl InventorySource for Playmo {
     async fn fetch(&self, set: &SetNumber) -> rag_mobil::Result<SetInventory> {
         match self {
             Self::Web(source) => source.fetch(set).await,
             Self::Cached(source) => source.fetch(set).await,
-            Self::File(source) => source.fetch(set).await,
         }
+    }
+}
+
+enum Source {
+    Playmo(Playmo),
+    File(JsonFile),
+    Http(HttpJson),
+    HttpThenPlaymo(Fallback<HttpJson, Playmo>),
+}
+
+impl Source {
+    /// The inventory and where it came from (`cache`, `PlaymoDB`, a host...).
+    async fn fetch_traced(&self, set: &SetNumber) -> rag_mobil::Result<(SetInventory, String)> {
+        Ok(match self {
+            Self::Playmo(source) => {
+                let origin = source.origin(set);
+                (source.fetch(set).await?, origin)
+            }
+            Self::File(source) => (source.fetch(set).await?, "fichier".into()),
+            Self::Http(source) => (source.fetch(set).await?, source.host()),
+            Self::HttpThenPlaymo(chain) => {
+                // Before fetching: afterwards the set is always in the cache.
+                let playmo_origin = chain.second().origin(set);
+                match chain.fetch_traced(set).await? {
+                    (inventory, Answered::First) => (inventory, chain.first().host()),
+                    (inventory, Answered::Second) => (inventory, playmo_origin),
+                }
+            }
+        })
+    }
+
+    /// Every set once, in order, with a summary such as
+    /// `3666 (localhost:8096), 5135 (cache)`.
+    async fn fetch_all(&self, sets: &[SetNumber]) -> rag_mobil::Result<(Collection, String)> {
+        let mut inventories = Vec::with_capacity(sets.len());
+        let mut origins = Vec::with_capacity(sets.len());
+        for set in sets {
+            let (inventory, origin) = self.fetch_traced(set).await?;
+            inventories.push(inventory);
+            origins.push(format!("{set} ({origin})"));
+        }
+        Ok((Collection::new(inventories), origins.join(", ")))
+    }
+}
+
+/// Inventories fetched up front, so the progress line can say where each one
+/// actually came from (with a fallback, that is only known after the fetch).
+struct Fetched(Collection);
+
+impl InventorySource for Fetched {
+    async fn fetch(&self, set: &SetNumber) -> rag_mobil::Result<SetInventory> {
+        self.0
+            .sets
+            .iter()
+            .find(|inventory| &inventory.set_number == set)
+            .cloned()
+            .ok_or_else(|| RagError::SetNotFound(set.to_string()))
     }
 }
 
 #[tokio::main]
 async fn main() -> ExitCode {
-    match run(Cli::parse()).await {
+    match run(parse_cli()).await {
         Ok(()) => ExitCode::SUCCESS,
         Err(err) => {
             eprintln!("Erreur : {err:#}");
@@ -193,6 +255,26 @@ async fn main() -> ExitCode {
             ExitCode::FAILURE
         }
     }
+}
+
+/// Like `Cli::parse()`, but `--inventory-file` only conflicts with an
+/// `--inventory-url` typed on the command line, not with the environment
+/// variable (clap's `conflicts_with` counts both).
+fn parse_cli() -> Cli {
+    let matches = Cli::command().get_matches();
+    let mut cli = Cli::from_arg_matches(&matches).unwrap_or_else(|err| err.exit());
+    if cli.inventory_file.is_some() && cli.inventory_url.is_some() {
+        if matches.value_source("inventory_url") == Some(ValueSource::CommandLine) {
+            Cli::command()
+                .error(
+                    clap::error::ErrorKind::ArgumentConflict,
+                    "--inventory-file et --inventory-url sont incompatibles",
+                )
+                .exit();
+        }
+        cli.inventory_url = None;
+    }
+    cli
 }
 
 fn hint(err: &RagError) -> Option<String> {
@@ -216,16 +298,29 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
             sets.push(set);
         }
     }
-    let source = match &cli.inventory_file {
-        Some(path) => Source::File(JsonFile(path.clone())),
-        None if cli.no_cache => Source::Web(PlaymoDb::new(&cli.playmodb_url)?),
-        None => {
-            let dir = cli
-                .cache_dir
-                .clone()
-                .unwrap_or_else(|| cache::default_cache_dir().join("playmodb"));
-            Source::Cached(Cached::new(PlaymoDb::new(&cli.playmodb_url)?, dir).refresh(cli.refresh))
+    let playmo = || -> anyhow::Result<Playmo> {
+        let scraper = PlaymoDb::new(&cli.playmodb_url)?;
+        if cli.no_cache {
+            return Ok(Playmo::Web(scraper));
         }
+        let dir = cli
+            .cache_dir
+            .clone()
+            .unwrap_or_else(|| cache::default_cache_dir().join("playmodb"));
+        Ok(Playmo::Cached(
+            Cached::new(scraper, dir).refresh(cli.refresh),
+        ))
+    };
+    let source = match (&cli.inventory_file, &cli.inventory_url) {
+        (Some(path), _) => Source::File(JsonFile(path.clone())),
+        (None, Some(template)) if cli.no_playmodb => Source::Http(HttpJson::new(template)?),
+        (None, Some(template)) => {
+            Source::HttpThenPlaymo(Fallback::new(HttpJson::new(template)?, playmo()?))
+        }
+        (None, None) if cli.no_playmodb => {
+            anyhow::bail!("--no-playmodb demande une autre source : --inventory-url")
+        }
+        (None, None) => Source::Playmo(playmo()?),
     };
     let options = StoryOptions {
         language: cli.language,
@@ -239,11 +334,7 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
 
     // Offline modes: retrieval (+ augmentation) only.
     if cli.inventory_json || cli.dry_run {
-        let mut inventories = Vec::new();
-        for set in &sets {
-            inventories.push(source.fetch(set).await?);
-        }
-        let collection = Collection::new(inventories);
+        let (collection, _) = source.fetch_all(&sets).await?;
         if cli.inventory_json {
             // One set: the inventory itself; several: an array.
             let json = match collection.sets.as_slice() {
@@ -285,8 +376,9 @@ async fn tell_story<G: StoryGenerator>(
     options: &StoryOptions,
     writer: WriterOptions,
 ) -> anyhow::Result<()> {
-    eprintln!("[rag-mobil] inventaires : {}…", source.describe(sets));
-    let pipeline = RagPipeline::new(source, generator);
+    let (collection, origins) = source.fetch_all(sets).await?;
+    eprintln!("[rag-mobil] inventaires : {origins}");
+    let pipeline = RagPipeline::new(Fetched(collection), generator);
     let story = pipeline.run(sets, options, writer, &mut Terminal).await?;
     println!();
 

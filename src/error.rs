@@ -6,10 +6,11 @@ pub enum RagError {
     #[error("numéro de set invalide : « {0} » (attendu : chiffres uniquement, ex. 3666)")]
     InvalidSetNumber(String),
 
-    #[error("le set {0} n'existe pas dans PlaymoDB")]
+    /// The payload says which set and which source(s) were asked.
+    #[error("set introuvable : {0}")]
     SetNotFound(String),
 
-    #[error("le set {0} existe dans PlaymoDB mais son inventaire est vide")]
+    #[error("le set {0} est connu mais son inventaire est vide")]
     EmptyInventory(String),
 
     #[error("requête HTTP échouée : {0}")]
@@ -17,6 +18,17 @@ pub enum RagError {
 
     #[error("réponse PlaymoDB inattendue ({url}) : HTTP {status}")]
     ScraperStatus { url: String, status: u16 },
+
+    #[error("réponse inattendue de la source d'inventaire ({url}) : HTTP {status}")]
+    SourceStatus { url: String, status: u16 },
+
+    #[error("inventaire invalide ({url}) : {reason}")]
+    InvalidInventory { url: String, reason: String },
+
+    #[error(
+        "adresse de source d'inventaire invalide : « {0} » (attendu : une adresse http(s) contenant {{set}})"
+    )]
+    InvalidInventoryUrl(String),
 
     #[error("erreur du fournisseur LLM : {0}")]
     Llm(#[from] genai::Error),
