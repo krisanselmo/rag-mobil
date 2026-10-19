@@ -1,5 +1,7 @@
 # rag-mobil 🏰
 
+[![CI](https://github.com/krisanselmo/rag-mobil/actions/workflows/ci.yml/badge.svg)](https://github.com/krisanselmo/rag-mobil/actions/workflows/ci.yml)
+
 Générateur d'histoires Playmobil basé sur du **RAG** (Retrieval-Augmented Generation) :
 à partir d'un numéro de set, `rag-mobil` récupère l'inventaire exact de la boîte sur
 [PlaymoDB](https://playmodb.org) puis demande à Claude d'écrire une histoire qu'un enfant
