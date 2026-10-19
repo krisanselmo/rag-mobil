@@ -1,13 +1,12 @@
 use std::io::Write;
 use std::process::ExitCode;
 
-use anyhow::Context;
 use clap::{Parser, ValueEnum};
 
 use rag_mobil::augment::{ContextOptions, StoryOptions, build_prompt};
-use rag_mobil::generator::{AnthropicClient, AnthropicConfig, anthropic};
+use rag_mobil::generator::{LlmConfig, LlmGenerator, ReasoningEffort, llm};
 use rag_mobil::retriever::{InventorySource, PlaymoDb, playmodb};
-use rag_mobil::{RagPipeline, SetNumber};
+use rag_mobil::{RagError, RagPipeline, SetNumber};
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
 enum Effort {
@@ -18,19 +17,19 @@ enum Effort {
     Max,
 }
 
-impl Effort {
-    fn as_str(self) -> &'static str {
-        match self {
-            Self::Low => "low",
-            Self::Medium => "medium",
-            Self::High => "high",
-            Self::Xhigh => "xhigh",
-            Self::Max => "max",
+impl From<Effort> for ReasoningEffort {
+    fn from(effort: Effort) -> Self {
+        match effort {
+            Effort::Low => Self::Low,
+            Effort::Medium => Self::Medium,
+            Effort::High => Self::High,
+            Effort::Xhigh => Self::XHigh,
+            Effort::Max => Self::Max,
         }
     }
 }
 
-/// Génère une histoire Playmobil fidèle au contenu d'une boîte (inventaire PlaymoDB + Claude).
+/// Génère une histoire Playmobil fidèle au contenu d'une boîte (inventaire PlaymoDB + LLM).
 #[derive(Debug, Parser)]
 #[command(version, about)]
 struct Cli {
@@ -57,13 +56,23 @@ struct Cli {
     #[arg(long)]
     include_all: bool,
 
-    /// Modèle Claude.
-    #[arg(long, env = "RAG_MOBIL_MODEL", default_value = anthropic::DEFAULT_MODEL)]
+    /// Modèle LLM ; le fournisseur est déduit du nom : claude-… (Anthropic),
+    /// gpt-… (OpenAI), gemini-… (Gemini), ollama::<modèle> (local, gratuit)…
+    #[arg(short, long, env = "RAG_MOBIL_MODEL", default_value = llm::DEFAULT_MODEL)]
     model: String,
 
-    /// Niveau d'effort du modèle.
-    #[arg(long, value_enum, default_value_t = Effort::Medium)]
-    effort: Effort,
+    /// Niveau d'effort / de réflexion (défaut : medium pour Claude, celui du
+    /// fournisseur sinon).
+    #[arg(long, value_enum)]
+    effort: Option<Effort>,
+
+    /// Modèle relancé une fois si Claude décline la requête.
+    #[arg(long, default_value = llm::DEFAULT_FALLBACK_MODEL, conflicts_with = "no_fallback")]
+    fallback_model: String,
+
+    /// Pas de nouvelle tentative en cas de refus.
+    #[arg(long)]
+    no_fallback: bool,
 
     /// URL de base de PlaymoDB.
     #[arg(long, env = "PLAYMODB_BASE_URL", default_value = playmodb::DEFAULT_BASE_URL)]
@@ -84,8 +93,24 @@ async fn main() -> ExitCode {
         Ok(()) => ExitCode::SUCCESS,
         Err(err) => {
             eprintln!("Erreur : {err:#}");
+            if let Some(hint) = err.downcast_ref::<RagError>().and_then(hint) {
+                eprintln!("Astuce : {hint}");
+            }
             ExitCode::FAILURE
         }
+    }
+}
+
+fn hint(err: &RagError) -> Option<String> {
+    match err {
+        RagError::Llm(genai::Error::Resolver {
+            resolver_error: genai::resolver::Error::ApiKeyEnvNotFound { env_name },
+            ..
+        }) => Some(format!(
+            "définissez {env_name}, choisissez un modèle local gratuit \
+             (ex. -m ollama::llama3.2) ou utilisez --dry-run"
+        )),
+        _ => None,
     }
 }
 
@@ -117,11 +142,12 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
         return Ok(());
     }
 
-    let mut config = AnthropicConfig::from_env()
-        .context("définissez ANTHROPIC_API_KEY (ou utilisez --dry-run)")?;
-    config.model = cli.model;
-    config.effort = cli.effort.as_str().to_owned();
-    let pipeline = RagPipeline::new(source, AnthropicClient::new(config)?);
+    let generator = LlmGenerator::new(LlmConfig {
+        model: cli.model,
+        effort: cli.effort.map(Into::into),
+        fallback_model: (!cli.no_fallback).then_some(cli.fallback_model),
+    });
+    let pipeline = RagPipeline::new(source, generator);
 
     eprintln!("[rag-mobil] récupération de l'inventaire du set {set} sur PlaymoDB…");
     let mut stdout = std::io::stdout();
@@ -142,7 +168,7 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
         story.inventory.figures().count(),
         g.model,
         g.output_tokens
-            .map(|t| format!(", {t} tokens générés"))
+            .map(|t| format!(", ~{t} tokens générés"))
             .unwrap_or_default(),
     );
     if g.truncated {

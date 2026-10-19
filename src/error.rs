@@ -18,21 +18,11 @@ pub enum RagError {
     #[error("réponse PlaymoDB inattendue ({url}) : HTTP {status}")]
     ScraperStatus { url: String, status: u16 },
 
-    #[error("variable d'environnement {0} manquante")]
-    MissingEnv(&'static str),
+    #[error("erreur du fournisseur LLM : {0}")]
+    Llm(#[from] genai::Error),
 
-    #[error("erreur de l'API Claude (HTTP {status}, {kind}) : {message}")]
-    LlmApi {
-        status: u16,
-        kind: String,
-        message: String,
-    },
-
-    #[error("erreur pendant le streaming Claude ({kind}) : {message}")]
-    LlmStream { kind: String, message: String },
-
-    #[error("Claude a décliné la requête (catégorie : {category})")]
-    LlmRefusal { category: String },
+    #[error("le modèle {model} a décliné la requête")]
+    LlmRefusal { model: String },
 
     #[error("JSON invalide : {0}")]
     Json(#[from] serde_json::Error),

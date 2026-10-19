@@ -4,7 +4,7 @@
 //!
 //! 1. [`retriever`] — scrape the set inventory from PlaymoDB;
 //! 2. [`augment`] — turn it into a grounding context and a prompt;
-//! 3. [`generator`] — have Claude write the story.
+//! 3. [`generator`] — have an LLM (Claude by default, via `genai`) write the story.
 //!
 //! [`pipeline::RagPipeline`] chains the three.
 

@@ -2,7 +2,7 @@
 name = "rag-mobil"
 version = "0.1.0"
 edition = "2024"
-description = "Générateur d'histoires Playmobil fidèles au contenu de la boîte (RAG : PlaymoDB + Claude)"
+description = "Générateur d'histoires Playmobil fidèles au contenu de la boîte (RAG : PlaymoDB + LLM)"
 repository = "https://github.com/krisanselmo/rag-mobil"
 rust-version = "1.88"
 
@@ -10,9 +10,13 @@ rust-version = "1.88"
 anyhow = "1.0.104"
 clap = { version = "4.6.7", features = ["derive", "env"] }
 futures-util = "0.3.34"
+genai = "0.6.5"
 reqwest = { version = "0.13.5", default-features = false, features = ["rustls", "json", "stream", "http2", "system-proxy"] }
 scraper = "0.27.0"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
 thiserror = "2.0.21"
 tokio = { version = "1.53.3", features = ["macros", "rt-multi-thread"] }
+
+[dev-dependencies]
+tokio = { version = "1.53.3", features = ["macros", "rt-multi-thread", "net", "io-util"] }

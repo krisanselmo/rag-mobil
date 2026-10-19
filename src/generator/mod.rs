@@ -1,14 +1,14 @@
 //! **G** of RAG: generate the story from the augmented prompt.
 
-pub mod anthropic;
-pub mod sse;
+pub mod llm;
 
 use std::future::Future;
 
 use crate::augment::Prompt;
 use crate::error::Result;
 
-pub use anthropic::{AnthropicClient, AnthropicConfig};
+pub use genai::chat::ReasoningEffort;
+pub use llm::{LlmConfig, LlmGenerator};
 
 /// The model's answer.
 #[derive(Debug, Clone)]
@@ -18,6 +18,7 @@ pub struct Generation {
     pub model: String,
     /// `true` if generation stopped on `max_tokens`.
     pub truncated: bool,
+    /// Approximate (provider-reported, as aggregated by genai).
     pub output_tokens: Option<u64>,
 }
 

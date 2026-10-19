@@ -4,13 +4,14 @@
 
 Générateur d'histoires Playmobil basé sur du **RAG** (Retrieval-Augmented Generation) :
 à partir d'un numéro de set, `rag-mobil` récupère l'inventaire exact de la boîte sur
-[PlaymoDB](https://playmodb.org) puis demande à Claude d'écrire une histoire qu'un enfant
+[PlaymoDB](https://playmodb.org) puis demande à un LLM (Claude par défaut, ou OpenAI,
+Gemini, Groq, un modèle local via Ollama…) d'écrire une histoire qu'un enfant
 peut rejouer **avec ce qu'il a vraiment dans sa boîte** : mêmes figurines, mêmes objets,
 mêmes quantités.
 
 ```
 numéro de set ──► Retrieve ──► Augment ──► Generate ──► histoire
-                  PlaymoDB     contexte    Claude
+                  PlaymoDB     contexte    LLM (genai)
                   (scraping)   + prompt    (streaming)
 ```
 
@@ -18,8 +19,19 @@ numéro de set ──► Retrieve ──► Augment ──► Generate ──►
 
 ```bash
 cargo build --release
-export ANTHROPIC_API_KEY=sk-ant-...
 ```
+
+Puis, selon le fournisseur choisi :
+
+| Modèle (`-m`) | Fournisseur | Prérequis |
+|---|---|---|
+| `claude-opus-5-5` (défaut), `claude-…` | Anthropic | `ANTHROPIC_API_KEY` |
+| `gpt-…` | OpenAI | `OPENAI_API_KEY` |
+| `gemini-…` | Google Gemini | `GEMINI_API_KEY` |
+| `ollama::<modèle>` (ex. `ollama::llama3.2`) | [Ollama](https://ollama.com), local et gratuit | `ollama pull <modèle>`, pas de clé |
+
+D'autres fournisseurs sont pris en charge (Groq, DeepSeek, xAI, Cohere, OpenRouter, Bedrock…) :
+voir la [liste de genai](https://github.com/jeremychone/rust-genai).
 
 ## Utilisation
 
@@ -30,6 +42,10 @@ rag-mobil 3666
 # Personnalisée
 rag-mobil 5135 --age 5 --words 400 --theme "une tempête et un trésor perdu"
 rag-mobil 3666 --language English --effort high
+
+# Autres fournisseurs
+rag-mobil 3666 -m gpt-5.4-mini
+rag-mobil 3666 -m ollama::llama3.2        # local, sans clé API
 
 # Sans appel au LLM (pas besoin de clé API)
 rag-mobil 3666 --inventory-json   # inventaire récupéré, en JSON
@@ -46,11 +62,11 @@ vont sur `stderr` (`rag-mobil 3666 > histoire.md` fonctionne).
 | `-w, --words` | `600` | Longueur visée |
 | `-t, --theme` | — | Souhait libre |
 | `--include-all` | off | Garde aussi les notices papier dans le contexte |
-| `--model` / `RAG_MOBIL_MODEL` | `claude-opus-5-5` | Modèle Claude |
-| `--effort` | `medium` | `low`, `medium`, `high`, `xhigh`, `max` |
+| `-m, --model` / `RAG_MOBIL_MODEL` | `claude-opus-5-5` | Modèle ; le fournisseur est déduit du nom |
+| `--effort` | `medium` pour Claude, défaut du fournisseur sinon | `low`, `medium`, `high`, `xhigh`, `max` |
+| `--fallback-model` | `claude-opus-4-8` | Modèle relancé une fois si Claude décline la requête |
+| `--no-fallback` | off | Désactive cette nouvelle tentative |
 | `--playmodb-url` / `PLAYMODB_BASE_URL` | `https://playmodb.org/cgi-bin` | Miroir PlaymoDB |
-
-`ANTHROPIC_BASE_URL` permet de pointer vers un autre endpoint compatible.
 
 ## Architecture
 
@@ -70,8 +86,7 @@ src/
 │   └── prompt.rs        prompt système (règles de fidélité) + message utilisateur
 └── generator/           G — génération
     ├── mod.rs           trait StoryGenerator
-    ├── anthropic.rs     API Messages de Claude (HTTP brut + SSE)
-    └── sse.rs           décodeur Server-Sent Events
+    └── llm.rs           générateur multi-fournisseurs (genai) + repli en cas de refus
 ```
 
 ### Retrieve — PlaymoDB
@@ -101,16 +116,22 @@ présents dans l'inventaire, quantités respectées, pièces techniques utilisé
 pour décrire le décor. L'histoire se termine par une section « Dans ta boîte » listant
 les éléments utilisés.
 
-### Generate — Claude
+### Generate — LLM via genai
 
-Il n'existe pas de SDK Anthropic officiel pour Rust : `generator/anthropic.rs` appelle
-directement `POST /v1/messages` en streaming SSE, avec :
+La génération s'appuie sur la bibliothèque open source
+[`genai`](https://github.com/jeremychone/rust-genai) (MIT/Apache-2.0), qui fournit un
+client unique pour une vingtaine de fournisseurs, en streaming. `generator/llm.rs` y
+ajoute ce qui est propre au projet :
 
-- `thinking: {type: "adaptive"}` et `output_config.effort` (réglable avec `--effort`) ;
-- `fallbacks: "default"` (beta `server-side-fallback-2026-07-01`) : si un classifieur de
-  sécurité décline la requête, l'API la relance côté serveur sur un modèle de repli ;
-- gestion de `stop_reason: "refusal"` (le texte partiel est alors jeté) et de
-  `max_tokens` (avertissement de troncature).
+- **Claude** : `max_tokens` à 64 000 et effort `medium` par défaut, que genai traduit en
+  `thinking: {type: "adaptive"}` + `output_config.effort` ;
+- **refus** : si le modèle décline la requête (`stop_reason: "refusal"` chez Claude, filtre
+  de contenu ailleurs), le texte partiel est abandonné ; pour Claude, une seule nouvelle
+  tentative est faite sur `--fallback-model` ;
+- **troncature** : un arrêt sur `max_tokens` est signalé.
+
+Les autres fournisseurs gardent leurs réglages par défaut (beaucoup de modèles locaux
+refusent les paramètres de raisonnement) ; `--effort` permet de les forcer.
 
 Un autre LLM peut être branché en implémentant le trait `StoryGenerator`, et une autre
 source de données (cache local, autre base) via `InventorySource`.
@@ -118,7 +139,7 @@ source de données (cache local, autre base) via `InventorySource`.
 ## Développement
 
 ```bash
-cargo test     # tests unitaires hors-ligne (fixtures HTML dans tests/fixtures/)
+cargo test     # hors-ligne : fixtures HTML (tests/fixtures/) et faux serveur Claude (tests/llm_mock.rs)
 cargo clippy --all-targets
 cargo fmt
 ```
