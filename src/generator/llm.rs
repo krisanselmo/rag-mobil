@@ -8,13 +8,18 @@
 //! | `gpt-…`                     | OpenAI    | `OPENAI_API_KEY`   |
 //! | `gemini-…`                  | Gemini    | `GEMINI_API_KEY`   |
 //! | `ollama::<model>` or other  | Ollama    | none (local)       |
+//!
+//! With `RAG_MOBIL_OPENAI_BASE_URL` set, `openai::<model>` goes to that
+//! OpenAI-compatible server (llama.cpp, vLLM, LM Studio…) instead of
+//! api.openai.com, and needs no key.
 
 use futures_util::StreamExt;
-use genai::Client;
 use genai::adapter::AdapterKind;
 use genai::chat::{
     ChatMessage, ChatOptions, ChatRequest, ChatStreamEvent, JsonSpec, ReasoningEffort, StopReason,
 };
+use genai::resolver::{AuthData, Endpoint, ServiceTargetResolver};
+use genai::{Client, ServiceTarget};
 use serde_json::Value;
 
 use crate::augment::Prompt;
@@ -26,6 +31,10 @@ pub const DEFAULT_MODEL: &str = "claude-opus-5-5";
 pub const DEFAULT_FALLBACK_MODEL: &str = "claude-opus-4-8";
 /// Claude needs an explicit `max_tokens`; streaming makes a high cap safe.
 const CLAUDE_MAX_TOKENS: u32 = 64_000;
+/// An OpenAI-compatible server for `openai::<model>`, e.g. `http://localhost:8080/v1`.
+pub const OPENAI_BASE_URL_ENV: &str = "RAG_MOBIL_OPENAI_BASE_URL";
+/// Sent when `OPENAI_API_KEY` is unset: local servers ignore the key, genai requires one.
+const NO_KEY: &str = "none";
 
 #[derive(Debug, Clone)]
 pub struct LlmConfig {
@@ -54,9 +63,14 @@ pub struct LlmGenerator {
 
 impl LlmGenerator {
     /// Uses genai's defaults: provider from the model name, API key from the
-    /// provider's usual environment variable.
+    /// provider's usual environment variable. `RAG_MOBIL_OPENAI_BASE_URL`
+    /// redirects the OpenAI provider to a compatible server.
     pub fn new(config: LlmConfig) -> Self {
-        Self::with_client(Client::default(), config)
+        let client = match openai_base_url(std::env::var(OPENAI_BASE_URL_ENV).ok().as_deref()) {
+            Some(url) => openai_compatible_client(&url, std::env::var("OPENAI_API_KEY").is_ok()),
+            None => Client::default(),
+        };
+        Self::with_client(client, config)
     }
 
     /// Custom genai client (other endpoint, auth resolver, tests...).
@@ -136,6 +150,46 @@ impl Attempt {
 /// Claude reports `"refusal"`; other providers use their content-filter reasons.
 fn is_refusal(reason: &StopReason) -> bool {
     matches!(reason, StopReason::ContentFilter(_)) || reason.raw() == "refusal"
+}
+
+/// The base URL genai expects: blank means unset, and a trailing `/` so that
+/// `chat/completions` is appended to it rather than replacing its last segment.
+fn openai_base_url(raw: Option<&str>) -> Option<String> {
+    let url = raw?.trim();
+    if url.is_empty() {
+        return None;
+    }
+    Some(if url.ends_with('/') {
+        url.to_owned()
+    } else {
+        format!("{url}/")
+    })
+}
+
+/// A client whose OpenAI provider talks to `base_url`; every other provider is
+/// untouched. Without `has_key`, a placeholder key replaces `OPENAI_API_KEY`.
+pub fn openai_compatible_client(base_url: &str, has_key: bool) -> Client {
+    let base_url = openai_base_url(Some(base_url)).unwrap_or_default();
+    let resolver = ServiceTargetResolver::from_resolver_fn(
+        move |target: ServiceTarget| -> genai::resolver::Result<ServiceTarget> {
+            if target.model.adapter_kind != AdapterKind::OpenAI {
+                return Ok(target);
+            }
+            let auth = if has_key {
+                target.auth
+            } else {
+                AuthData::from_single(NO_KEY)
+            };
+            Ok(ServiceTarget {
+                endpoint: Endpoint::from_owned(base_url.clone()),
+                auth,
+                model: target.model,
+            })
+        },
+    );
+    Client::builder()
+        .with_service_target_resolver(resolver)
+        .build()
 }
 
 fn chat_options(kind: AdapterKind, effort: Option<ReasoningEffort>) -> ChatOptions {
@@ -225,6 +279,40 @@ impl StoryGenerator for LlmGenerator {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn base_url_is_blank_or_ends_with_a_slash() {
+        assert_eq!(openai_base_url(None), None);
+        assert_eq!(openai_base_url(Some("  ")), None);
+        assert_eq!(
+            openai_base_url(Some("http://llm:8080/v1")).as_deref(),
+            Some("http://llm:8080/v1/")
+        );
+        assert_eq!(
+            openai_base_url(Some("http://llm:8080/v1/")).as_deref(),
+            Some("http://llm:8080/v1/")
+        );
+    }
+
+    #[tokio::test]
+    async fn only_the_openai_provider_is_redirected() {
+        let client = openai_compatible_client("http://llm:8080/v1", false);
+
+        let local = client
+            .resolve_service_target("openai::ministral-3-3b")
+            .await
+            .unwrap();
+        assert_eq!(local.endpoint.base_url(), "http://llm:8080/v1/");
+        assert_eq!(local.model.adapter_kind, AdapterKind::OpenAI);
+        assert_eq!(local.auth.single_key_value().unwrap(), NO_KEY);
+
+        let claude = client
+            .resolve_service_target("claude-opus-5-5")
+            .await
+            .unwrap();
+        assert_eq!(claude.model.adapter_kind, AdapterKind::Anthropic);
+        assert_ne!(claude.endpoint.base_url(), "http://llm:8080/v1/");
+    }
 
     #[test]
     fn claude_gets_max_tokens_and_medium_effort_by_default() {

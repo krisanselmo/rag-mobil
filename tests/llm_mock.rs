@@ -8,7 +8,7 @@ use genai::resolver::{AuthData, Endpoint, ServiceTargetResolver};
 use genai::{Client, ModelIden, ServiceTarget};
 use rag_mobil::RagError;
 use rag_mobil::augment::Prompt;
-use rag_mobil::generator::{LlmConfig, LlmGenerator, StoryGenerator};
+use rag_mobil::generator::{LlmConfig, LlmGenerator, StoryGenerator, openai_compatible_client};
 use serde_json::{Value, json};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
@@ -263,5 +263,85 @@ async fn structured_output_sends_json_schema() {
     assert_eq!(
         output_config["format"]["schema"]["additionalProperties"],
         false
+    );
+}
+
+/// An OpenAI chat-completions stream, as llama.cpp or vLLM send it.
+fn openai_stream(model: &str, chunks: &[&str]) -> String {
+    let mut sse = String::new();
+    for chunk in chunks {
+        let data = json!({"id": "c1", "object": "chat.completion.chunk", "model": model,
+            "choices": [{"index": 0, "delta": {"content": chunk}, "finish_reason": null}]});
+        sse.push_str(&format!("data: {data}\n\n"));
+    }
+    let end = json!({"id": "c1", "object": "chat.completion.chunk", "model": model,
+        "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+        "usage": {"prompt_tokens": 100, "completion_tokens": 7, "total_tokens": 107}});
+    sse.push_str(&format!("data: {end}\n\ndata: [DONE]\n\n"));
+    sse
+}
+
+fn local_generator(url: &str) -> LlmGenerator {
+    LlmGenerator::with_client(
+        openai_compatible_client(url, false),
+        LlmConfig {
+            model: "openai::ministral-3-3b".into(),
+            fallback_model: None,
+            ..LlmConfig::default()
+        },
+    )
+}
+
+#[tokio::test]
+async fn openai_compatible_server_gets_the_story_request() {
+    let (url, recorded) = mock_server(vec![openai_stream(
+        "ministral-3-3b",
+        &["Il était ", "une fois…"],
+    )])
+    .await;
+
+    let generation = local_generator(&url)
+        .generate(&prompt(), |_| {})
+        .await
+        .unwrap();
+    assert_eq!(generation.text, "Il était une fois…");
+
+    let requests = recorded.lock().unwrap();
+    let request = &requests[0];
+    assert!(request.head.starts_with("post /v1/chat/completions"));
+    assert!(request.head.contains("authorization: bearer none"));
+    assert_eq!(request.body["model"], "ministral-3-3b");
+    assert_eq!(request.body["stream"], true);
+    assert!(
+        request.body["messages"]
+            .to_string()
+            .contains("Tu es un conteur.")
+    );
+}
+
+#[tokio::test]
+async fn openai_compatible_server_gets_the_json_schema() {
+    let (url, recorded) = mock_server(vec![openai_stream(
+        "ministral-3-3b",
+        &["{\"issues\": ", "[]}"],
+    )])
+    .await;
+
+    let schema = json!({
+        "type": "object",
+        "properties": {"issues": {"type": "array", "items": {"type": "string"}}},
+        "required": ["issues"],
+    });
+    let generation = local_generator(&url)
+        .generate_json(&prompt(), "story_review", &schema)
+        .await
+        .unwrap();
+    assert_eq!(generation.text, "{\"issues\": []}");
+
+    let format = &recorded.lock().unwrap()[0].body["response_format"];
+    assert_eq!(format["type"], "json_schema");
+    assert_eq!(
+        format["json_schema"]["schema"]["properties"]["issues"]["type"],
+        "array"
     );
 }

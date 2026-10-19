@@ -11,7 +11,7 @@ use crate::augment::Prompt;
 use crate::error::Result;
 
 pub use genai::chat::ReasoningEffort;
-pub use llm::{LlmConfig, LlmGenerator};
+pub use llm::{LlmConfig, LlmGenerator, OPENAI_BASE_URL_ENV, openai_compatible_client};
 pub use replay::ReplayGenerator;
 
 /// The model's answer.
