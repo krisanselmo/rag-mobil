@@ -534,6 +534,58 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn favorite_part_is_at_the_heart_of_the_story() {
+        let options = StoryOptions {
+            stars: vec!["3000002".into()],
+            ..StoryOptions::default()
+        };
+        // The chest serves in one step out of two: rejected, then put back
+        // in the first step by code.
+        let generator = ScriptedGenerator::new(&[
+            plan_json("30 00 001"),
+            plan_json("30 00 001"),
+            "Partie 1.".into(),
+            "Partie 2.".into(),
+            r#"{"issues": []}"#.into(),
+        ]);
+        let pipeline = RagPipeline::new(FakeSource::default(), &generator);
+        let mut recorder = Recorder::default();
+        let story = pipeline
+            .run(
+                &[SetNumber::parse("5135").unwrap()],
+                &options,
+                WriterOptions::default(),
+                &mut recorder,
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(
+            recorder.steps[..4],
+            ["plan", "plan-rejected", "plan-repaired", "plan-ready"]
+        );
+        let plan = story.written.plan.unwrap();
+        assert_eq!(plan.outline[0].objects, ["30 00 002"]);
+        let prompts = generator.prompts.lock().unwrap();
+        assert!(prompts[0].1.user.contains(
+            "Pièce préférée de l'enfant : Treasure chest [réf. 30 00 002] ; donne-lui un \
+             rôle central"
+        ));
+        assert!(
+            prompts[1]
+                .1
+                .user
+                .contains("au moins 2 étapes sur 2, et non 1")
+        );
+        assert!(
+            prompts[2]
+                .1
+                .user
+                .contains("Objets de la boîte à utiliser : Treasure chest")
+        );
+    }
+
+    #[tokio::test]
     async fn unfaithful_plan_is_asked_again_with_its_errors() {
         let generator = ScriptedGenerator::new(&[
             plan_json("99 99 999"),

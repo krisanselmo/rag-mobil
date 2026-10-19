@@ -242,6 +242,125 @@ pub fn sanitize(mut plan: StoryPlan, collection: &Collection) -> StoryPlan {
     plan
 }
 
+/// Steps a favorite part (`--star`) must appear in: a figure is the main
+/// character, in half of them (the first one included); an object serves
+/// in two.
+fn star_minimum(part: &Part, steps: usize) -> usize {
+    if part.is_figure() {
+        steps.div_ceil(2)
+    } else {
+        steps.min(2)
+    }
+}
+
+/// Names of the characters played by the figure `part`.
+fn played_by(plan: &StoryPlan, part: &Part) -> HashSet<String> {
+    let wanted = reference_key(&part.number);
+    plan.characters
+        .iter()
+        .filter(|c| reference_key(&c.figure) == wanted)
+        .map(|c| key(&c.name))
+        .collect()
+}
+
+/// Whether step `step` features the favorite part.
+fn features(step: &PlotPoint, part: &Part, names: &HashSet<String>) -> bool {
+    if part.is_figure() {
+        step.characters.iter().any(|n| names.contains(&key(n)))
+    } else {
+        let wanted = reference_key(&part.number);
+        step.objects.iter().any(|r| reference_key(r) == wanted)
+    }
+}
+
+/// Every way the plan sidelines the child's favorite parts (`--star`), as
+/// messages the model can act on. References missing from the boxes are
+/// skipped (checked before any call). Empty = valid.
+pub fn validate_stars(plan: &StoryPlan, collection: &Collection, stars: &[String]) -> Vec<String> {
+    let steps = plan.outline.len();
+    let mut errors = Vec::new();
+    for star in stars {
+        let Some(part) = find_part(collection, star).filter(|_| steps > 0) else {
+            continue;
+        };
+        let names = played_by(plan, part);
+        let label = format!("{} ({})", part.number, part_label(part));
+        if part.is_figure() && names.is_empty() {
+            errors.push(format!(
+                "la figurine préférée de l'enfant, {label}, doit jouer le personnage principal"
+            ));
+            continue;
+        }
+        if part.is_figure() && !features(&plan.outline[0], part, &names) {
+            errors.push(format!(
+                "la figurine préférée de l'enfant, {label}, doit être présente dès l'étape 1"
+            ));
+        }
+        let count = plan
+            .outline
+            .iter()
+            .filter(|s| features(s, part, &names))
+            .count();
+        let minimum = star_minimum(part, steps);
+        if count < minimum {
+            let what = if part.is_figure() {
+                "la figurine"
+            } else {
+                "l'objet"
+            };
+            errors.push(format!(
+                "{what} préféré(e) de l'enfant, {label}, doit être au cœur de l'histoire : \
+                 présent(e) dans au moins {minimum} étapes sur {steps}, et non {count}"
+            ));
+        }
+    }
+    errors
+}
+
+/// Last resort after [`sanitize`]: puts the favorite parts in the steps
+/// that lack them, from the first one, until each appears in enough steps.
+/// A favorite figure that plays no character is left out (no name to give).
+pub fn feature_stars(mut plan: StoryPlan, collection: &Collection, stars: &[String]) -> StoryPlan {
+    let steps = plan.outline.len();
+    for star in stars {
+        let Some(part) = find_part(collection, star) else {
+            continue;
+        };
+        let names = played_by(&plan, part);
+        let entry = if part.is_figure() {
+            match plan
+                .characters
+                .iter()
+                .find(|c| names.contains(&key(&c.name)))
+            {
+                Some(character) => character.name.clone(),
+                None => continue,
+            }
+        } else {
+            part.number.clone()
+        };
+        let mut count = plan
+            .outline
+            .iter()
+            .filter(|s| features(s, part, &names))
+            .count();
+        let minimum = star_minimum(part, steps);
+        for (i, step) in plan.outline.iter_mut().enumerate() {
+            let needed = count < minimum || (i == 0 && part.is_figure());
+            if !needed || features(step, part, &names) {
+                continue;
+            }
+            if part.is_figure() {
+                step.characters.push(entry.clone());
+            } else {
+                step.objects.push(entry.clone());
+            }
+            count += 1;
+        }
+    }
+    plan
+}
+
 /// `Halberd (dark metal)`.
 pub fn part_label(part: &Part) -> String {
     match &part.color {
@@ -642,6 +761,43 @@ pub(crate) mod tests {
                 },
             ],
         }
+    }
+
+    #[test]
+    fn favorite_parts_must_be_at_the_heart_of_the_plan() {
+        let boxes: Collection = inventory().into();
+        let stars = |refs: &[&str]| refs.iter().map(|r| (*r).to_owned()).collect::<Vec<_>>();
+        let plan = valid_plan();
+        // Léon is in both steps; an unknown reference is checked elsewhere.
+        assert!(validate_stars(&plan, &boxes, &stars(&["3000496", "99 99 999"])).is_empty());
+
+        let errors = validate_stars(&plan, &boxes, &stars(&["30 14 044", "30 65 622"]));
+        assert_eq!(errors.len(), 2, "{errors:?}");
+        assert!(
+            errors[0].contains("30 14 044 (Lady in red dress), doit être présente dès l'étape 1")
+        );
+        assert!(errors[1].contains("au moins 2 étapes sur 2, et non 1"));
+
+        let mut unplayed = valid_plan();
+        unplayed.characters.pop();
+        for step in &mut unplayed.outline {
+            step.characters.retain(|n| n != "Rose");
+        }
+        let errors = validate_stars(&unplayed, &boxes, &stars(&["30 14 044"]));
+        assert_eq!(errors.len(), 1);
+        assert!(errors[0].contains("doit jouer le personnage principal"));
+    }
+
+    #[test]
+    fn favorite_parts_are_put_back_in_the_plan() {
+        let boxes: Collection = inventory().into();
+        let stars = vec!["30 14 044".to_owned(), "30 65 622".to_owned()];
+        let plan = feature_stars(valid_plan(), &boxes, &stars);
+        assert_eq!(plan.outline[0].characters, ["Léon", "Rose"]);
+        assert_eq!(plan.outline[0].objects, ["30 65 622"]);
+        assert_eq!(plan.outline[1], valid_plan().outline[1]);
+        assert!(validate_stars(&plan, &boxes, &stars).is_empty());
+        assert!(validate(&plan, &boxes).is_empty());
     }
 
     #[test]
