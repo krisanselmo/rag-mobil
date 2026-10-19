@@ -72,3 +72,49 @@ impl SetInventory {
         self.parts.iter().filter(|p| p.is_figure())
     }
 }
+
+/// The boxes a story is played with: one or several sets, mixed together.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Collection {
+    pub sets: Vec<SetInventory>,
+}
+
+impl Collection {
+    pub fn new(sets: Vec<SetInventory>) -> Self {
+        Self { sets }
+    }
+
+    pub fn is_single(&self) -> bool {
+        self.sets.len() == 1
+    }
+
+    /// Every part, with the set it comes from.
+    pub fn parts(&self) -> impl Iterator<Item = (&SetInventory, &Part)> {
+        self.sets
+            .iter()
+            .flat_map(|set| set.parts.iter().map(move |part| (set, part)))
+    }
+
+    pub fn figures(&self) -> impl Iterator<Item = &Part> {
+        self.sets.iter().flat_map(SetInventory::figures)
+    }
+
+    pub fn part_count(&self) -> usize {
+        self.sets.iter().map(|s| s.parts.len()).sum()
+    }
+
+    /// `3666 « Kings Large Castle », 5135 « Pirates Ship »`.
+    pub fn label(&self) -> String {
+        self.sets
+            .iter()
+            .map(|s| format!("{} « {} »", s.set_number, s.name))
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
+}
+
+impl From<SetInventory> for Collection {
+    fn from(set: SetInventory) -> Self {
+        Self::new(vec![set])
+    }
+}

@@ -13,7 +13,7 @@ use serde::de::DeserializeOwned;
 use crate::augment::{StoryOptions, build_prompt};
 use crate::error::Result;
 use crate::generator::{Generation, StoryGenerator};
-use crate::model::SetInventory;
+use crate::model::Collection;
 use crate::writer::plan::{
     Review, StoryPlan, in_your_box, plan_schema, review_schema, sanitize, validate,
 };
@@ -52,13 +52,13 @@ fn parse_json<T: DeserializeOwned>(text: &str) -> Result<T> {
 
 async fn make_plan<G: StoryGenerator, O: Observer>(
     generator: &G,
-    inventory: &SetInventory,
+    boxes: &Collection,
     options: &StoryOptions,
     observer: &mut O,
     tally: &mut Tally,
 ) -> Result<std::result::Result<StoryPlan, String>> {
     observer.step(Step::Planning);
-    let base = prompts::plan(inventory, options);
+    let base = prompts::plan(boxes, options);
     let schema = plan_schema();
 
     let first = generator
@@ -67,7 +67,7 @@ async fn make_plan<G: StoryGenerator, O: Observer>(
     tally.add(&first);
     let errors = match parse_json::<StoryPlan>(&first.text) {
         Ok(plan) => {
-            let errors = validate(&plan, inventory);
+            let errors = validate(&plan, boxes);
             if errors.is_empty() {
                 return Ok(Ok(plan));
             }
@@ -87,12 +87,12 @@ async fn make_plan<G: StoryGenerator, O: Observer>(
         Ok(plan) => plan,
         Err(err) => return Ok(Err(format!("plan corrigé illisible ({err})"))),
     };
-    let errors = validate(&plan, inventory);
+    let errors = validate(&plan, boxes);
     if errors.is_empty() {
         return Ok(Ok(plan));
     }
     observer.step(Step::PlanRepaired(&errors));
-    let plan = sanitize(plan, inventory);
+    let plan = sanitize(plan, boxes);
     if plan.outline.is_empty() {
         return Ok(Err(format!(
             "plus aucune étape valide ({})",
@@ -106,12 +106,12 @@ async fn make_plan<G: StoryGenerator, O: Observer>(
 /// rather than failing, write the story in one call, like `--method direct`.
 async fn fall_back_to_direct<G: StoryGenerator, O: Observer>(
     generator: &G,
-    inventory: &SetInventory,
+    boxes: &Collection,
     options: &StoryOptions,
     observer: &mut O,
     mut tally: Tally,
 ) -> Result<Written> {
-    let prompt = build_prompt(inventory, options);
+    let prompt = build_prompt(boxes, options);
     let generation = generator.generate(&prompt, |t| observer.text(t)).await?;
     tally.add(&generation);
     Ok(Written {
@@ -129,7 +129,7 @@ async fn fall_back_to_direct<G: StoryGenerator, O: Observer>(
 
 pub(crate) async fn write<G: StoryGenerator, O: Observer>(
     generator: &G,
-    inventory: &SetInventory,
+    boxes: &Collection,
     options: &StoryOptions,
     review: bool,
     observer: &mut O,
@@ -137,11 +137,11 @@ pub(crate) async fn write<G: StoryGenerator, O: Observer>(
     let mut tally = Tally::default();
 
     // 1. Plan
-    let plan = match make_plan(generator, inventory, options, observer, &mut tally).await? {
+    let plan = match make_plan(generator, boxes, options, observer, &mut tally).await? {
         Ok(plan) => plan,
         Err(reason) => {
             observer.step(Step::PlanAbandoned(&reason));
-            return fall_back_to_direct(generator, inventory, options, observer, tally).await;
+            return fall_back_to_direct(generator, boxes, options, observer, tally).await;
         }
     };
     observer.step(Step::PlanReady(&plan));
@@ -153,7 +153,7 @@ pub(crate) async fn write<G: StoryGenerator, O: Observer>(
             part: index + 1,
             total: plan.outline.len(),
         });
-        let prompt = prompts::draft(inventory, options, &plan, &story, index);
+        let prompt = prompts::draft(boxes, options, &plan, &story, index);
         let part = generator.generate(&prompt, |_| {}).await?;
         tally.add(&part);
         if !story.is_empty() {
@@ -166,7 +166,7 @@ pub(crate) async fn write<G: StoryGenerator, O: Observer>(
     let mut issues = Vec::new();
     if review {
         observer.step(Step::Reviewing);
-        let prompt = prompts::review(inventory, options, &story);
+        let prompt = prompts::review(boxes, options, &story);
         let report = generator
             .generate_json(&prompt, "story_review", &review_schema())
             .await?;
@@ -181,7 +181,7 @@ pub(crate) async fn write<G: StoryGenerator, O: Observer>(
         };
         if !issues.is_empty() {
             observer.step(Step::Revising(&issues));
-            let prompt = prompts::revise(inventory, options, &story, &issues);
+            let prompt = prompts::revise(boxes, options, &story, &issues);
             let revised = generator.generate(&prompt, |_| {}).await?;
             tally.add(&revised);
             story = revised.text.trim().to_owned();
@@ -191,7 +191,7 @@ pub(crate) async fn write<G: StoryGenerator, O: Observer>(
     let text = format!(
         "# {}\n\n{story}\n\n{}",
         plan.title.trim(),
-        in_your_box(&plan, inventory, &options.language)
+        in_your_box(&plan, boxes, &options.language)
     );
     observer.text(&text);
 

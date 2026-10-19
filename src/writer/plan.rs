@@ -9,7 +9,7 @@ use std::fmt::Write;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
-use crate::model::{Part, SetInventory};
+use crate::model::{Collection, Part, SetInventory};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StoryPlan {
@@ -118,32 +118,57 @@ fn digits(s: &str) -> String {
     s.chars().filter(char::is_ascii_digit).collect()
 }
 
-/// Finds a part by reference, ignoring spacing and any `réf.` prefix.
-pub fn find_part<'a>(inventory: &'a SetInventory, reference: &str) -> Option<&'a Part> {
+/// Every box holding a reference (spacing and any `réf.` prefix ignored),
+/// with the matching part.
+pub fn holdings<'a>(
+    collection: &'a Collection,
+    reference: &str,
+) -> Vec<(&'a SetInventory, &'a Part)> {
     let wanted = digits(reference);
     if wanted.is_empty() {
-        return None;
+        return Vec::new();
     }
-    inventory.parts.iter().find(|p| digits(&p.number) == wanted)
+    collection
+        .parts()
+        .filter(|(_, p)| digits(&p.number) == wanted)
+        .collect()
+}
+
+/// Finds a part by reference in any of the boxes.
+pub fn find_part<'a>(collection: &'a Collection, reference: &str) -> Option<&'a Part> {
+    holdings(collection, reference).first().map(|(_, p)| *p)
+}
+
+/// Copies of a reference across all boxes; `None` if a box doesn't know.
+pub fn total_quantity(collection: &Collection, reference: &str) -> Option<u32> {
+    holdings(collection, reference)
+        .iter()
+        .map(|(_, p)| p.quantity)
+        .sum()
 }
 
 fn key(name: &str) -> String {
     name.trim().to_lowercase()
 }
 
-/// Every way the plan contradicts the inventory, as messages the model can
-/// act on when asked to fix its plan. Empty = valid.
-pub fn validate(plan: &StoryPlan, inventory: &SetInventory) -> Vec<String> {
+/// Every way the plan contradicts the boxes, as messages the model can act
+/// on when asked to fix its plan. Empty = valid.
+pub fn validate(plan: &StoryPlan, collection: &Collection) -> Vec<String> {
+    let boxes = if collection.is_single() {
+        "la boîte"
+    } else {
+        "les boîtes"
+    };
     let mut errors = Vec::new();
     if plan.outline.is_empty() {
         errors.push("le plan ne contient aucune étape".to_owned());
     }
-    if plan.characters.is_empty() && inventory.figures().next().is_some() {
+    if plan.characters.is_empty() && collection.figures().next().is_some() {
         errors.push("aucun personnage : choisis-les parmi les figurines de <personnages>".into());
     }
 
     let mut names = HashSet::new();
-    let mut uses: HashMap<&str, u32> = HashMap::new();
+    let mut uses: HashMap<String, u32> = HashMap::new();
     for character in &plan.characters {
         if !names.insert(key(&character.name)) {
             errors.push(format!(
@@ -151,9 +176,9 @@ pub fn validate(plan: &StoryPlan, inventory: &SetInventory) -> Vec<String> {
                 character.name
             ));
         }
-        match find_part(inventory, &character.figure) {
+        match find_part(collection, &character.figure) {
             None => errors.push(format!(
-                "personnage « {} » : la référence « {} » n'existe pas dans la boîte",
+                "personnage « {} » : la référence « {} » n'existe pas dans {boxes}",
                 character.name, character.figure
             )),
             Some(part) if !part.is_figure() => errors.push(format!(
@@ -161,15 +186,16 @@ pub fn validate(plan: &StoryPlan, inventory: &SetInventory) -> Vec<String> {
                 character.name, character.figure, part.name
             )),
             Some(part) => {
-                let count = uses.entry(&part.number).or_default();
+                let count = uses.entry(part.number.clone()).or_default();
                 *count += 1;
-                if part.quantity.is_some_and(|q| *count == q + 1) {
+                let available = total_quantity(collection, &part.number);
+                if available.is_some_and(|q| *count == q + 1) {
                     errors.push(format!(
                         "la figurine {} ({}) n'existe qu'en {} exemplaire(s) mais sert à \
                          plusieurs personnages",
                         part.number,
                         part.name,
-                        part.quantity.unwrap_or_default()
+                        available.unwrap_or_default()
                     ));
                 }
             }
@@ -186,9 +212,9 @@ pub fn validate(plan: &StoryPlan, inventory: &SetInventory) -> Vec<String> {
             }
         }
         for reference in &step.objects {
-            if find_part(inventory, reference).is_none() {
+            if find_part(collection, reference).is_none() {
                 errors.push(format!(
-                    "étape {} : la référence d'objet « {reference} » n'existe pas dans la boîte",
+                    "étape {} : la référence d'objet « {reference} » n'existe pas dans {boxes}",
                     i + 1
                 ));
             }
@@ -198,22 +224,23 @@ pub fn validate(plan: &StoryPlan, inventory: &SetInventory) -> Vec<String> {
 }
 
 /// Last resort when the model can't produce a valid plan: drops every
-/// reference that doesn't hold, so drafting only sees what is in the box.
-pub fn sanitize(mut plan: StoryPlan, inventory: &SetInventory) -> StoryPlan {
+/// reference that doesn't hold, so drafting only sees what is in the boxes.
+pub fn sanitize(mut plan: StoryPlan, collection: &Collection) -> StoryPlan {
     let mut uses: HashMap<String, u32> = HashMap::new();
     let mut names = HashSet::new();
     plan.characters
-        .retain(|c| match find_part(inventory, &c.figure) {
+        .retain(|c| match find_part(collection, &c.figure) {
             Some(part) if part.is_figure() => {
                 let count = uses.entry(part.number.clone()).or_default();
                 *count += 1;
-                part.quantity.is_none_or(|q| *count <= q) && names.insert(key(&c.name))
+                total_quantity(collection, &part.number).is_none_or(|q| *count <= q)
+                    && names.insert(key(&c.name))
             }
             _ => false,
         });
     for step in &mut plan.outline {
         step.characters.retain(|n| names.contains(&key(n)));
-        step.objects.retain(|r| find_part(inventory, r).is_some());
+        step.objects.retain(|r| find_part(collection, r).is_some());
     }
     plan
 }
@@ -226,12 +253,12 @@ pub fn part_label(part: &Part) -> String {
     }
 }
 
-fn reference_label(inventory: &SetInventory, reference: &str) -> String {
-    find_part(inventory, reference).map_or_else(|| reference.to_owned(), part_label)
+fn reference_label(collection: &Collection, reference: &str) -> String {
+    find_part(collection, reference).map_or_else(|| reference.to_owned(), part_label)
 }
 
 /// The plan as text, for the drafting prompts.
-pub fn render_plan(plan: &StoryPlan, inventory: &SetInventory) -> String {
+pub fn render_plan(plan: &StoryPlan, collection: &Collection) -> String {
     let mut out = String::new();
     let _ = writeln!(out, "Titre : {}", plan.title);
     let _ = writeln!(out, "Prémisse : {}", plan.premise);
@@ -242,7 +269,7 @@ pub fn render_plan(plan: &StoryPlan, inventory: &SetInventory) -> String {
             out,
             "- {} (figurine : {}) : {}",
             c.name,
-            reference_label(inventory, &c.figure),
+            reference_label(collection, &c.figure),
             c.portrait
         );
     }
@@ -255,16 +282,27 @@ pub fn render_plan(plan: &StoryPlan, inventory: &SetInventory) -> String {
 
 /// Objects of one step, as labels, with their companion pieces:
 /// `Parrot body (light blue) + Parrot wings (yellow)`.
-pub fn step_objects(step: &PlotPoint, inventory: &SetInventory) -> Vec<String> {
+/// A piece already shown with an earlier object of the step isn't repeated.
+pub fn step_objects(step: &PlotPoint, collection: &Collection) -> Vec<String> {
+    let mut shown = HashSet::new();
     step.objects
         .iter()
-        .map(|r| match find_part(inventory, r) {
-            Some(part) => std::iter::once(part)
-                .chain(companions(part, inventory))
-                .map(part_label)
-                .collect::<Vec<_>>()
-                .join(" + "),
-            None => r.clone(),
+        .filter_map(|r| match holdings(collection, r).first() {
+            Some((set, part)) => {
+                if !shown.insert(part.number.clone()) {
+                    return None;
+                }
+                let companions = companions(part, set);
+                shown.extend(companions.iter().map(|p| p.number.clone()));
+                Some(
+                    std::iter::once(*part)
+                        .chain(companions)
+                        .map(part_label)
+                        .collect::<Vec<_>>()
+                        .join(" + "),
+                )
+            }
+            None => Some(r.clone()),
         })
         .collect()
 }
@@ -281,14 +319,14 @@ fn first_word(name: &str) -> String {
         .to_lowercase()
 }
 
-/// Other inventory lines that are pieces of the same object as `part`.
-/// PlaymoDB lists some objects as several parts: "Parrot body" + "Parrot
-/// wings", "Trunk; body and lid" + "Trunk; base and lock", "Rowboat" +
-/// "Rowboat gear"... They share their first word and category, in a small
-/// group.
-pub fn companions<'a>(part: &Part, inventory: &'a SetInventory) -> Vec<&'a Part> {
+/// Other lines of the same box that are pieces of the same object as
+/// `part`. PlaymoDB lists some objects as several parts: "Parrot body" +
+/// "Parrot wings", "Trunk; body and lid" + "Trunk; base and lock",
+/// "Rowboat" + "Rowboat gear"... They share their first word and category,
+/// in a small group.
+pub fn companions<'a>(part: &Part, set: &'a SetInventory) -> Vec<&'a Part> {
     let word = first_word(&part.name);
-    let group: Vec<&Part> = inventory
+    let group: Vec<&Part> = set
         .parts
         .iter()
         .filter(|p| p.category == part.category && first_word(&p.name) == word)
@@ -303,43 +341,57 @@ pub fn companions<'a>(part: &Part, inventory: &'a SetInventory) -> Vec<&'a Part>
 }
 
 /// The closing "In your box" section, built from the plan by code so that it
-/// only ever lists parts that really are in the box.
-pub fn in_your_box(plan: &StoryPlan, inventory: &SetInventory, language: &str) -> String {
+/// only ever lists parts that really are in the boxes. With several boxes,
+/// each line says which box to look in.
+pub fn in_your_box(plan: &StoryPlan, collection: &Collection, language: &str) -> String {
     let french = language.to_lowercase().starts_with("fr");
-    let (heading, figures_label, objects_label) = if french {
-        ("Dans ta boîte", "Personnages", "Objets")
+    let (heading, figures_label, objects_label, box_word) = if french {
+        ("Dans ta boîte", "Personnages", "Objets", "boîte")
     } else {
-        ("In your box", "Characters", "Objects")
+        ("In your box", "Characters", "Objects", "box")
+    };
+    let origin = |set: &SetInventory| {
+        if collection.is_single() {
+            String::new()
+        } else {
+            format!(" ({box_word} {})", set.set_number)
+        }
     };
 
     let mut out = format!("## {heading}\n");
     if !plan.characters.is_empty() {
         let _ = write!(out, "\n**{figures_label}**\n");
         for c in &plan.characters {
-            let _ = writeln!(
-                out,
-                "- {} — {}",
-                c.name,
-                reference_label(inventory, &c.figure)
-            );
+            let label = match holdings(collection, &c.figure).first() {
+                Some((set, part)) => format!("{}{}", part_label(part), origin(set)),
+                None => c.figure.clone(),
+            };
+            let _ = writeln!(out, "- {} — {label}", c.name);
         }
     }
 
-    // Each object comes with its companion pieces (parrot body → wings).
+    // Each object comes with its companion pieces (parrot body → wings),
+    // from every box that holds it.
     let mut seen = HashSet::new();
-    let objects: Vec<&Part> = plan
+    let objects: Vec<(&SetInventory, &Part)> = plan
         .outline
         .iter()
         .flat_map(|s| &s.objects)
-        .filter_map(|r| find_part(inventory, r))
-        .flat_map(|p| std::iter::once(p).chain(companions(p, inventory)))
-        .filter(|p| !p.is_figure() && seen.insert(p.number.clone()))
+        .flat_map(|r| holdings(collection, r))
+        .flat_map(|(set, part)| {
+            std::iter::once(part)
+                .chain(companions(part, set))
+                .map(move |p| (set, p))
+        })
+        .filter(|(set, p)| {
+            !p.is_figure() && seen.insert((set.set_number.clone(), p.number.clone()))
+        })
         .collect();
     if !objects.is_empty() {
         let _ = write!(out, "\n**{objects_label}**\n");
-        for part in objects {
+        for (set, part) in objects {
             let quantity = part.quantity.map(|q| format!("{q}× ")).unwrap_or_default();
-            let _ = writeln!(out, "- {quantity}{}", part_label(part));
+            let _ = writeln!(out, "- {quantity}{}{}", part_label(part), origin(set));
         }
     }
     out
@@ -412,7 +464,10 @@ pub(crate) mod tests {
 
     #[test]
     fn valid_plan_has_no_errors() {
-        assert_eq!(validate(&valid_plan(), &inventory()), Vec::<String>::new());
+        assert_eq!(
+            validate(&valid_plan(), &inventory().into()),
+            Vec::<String>::new()
+        );
     }
 
     #[test]
@@ -432,7 +487,7 @@ pub(crate) mod tests {
         plan.outline[0].characters.push("Merlin".into());
         plan.outline[1].objects.push("12 34 567".into());
 
-        let errors = validate(&plan, &inventory());
+        let errors = validate(&plan, &inventory().into());
         assert_eq!(errors.len(), 5, "{errors:#?}");
         assert!(errors.iter().any(|e| e.contains("qu'en 1 exemplaire")));
         assert!(errors.iter().any(|e| e.contains("99 99 999")));
@@ -452,8 +507,9 @@ pub(crate) mod tests {
         plan.outline[1].characters.push("Dragon".into());
         plan.outline[1].objects.push("12 34 567".into());
 
-        let clean = sanitize(plan, &inventory());
-        assert!(validate(&clean, &inventory()).is_empty());
+        let boxes: Collection = inventory().into();
+        let clean = sanitize(plan, &boxes);
+        assert!(validate(&clean, &boxes).is_empty());
         assert_eq!(clean.characters.len(), 2);
         assert_eq!(clean.outline[1].objects.len(), 2);
     }
@@ -471,8 +527,9 @@ pub(crate) mod tests {
             part("30 06 576", "Hut roof support", "Building", Some(1)),
             part("30 06 577", "Hut roof thatch", "Building", Some(1)),
         ]);
+        let boxes: Collection = inventory.clone().into();
         let names = |number: &str| -> Vec<String> {
-            let part = find_part(&inventory, number).unwrap();
+            let part = find_part(&boxes, number).unwrap();
             companions(part, &inventory)
                 .iter()
                 .map(|p| p.name.clone())
@@ -487,7 +544,7 @@ pub(crate) mod tests {
 
         let mut plan = valid_plan();
         plan.outline[0].objects.push("30 06 198".into());
-        let section = in_your_box(&plan, &inventory, "français");
+        let section = in_your_box(&plan, &boxes, "français");
         assert!(section.contains("- 1× Parrot body\n- 1× Parrot wings\n"));
     }
 
@@ -495,11 +552,96 @@ pub(crate) mod tests {
     fn in_your_box_lists_plan_parts_once() {
         let mut plan = valid_plan();
         plan.outline[0].objects.push("30 07 640".into());
-        let section = in_your_box(&plan, &inventory(), "français");
+        let boxes: Collection = inventory().into();
+        let section = in_your_box(&plan, &boxes, "français");
         assert!(section.starts_with("## Dans ta boîte"));
-        assert!(section.contains("- Léon — Castle Trumpeter"));
+        assert!(section.contains("- Léon — Castle Trumpeter\n"));
         assert_eq!(section.matches("4× Halberd").count(), 1);
-        assert!(section.contains("1× Horse (old-style)"));
-        assert!(in_your_box(&plan, &inventory(), "English").starts_with("## In your box"));
+        assert!(section.contains("1× Horse (old-style)\n"));
+        assert!(in_your_box(&plan, &boxes, "English").starts_with("## In your box"));
+    }
+
+    /// A second box: a pirate figure and two more halberds.
+    fn two_boxes() -> Collection {
+        let mut ship = inventory();
+        ship.set_number = SetNumber::parse("5135").unwrap();
+        ship.name = "Pirates Ship".into();
+        ship.parts = vec![
+            part(
+                "30 00 961",
+                "Pirate, bald with yellow headband",
+                "Klicky",
+                Some(1),
+            ),
+            part("30 07 640", "Halberd", "Tool", Some(2)),
+        ];
+        Collection::new(vec![inventory(), ship])
+    }
+
+    #[test]
+    fn step_objects_show_each_piece_once() {
+        let mut inventory = inventory();
+        inventory.parts.extend([
+            part("30 05 806", "Rowboat, one-seater", "Vehicle", Some(1)),
+            part("30 60 815", "Rowboat gear", "Vehicle", Some(1)),
+        ]);
+        let step = PlotPoint {
+            event: "".into(),
+            characters: vec![],
+            objects: vec!["30 05 806".into(), "30 60 815".into(), "30 07 640".into()],
+        };
+        assert_eq!(
+            step_objects(&step, &inventory.into()),
+            ["Rowboat, one-seater + Rowboat gear", "Halberd"]
+        );
+    }
+
+    #[test]
+    fn quantities_add_up_across_boxes() {
+        let boxes = two_boxes();
+        assert_eq!(total_quantity(&boxes, "30 07 640"), Some(6));
+        assert_eq!(holdings(&boxes, "30 07 640").len(), 2);
+        assert_eq!(total_quantity(&boxes, "30 00 496"), Some(1));
+        assert_eq!(total_quantity(&boxes, "99 99 999"), Some(0));
+    }
+
+    #[test]
+    fn characters_can_come_from_any_box() {
+        let boxes = two_boxes();
+        let mut plan = valid_plan();
+        plan.characters.push(PlannedCharacter {
+            name: "Barbe-Jaune".into(),
+            figure: "30 00 961".into(),
+            portrait: "pirate".into(),
+        });
+        plan.outline[1].characters.push("Barbe-Jaune".into());
+        assert!(validate(&plan, &boxes).is_empty());
+        // The same pirate can't play two characters: one copy in all boxes.
+        plan.characters.push(PlannedCharacter {
+            name: "Jumeau".into(),
+            figure: "30 00 961".into(),
+            portrait: "".into(),
+        });
+        let errors = validate(&plan, &boxes);
+        assert_eq!(errors.len(), 1, "{errors:#?}");
+        assert!(errors[0].contains("qu'en 1 exemplaire"));
+    }
+
+    #[test]
+    fn in_your_box_says_which_box() {
+        let boxes = two_boxes();
+        let mut plan = valid_plan();
+        plan.characters.push(PlannedCharacter {
+            name: "Barbe-Jaune".into(),
+            figure: "30 00 961".into(),
+            portrait: "pirate".into(),
+        });
+        let section = in_your_box(&plan, &boxes, "français");
+        assert!(section.contains("- Léon — Castle Trumpeter (boîte 3666)\n"));
+        assert!(
+            section.contains("- Barbe-Jaune — Pirate, bald with yellow headband (boîte 5135)\n")
+        );
+        // Halberds are in both boxes: one line per box.
+        assert!(section.contains("- 4× Halberd (boîte 3666)\n- 2× Halberd (boîte 5135)\n"));
     }
 }

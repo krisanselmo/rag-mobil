@@ -11,7 +11,7 @@ mod prompts;
 use crate::augment::{Prompt, StoryOptions, build_prompt};
 use crate::error::Result;
 use crate::generator::{Generation, StoryGenerator};
-use crate::model::SetInventory;
+use crate::model::Collection;
 
 pub use plan::{Issue, PlannedCharacter, PlotPoint, StoryPlan};
 
@@ -84,27 +84,23 @@ pub struct Written {
 }
 
 /// First prompt sent by `method`, for `--dry-run`.
-pub fn first_prompt(
-    inventory: &SetInventory,
-    options: &StoryOptions,
-    method: WritingMethod,
-) -> Prompt {
+pub fn first_prompt(boxes: &Collection, options: &StoryOptions, method: WritingMethod) -> Prompt {
     match method {
-        WritingMethod::Direct => build_prompt(inventory, options),
-        WritingMethod::Planned => prompts::plan(inventory, options),
+        WritingMethod::Direct => build_prompt(boxes, options),
+        WritingMethod::Planned => prompts::plan(boxes, options),
     }
 }
 
 pub async fn write<G: StoryGenerator, O: Observer>(
     generator: &G,
-    inventory: &SetInventory,
+    boxes: &Collection,
     options: &StoryOptions,
     writer: WriterOptions,
     observer: &mut O,
 ) -> Result<Written> {
     match writer.method {
         WritingMethod::Direct => {
-            let prompt = build_prompt(inventory, options);
+            let prompt = build_prompt(boxes, options);
             let generation = generator.generate(&prompt, |t| observer.text(t)).await?;
             Ok(Written {
                 generation,
@@ -114,7 +110,7 @@ pub async fn write<G: StoryGenerator, O: Observer>(
             })
         }
         WritingMethod::Planned => {
-            planned::write(generator, inventory, options, writer.review, observer).await
+            planned::write(generator, boxes, options, writer.review, observer).await
         }
     }
 }

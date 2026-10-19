@@ -7,7 +7,7 @@
 use std::collections::BTreeMap;
 use std::fmt::Write;
 
-use crate::model::{Part, SetInventory};
+use crate::model::{Collection, Part, SetInventory};
 
 /// Categories that never matter for a story.
 const NON_NARRATIVE_CATEGORIES: &[&str] = &["Paper"];
@@ -43,7 +43,17 @@ fn attr(value: &str) -> String {
         .replace('<', "&lt;")
 }
 
-pub fn build_context(inventory: &SetInventory, options: &ContextOptions) -> String {
+/// The grounding context: one `<set>` block per box.
+pub fn build_context(collection: &Collection, options: &ContextOptions) -> String {
+    collection
+        .sets
+        .iter()
+        .map(|set| set_context(set, options))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn set_context(inventory: &SetInventory, options: &ContextOptions) -> String {
     let keep = |p: &&Part| {
         options.include_all
             || !NON_NARRATIVE_CATEGORIES
@@ -135,7 +145,7 @@ mod tests {
 
     #[test]
     fn figures_come_first_and_paper_is_dropped() {
-        let ctx = build_context(&inventory(), &ContextOptions::default());
+        let ctx = build_context(&inventory().into(), &ContextOptions::default());
         let figures = ctx.find("<personnages>").unwrap();
         let trumpeter = ctx.find("Castle Trumpeter").unwrap();
         let halberd = ctx.find("Halberd").unwrap();
@@ -147,7 +157,20 @@ mod tests {
 
     #[test]
     fn include_all_keeps_paper() {
-        let ctx = build_context(&inventory(), &ContextOptions { include_all: true });
+        let ctx = build_context(&inventory().into(), &ContextOptions { include_all: true });
         assert!(ctx.contains("Instructions"));
+    }
+
+    #[test]
+    fn one_block_per_set() {
+        let mut other = inventory();
+        other.set_number = SetNumber::parse("5135").unwrap();
+        other.name = "Pirates Ship".into();
+        let ctx = build_context(
+            &Collection::new(vec![inventory(), other]),
+            &ContextOptions::default(),
+        );
+        assert_eq!(ctx.matches("<set numero=").count(), 2);
+        assert!(ctx.contains("</set>\n<set numero=\"5135\" nom=\"Pirates Ship\""));
     }
 }

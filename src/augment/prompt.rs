@@ -2,7 +2,7 @@
 //! user message carrying the retrieved inventory plus the request.
 
 use crate::augment::context::{ContextOptions, build_context};
-use crate::model::SetInventory;
+use crate::model::Collection;
 
 /// What the user wants from the story.
 #[derive(Debug, Clone)]
@@ -76,27 +76,39 @@ dans l'histoire, pour que l'enfant puisse les retrouver.";
 
 /// "A story in {language} for a {age}-year-old, ~{words} words, set N" +
 /// the child's wish: the reader-facing part of every request.
-pub fn reader_request(inventory: &SetInventory, options: &StoryOptions) -> String {
+pub fn reader_request(collection: &Collection, options: &StoryOptions) -> String {
     let wish = options
         .extra_instructions
         .as_deref()
         .map(|w| format!("\nSouhait particulier de l'enfant : {w}"))
         .unwrap_or_default();
+    let boxes = match collection.sets.as_slice() {
+        [set] => format!(
+            "le set Playmobil {} « {} » décrit ci-dessus",
+            set.set_number, set.name
+        ),
+        _ => format!(
+            "les {} sets Playmobil décrits ci-dessus, réunis : {}. Les personnages \
+             et les pièces de toutes les boîtes se rencontrent dans la même histoire ; \
+             une référence présente dans plusieurs boîtes compte les exemplaires de \
+             chacune",
+            collection.sets.len(),
+            collection.label()
+        ),
+    };
     format!(
         "L'histoire est en {language}, pour un enfant de {age} ans, d'environ {words} \
-         mots, et se joue avec le set Playmobil {number} « {name} » décrit ci-dessus.{wish}",
+         mots, et se joue avec {boxes}.{wish}",
         language = options.language,
         age = options.reader_age,
         words = options.target_words,
-        number = inventory.set_number,
-        name = inventory.name,
     )
 }
 
 /// Single-call prompt: the whole story in one generation.
-pub fn build_prompt(inventory: &SetInventory, options: &StoryOptions) -> Prompt {
-    let context = build_context(inventory, &options.context);
-    let request = reader_request(inventory, options);
+pub fn build_prompt(collection: &Collection, options: &StoryOptions) -> Prompt {
+    let context = build_context(collection, &options.context);
+    let request = reader_request(collection, options);
     Prompt {
         system: format!("{STORYTELLER_RULES}\n\n{DIRECT_STYLE}"),
         user: format!("{context}\n\nÉcris cette histoire. {request}\n"),

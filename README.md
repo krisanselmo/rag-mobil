@@ -3,7 +3,7 @@
 [![CI](https://github.com/krisanselmo/rag-mobil/actions/workflows/ci.yml/badge.svg)](https://github.com/krisanselmo/rag-mobil/actions/workflows/ci.yml)
 
 Générateur d'histoires Playmobil basé sur du **RAG** (Retrieval-Augmented Generation) :
-à partir d'un numéro de set, `rag-mobil` récupère l'inventaire exact de la boîte sur
+à partir d'un ou plusieurs numéros de set, `rag-mobil` récupère l'inventaire exact des boîtes sur
 [PlaymoDB](https://playmodb.org) puis demande à un LLM (Claude par défaut, ou OpenAI,
 Gemini, Groq, un modèle local via Ollama…) d'écrire une histoire qu'un enfant
 peut rejouer **avec ce qu'il a vraiment dans sa boîte** : mêmes figurines, mêmes objets,
@@ -39,6 +39,9 @@ voir la [liste de genai](https://github.com/jeremychone/rust-genai).
 # Histoire en français pour un enfant de 7 ans (par défaut)
 rag-mobil 3666
 
+# Plusieurs boîtes : une seule histoire qui mélange leur contenu
+rag-mobil 3799 70145
+
 # Personnalisée
 rag-mobil 5135 --age 5 --words 400 --theme "une tempête et un trésor perdu"
 rag-mobil 3666 --language English --effort high
@@ -72,7 +75,10 @@ vont sur `stderr` (`rag-mobil 3666 > histoire.md` fonctionne).
 | `--fallback-model` | `claude-opus-4-8` | Modèle relancé une fois si Claude décline la requête |
 | `--no-fallback` | off | Désactive cette nouvelle tentative |
 | `--playmodb-url` / `PLAYMODB_BASE_URL` | `https://playmodb.org/cgi-bin` | Miroir PlaymoDB |
-| `--inventory-file` | — | Inventaire lu dans un fichier JSON (sortie de `--inventory-json`) |
+| `--cache-dir` / `RAG_MOBIL_CACHE_DIR` | `~/.cache/rag-mobil/playmodb` | Dossier du cache des inventaires |
+| `--refresh` | off | Interroge PlaymoDB même si le cache est à jour |
+| `--no-cache` | off | N'utilise pas le cache |
+| `--inventory-file` | — | Inventaires lus dans un fichier JSON (sortie de `--inventory-json`) |
 | `--replay` | — | Contourne le LLM : prompts et réponses dans des fichiers (voir Développement) |
 
 ## Architecture
@@ -117,8 +123,23 @@ objet. Pour les sets que PlaymoDB n'a pas encore dénombrés, la quantité est i
 
 Le scraper s'identifie avec un User-Agent explicite et ne fait que deux requêtes par
 set ; en cas d'erreur passagère (PlaymoDB répond souvent 508, limite de ressources de
-son hébergement), il retente jusqu'à 3 fois, après 1, 3 puis 6 secondes. PlaymoDB est un site maintenu bénévolement par des fans : merci de ne pas l'utiliser
-pour du scraping massif.
+son hébergement), il retente jusqu'à 3 fois, après 1, 3 puis 6 secondes. PlaymoDB est
+un site maintenu bénévolement par des fans : merci de ne pas l'utiliser pour du scraping
+massif.
+
+**Cache** : chaque inventaire récupéré est enregistré sur le disque
+(`~/.cache/rag-mobil/playmodb/<set>.json` sous Linux, `~/Library/Caches` sous macOS,
+`%LOCALAPPDATA%` sous Windows) et réutilisé pendant 30 jours sans rappeler PlaymoDB.
+`--refresh` force une nouvelle récupération, `--no-cache` désactive le cache. Une entrée
+illisible est simplement récupérée à nouveau.
+
+**Plusieurs sets** : `rag-mobil 3799 70145` récupère les inventaires l'un après l'autre
+(doublons ignorés), sans limite de nombre. Le contexte contient un bloc `<set>` par
+boîte, et le prompt précise que tout se rencontre dans la même histoire. Les personnages
+peuvent venir de n'importe quelle boîte, et une référence présente dans plusieurs boîtes
+cumule leurs exemplaires. « Dans ta boîte » indique pour chaque ligne dans quelle boîte
+chercher (`(boîte 70145)`). Avec beaucoup de grosses boîtes, le prompt s'allonge :
+c'est sans conséquence pour Claude, mais un petit modèle local peut saturer.
 
 ### Augment — contexte et prompt
 
@@ -205,11 +226,16 @@ rag-mobil 3799 --inventory-file 3799.json --replay session/
 # … écrire session/01-json.answer.txt (le plan), relancer, et ainsi de suite
 ```
 
-Une session complète devient un test de bout en bout dans `tests/e2e/<set>/`
+Une session complète devient un test de bout en bout dans `tests/e2e/<sets>/`
 (`inventory.json`, `answers/`, et les sorties attendues dans `expected/` : histoire
-finale et chaque prompt). `tests/e2e/3799/` en est un exemple : le set « Pirates Secret
-Island », dont les réponses ont été écrites par Claude, avec une relecture qui repère
-une clé absente de la boîte. Après un changement voulu des prompts ou de la sortie :
+finale et chaque prompt). Deux exemples, aux réponses écrites par Claude :
+
+- `tests/e2e/3799/` : « Pirates Secret Island », dont la relecture repère une clé
+  absente de la boîte ;
+- `tests/e2e/3799+70145/` : la même île et le « Diving Scooter » réunis, dont la
+  relecture repère une canne à pêche et une lampe de plongée absentes des deux boîtes.
+
+Après un changement voulu des prompts ou de la sortie :
 
 ```bash
 UPDATE_GOLDEN=1 cargo test --test e2e_replay

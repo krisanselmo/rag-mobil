@@ -1,0 +1,563 @@
+[
+  {
+    "set_number": "3799",
+    "name": "Pirates Secret Island",
+    "theme": "Pirates",
+    "focus": "Building",
+    "release_date": "1991/10",
+    "parts": [
+      {
+        "number": "30 00 391",
+        "name": "Castaway",
+        "color": null,
+        "quantity": 1,
+        "category": "Klicky",
+        "components": [
+          "Torso, plain (male) - black",
+          "Wig (hair), classic male - orange"
+        ]
+      },
+      {
+        "number": "30 00 413",
+        "name": "Crusoe (long white beard)",
+        "color": null,
+        "quantity": 1,
+        "category": "Klicky",
+        "components": [
+          "Wig (hair), classic male - white",
+          "Beard, long - white"
+        ]
+      },
+      {
+        "number": "30 02 378",
+        "name": "Barrel, wooden",
+        "color": "brown",
+        "quantity": 1,
+        "category": "Furniture",
+        "components": []
+      },
+      {
+        "number": "30 03 089",
+        "name": "Pistol, flared barrel",
+        "color": "grey",
+        "quantity": 3,
+        "category": "Tool",
+        "components": []
+      },
+      {
+        "number": "30 04 724",
+        "name": "Feather, wide, slightly curved",
+        "color": "red",
+        "quantity": 1,
+        "category": "Wearable",
+        "components": []
+      },
+      {
+        "number": "30 05 002",
+        "name": "Bag, closed at top with handgrip",
+        "color": "yellow",
+        "quantity": 3,
+        "category": "Furniture",
+        "components": []
+      },
+      {
+        "number": "30 05 806",
+        "name": "Rowboat, one-seater",
+        "color": "dark brown",
+        "quantity": 1,
+        "category": "Vehicle",
+        "components": []
+      },
+      {
+        "number": "30 05 871",
+        "name": "Flower blossom",
+        "color": "dark pink",
+        "quantity": 9,
+        "category": "Plant",
+        "components": []
+      },
+      {
+        "number": "30 05 882",
+        "name": "Basket, round",
+        "color": "light brown",
+        "quantity": 1,
+        "category": "Furniture",
+        "components": []
+      },
+      {
+        "number": "30 06 092",
+        "name": "Flower stem (single)",
+        "color": "dark green",
+        "quantity": 4,
+        "category": "Plant",
+        "components": []
+      },
+      {
+        "number": "30 06 198",
+        "name": "Parrot body",
+        "color": "light blue",
+        "quantity": 1,
+        "category": "Animal",
+        "components": []
+      },
+      {
+        "number": "30 06 199",
+        "name": "Parrot wings",
+        "color": "yellow",
+        "quantity": 1,
+        "category": "Animal",
+        "components": []
+      },
+      {
+        "number": "30 06 219",
+        "name": "Hat, soft, tail on side",
+        "color": "light green",
+        "quantity": 1,
+        "category": "Wearable",
+        "components": []
+      },
+      {
+        "number": "30 06 368",
+        "name": "Sword, saber (curved)",
+        "color": "gold",
+        "quantity": 1,
+        "category": "Tool",
+        "components": []
+      },
+      {
+        "number": "30 06 370",
+        "name": "Bottle",
+        "color": "clear pink",
+        "quantity": 1,
+        "category": "Furniture",
+        "components": []
+      },
+      {
+        "number": "30 06 394",
+        "name": "Trunk lid bars",
+        "color": "dark metal",
+        "quantity": 1,
+        "category": "Furniture",
+        "components": []
+      },
+      {
+        "number": "30 06 504",
+        "name": "Island base, large",
+        "color": "mustard",
+        "quantity": 1,
+        "category": "Scenery",
+        "components": []
+      },
+      {
+        "number": "30 06 540",
+        "name": "Rock formation with cave",
+        "color": "dark grey",
+        "quantity": 1,
+        "category": "Scenery",
+        "components": []
+      },
+      {
+        "number": "30 06 541",
+        "name": "Grassy mound, large, for island",
+        "color": "green",
+        "quantity": 1,
+        "category": "Scenery",
+        "components": []
+      },
+      {
+        "number": "30 06 572",
+        "name": "Rock Formation",
+        "color": "dark grey",
+        "quantity": 1,
+        "category": "Scenery",
+        "components": []
+      },
+      {
+        "number": "30 06 573",
+        "name": "Rock formation, secret door",
+        "color": "dark grey",
+        "quantity": 1,
+        "category": "Scenery",
+        "components": []
+      },
+      {
+        "number": "30 06 574",
+        "name": "Hut floor",
+        "color": "dark brown",
+        "quantity": 1,
+        "category": "Building",
+        "components": []
+      },
+      {
+        "number": "30 06 575",
+        "name": "Hut Support (Stilt)",
+        "color": "dark brown",
+        "quantity": 5,
+        "category": "Building",
+        "components": []
+      },
+      {
+        "number": "30 06 576",
+        "name": "Hut roof support",
+        "color": "dark brown",
+        "quantity": 1,
+        "category": "Building",
+        "components": []
+      },
+      {
+        "number": "30 06 577",
+        "name": "Hut roof thatch",
+        "color": "light brown",
+        "quantity": 1,
+        "category": "Building",
+        "components": []
+      },
+      {
+        "number": "30 06 578",
+        "name": "Hut side",
+        "color": "dark brown",
+        "quantity": 4,
+        "category": "Building",
+        "components": []
+      },
+      {
+        "number": "30 06 579",
+        "name": "Hut Hammock Bracket",
+        "color": "dark brown",
+        "quantity": 2,
+        "category": "Building",
+        "components": []
+      },
+      {
+        "number": "30 06 580",
+        "name": "Hammock",
+        "color": "light yellow",
+        "quantity": 1,
+        "category": "Furniture",
+        "components": []
+      },
+      {
+        "number": "30 06 581",
+        "name": "Climbing vine",
+        "color": "green",
+        "quantity": 1,
+        "category": "Plant",
+        "components": []
+      },
+      {
+        "number": "30 06 582",
+        "name": "Loop to attach to rock",
+        "color": "brass",
+        "quantity": 4,
+        "category": "Furniture",
+        "components": []
+      },
+      {
+        "number": "30 06 605",
+        "name": "Headband, looped over",
+        "color": "red",
+        "quantity": 1,
+        "category": "Wearable",
+        "components": []
+      },
+      {
+        "number": "30 06 607",
+        "name": "Rifle, flintlock (musket)",
+        "color": "dark brown",
+        "quantity": 2,
+        "category": "Tool",
+        "components": []
+      },
+      {
+        "number": "30 06 888",
+        "name": "Palm tree trunk, straight",
+        "color": "brown",
+        "quantity": 2,
+        "category": "Plant",
+        "components": []
+      },
+      {
+        "number": "30 13 020",
+        "name": "Pirate, red vest and ponytail",
+        "color": null,
+        "quantity": 1,
+        "category": "Klicky",
+        "components": [
+          "Wig (hair), long ponytail - black"
+        ]
+      },
+      {
+        "number": "30 60 370",
+        "name": "Palm tree leaves and coconuts",
+        "color": "green",
+        "quantity": 3,
+        "category": "Plant",
+        "components": []
+      },
+      {
+        "number": "30 60 604",
+        "name": "Jug and 2 cups",
+        "color": "light blue",
+        "quantity": 1,
+        "category": "Furniture",
+        "components": []
+      },
+      {
+        "number": "30 60 787",
+        "name": "Bush, large (3 parts)",
+        "color": "dusty green",
+        "quantity": 5,
+        "category": "Plant",
+        "components": [
+          "Bush, large (inner part) - dusty green",
+          "Bush, large (outer part) - dusty green"
+        ]
+      },
+      {
+        "number": "30 60 805",
+        "name": "Cooking gear, wooden (spoon, scoop, fork, bowl)",
+        "color": "tan",
+        "quantity": 1,
+        "category": "Tool",
+        "components": []
+      },
+      {
+        "number": "30 60 806",
+        "name": "Basket with Base",
+        "color": "marino yellow",
+        "quantity": 1,
+        "category": "Furniture",
+        "components": []
+      },
+      {
+        "number": "30 60 815",
+        "name": "Rowboat gear: seat, oarlocks, paddles",
+        "color": "light brown",
+        "quantity": 1,
+        "category": "Vehicle",
+        "components": []
+      },
+      {
+        "number": "30 60 826",
+        "name": "Bottle, Wide, with Bottom",
+        "color": "clear amber",
+        "quantity": 1,
+        "category": "Furniture",
+        "components": []
+      },
+      {
+        "number": "30 60 891",
+        "name": "Tools: boathook, axe, short-handled spade / shovel",
+        "color": "light grey",
+        "quantity": 1,
+        "category": "Tool",
+        "components": []
+      },
+      {
+        "number": "30 60 895",
+        "name": "Trunk; body and lid",
+        "color": "light brown",
+        "quantity": 1,
+        "category": "Furniture",
+        "components": []
+      },
+      {
+        "number": "30 60 896",
+        "name": "Trunk; base and lock",
+        "color": "dark metal",
+        "quantity": 1,
+        "category": "Furniture",
+        "components": []
+      },
+      {
+        "number": "30 60 925",
+        "name": "Rock formations",
+        "color": "dark grey",
+        "quantity": 1,
+        "category": "Scenery",
+        "components": []
+      },
+      {
+        "number": "30 60 926",
+        "name": "Parrot swing with pin",
+        "color": "brass",
+        "quantity": 1,
+        "category": "Furniture",
+        "components": []
+      },
+      {
+        "number": "30 64 140",
+        "name": "Hat, tricorne, with hole for feather",
+        "color": "black, white stripe",
+        "quantity": 1,
+        "category": "Wearable",
+        "components": [
+          "Hat, tricorne, with hole for feather - black"
+        ]
+      },
+      {
+        "number": "30 65 079",
+        "name": "Lantern",
+        "color": "silver/yellow",
+        "quantity": 1,
+        "category": "Furniture",
+        "components": []
+      },
+      {
+        "number": "30 66 012",
+        "name": "Goat",
+        "color": "white",
+        "quantity": 1,
+        "category": "Animal",
+        "components": []
+      },
+      {
+        "number": "30 66 062",
+        "name": "Sea turtle",
+        "color": "brown/tan",
+        "quantity": 2,
+        "category": "Animal",
+        "components": []
+      },
+      {
+        "number": "30 80 327",
+        "name": "String",
+        "color": "?",
+        "quantity": 2,
+        "category": "Cloth",
+        "components": []
+      },
+      {
+        "number": "30 80 510",
+        "name": "Chain for prisoner",
+        "color": "steel",
+        "quantity": 1,
+        "category": "Wearable",
+        "components": []
+      },
+      {
+        "number": "30 81 796",
+        "name": "Instructions for 3799",
+        "color": null,
+        "quantity": 1,
+        "category": "Paper",
+        "components": []
+      }
+    ],
+    "source_url": "https://playmodb.org/cgi-bin/showinv.pl?setnum=3799"
+  },
+  {
+    "set_number": "70145",
+    "name": "Diving Scooter",
+    "theme": "Rescue",
+    "focus": "Vehicle",
+    "release_date": "2021/03/15",
+    "parts": [
+      {
+        "number": "30 00 8544",
+        "name": "(no name)",
+        "color": null,
+        "quantity": null,
+        "category": "Klicky",
+        "components": []
+      },
+      {
+        "number": "30 02 971",
+        "name": "Hose from scuba tank to mask",
+        "color": "black",
+        "quantity": null,
+        "category": "Tool",
+        "components": []
+      },
+      {
+        "number": "30 07 3232",
+        "name": "Helmet for diver with diving mask",
+        "color": "dark grey",
+        "quantity": null,
+        "category": "Wearable",
+        "components": []
+      },
+      {
+        "number": "30 09 5352",
+        "name": "Flipper, notch in front, fits over boot",
+        "color": null,
+        "quantity": null,
+        "category": "Wearable",
+        "components": []
+      },
+      {
+        "number": "30 09 6793",
+        "name": "Vest with attachment for diving tanks",
+        "color": null,
+        "quantity": null,
+        "category": "Wearable",
+        "components": []
+      },
+      {
+        "number": "30 09 6833",
+        "name": "UW-Raketenscoot.-Antr.",
+        "color": null,
+        "quantity": null,
+        "category": "TO BE ASSIGNED",
+        "components": []
+      },
+      {
+        "number": "30 09 6843",
+        "name": "Propellor for boat, small",
+        "color": null,
+        "quantity": null,
+        "category": "Vehicle",
+        "components": []
+      },
+      {
+        "number": "30 09 6853",
+        "name": "Pin for propellor, pointed end",
+        "color": null,
+        "quantity": null,
+        "category": "Vehicle",
+        "components": []
+      },
+      {
+        "number": "30 24 106",
+        "name": "Diver's scuba airtank",
+        "color": "grey",
+        "quantity": null,
+        "category": "Wearable",
+        "components": []
+      },
+      {
+        "number": "30 62 7097",
+        "name": "UW-Raketenscoot.-Aufs.",
+        "color": null,
+        "quantity": null,
+        "category": "TO BE ASSIGNED",
+        "components": []
+      },
+      {
+        "number": "30 66 2764",
+        "name": "Body of torpedo jet, wedge-shaped with wings",
+        "color": null,
+        "quantity": null,
+        "category": "Vehicle",
+        "components": []
+      },
+      {
+        "number": "30 66 6973",
+        "name": "Fish, sword- (swordfish), small",
+        "color": "dark blue, light blue belly and eye",
+        "quantity": null,
+        "category": "Animal",
+        "components": []
+      },
+      {
+        "number": "30 80 6816",
+        "name": "Instructions for 70145",
+        "color": null,
+        "quantity": null,
+        "category": "Paper",
+        "components": []
+      }
+    ],
+    "source_url": "https://playmodb.org/cgi-bin/showinv.pl?setnum=70145"
+  }
+]

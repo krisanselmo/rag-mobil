@@ -3,12 +3,13 @@
 use crate::augment::StoryOptions;
 use crate::error::Result;
 use crate::generator::StoryGenerator;
-use crate::model::{SetInventory, SetNumber};
+use crate::model::{Collection, SetNumber};
 use crate::retriever::InventorySource;
 use crate::writer::{Observer, WriterOptions, Written, write};
 
 pub struct Story {
-    pub inventory: SetInventory,
+    /// The boxes the story is played with.
+    pub collection: Collection,
     pub written: Written,
 }
 
@@ -22,16 +23,27 @@ impl<S: InventorySource, G: StoryGenerator> RagPipeline<S, G> {
         Self { source, generator }
     }
 
+    /// One story mixing every set of `sets` (duplicates ignored). Sets are
+    /// fetched one after the other, to go easy on PlaymoDB.
     pub async fn run<O: Observer>(
         &self,
-        set: &SetNumber,
+        sets: &[SetNumber],
         options: &StoryOptions,
         writer: WriterOptions,
         observer: &mut O,
     ) -> Result<Story> {
-        let inventory = self.source.fetch(set).await?;
-        let written = write(&self.generator, &inventory, options, writer, observer).await?;
-        Ok(Story { inventory, written })
+        let mut inventories = Vec::with_capacity(sets.len());
+        for (i, set) in sets.iter().enumerate() {
+            if !sets[..i].contains(set) {
+                inventories.push(self.source.fetch(set).await?);
+            }
+        }
+        let collection = Collection::new(inventories);
+        let written = write(&self.generator, &collection, options, writer, observer).await?;
+        Ok(Story {
+            collection,
+            written,
+        })
     }
 }
 
@@ -45,12 +57,17 @@ mod tests {
     use super::*;
     use crate::augment::Prompt;
     use crate::generator::Generation;
-    use crate::model::Part;
+    use crate::model::{Part, SetInventory};
     use crate::writer::{Step, WritingMethod};
 
-    struct FakeSource;
+    /// 3666 is a castle, any other set the pirate ship. Counts fetches.
+    #[derive(Default)]
+    struct FakeSource {
+        fetched: Mutex<Vec<String>>,
+    }
     impl InventorySource for FakeSource {
         async fn fetch(&self, set: &SetNumber) -> Result<SetInventory> {
+            self.fetched.lock().unwrap().push(set.to_string());
             let part = |number: &str, name: &str, category: &str| Part {
                 number: number.into(),
                 name: name.into(),
@@ -59,6 +76,20 @@ mod tests {
                 category: category.into(),
                 components: vec![],
             };
+            if set.as_str() == "3666" {
+                return Ok(SetInventory {
+                    set_number: set.clone(),
+                    name: "Kings Large Castle".into(),
+                    theme: Some("Knights".into()),
+                    focus: None,
+                    release_date: None,
+                    parts: vec![
+                        part("30 00 003", "Knight", "Klicky"),
+                        part("30 00 004", "Horse", "Animal"),
+                    ],
+                    source_url: "test".into(),
+                });
+            }
             Ok(SetInventory {
                 set_number: set.clone(),
                 name: "Pirate Ship".into(),
@@ -162,11 +193,19 @@ mod tests {
     }
 
     async fn run(generator: &ScriptedGenerator, writer: WriterOptions) -> (Story, Recorder) {
-        let pipeline = RagPipeline::new(FakeSource, generator);
-        let set = SetNumber::parse("5135").unwrap();
+        run_sets(generator, writer, &["5135"]).await
+    }
+
+    async fn run_sets(
+        generator: &ScriptedGenerator,
+        writer: WriterOptions,
+        sets: &[&str],
+    ) -> (Story, Recorder) {
+        let pipeline = RagPipeline::new(FakeSource::default(), generator);
+        let sets: Vec<SetNumber> = sets.iter().map(|s| SetNumber::parse(s).unwrap()).collect();
         let mut recorder = Recorder::default();
         let story = pipeline
-            .run(&set, &StoryOptions::default(), writer, &mut recorder)
+            .run(&sets, &StoryOptions::default(), writer, &mut recorder)
             .await
             .unwrap();
         (story, recorder)
@@ -245,6 +284,65 @@ mod tests {
                 .contains("« 99 99 999 » n'existe pas dans la boîte")
         );
         assert_eq!(story.written.calls, 5);
+    }
+
+    #[tokio::test]
+    async fn several_sets_make_one_story() {
+        let plan = json!({
+            "title": "Le chevalier et le pirate",
+            "premise": "Un chevalier rencontre un pirate.",
+            "setting": "Le château au bord de la mer.",
+            "characters": [
+                {"name": "Arthur", "figure": "30 00 003", "portrait": "chevalier"},
+                {"name": "Barbe-Rousse", "figure": "30 00 001", "portrait": "pirate"},
+            ],
+            "outline": [
+                {"event": "Ils se rencontrent.", "characters": ["Arthur", "Barbe-Rousse"], "objects": ["30 00 004"]},
+                {"event": "Ils partagent le coffre.", "characters": ["Arthur", "Barbe-Rousse"], "objects": ["30 00 002"]},
+            ],
+        });
+        let generator = ScriptedGenerator::new(&[
+            plan.to_string(),
+            "Partie 1.".into(),
+            "Partie 2.".into(),
+            r#"{"issues": []}"#.into(),
+        ]);
+        let pipeline = RagPipeline::new(FakeSource::default(), &generator);
+        let sets: Vec<SetNumber> = ["3666", "5135", "3666"]
+            .iter()
+            .map(|s| SetNumber::parse(s).unwrap())
+            .collect();
+        let mut recorder = Recorder::default();
+        let story = pipeline
+            .run(
+                &sets,
+                &StoryOptions::default(),
+                WriterOptions::default(),
+                &mut recorder,
+            )
+            .await
+            .unwrap();
+
+        // Duplicates fetched once, in order.
+        assert_eq!(*pipeline.source.fetched.lock().unwrap(), ["3666", "5135"]);
+        assert_eq!(story.collection.sets.len(), 2);
+        assert_eq!(
+            recorder.steps[1], "plan-ready",
+            "figures of both boxes accepted"
+        );
+
+        let prompts = generator.prompts.lock().unwrap();
+        let plan_prompt = &prompts[0].1.user;
+        assert_eq!(plan_prompt.matches("<set numero=").count(), 2);
+        assert!(plan_prompt.contains(
+            "les 2 sets Playmobil décrits ci-dessus, réunis : 3666 « Kings Large Castle », \
+             5135 « Pirate Ship »"
+        ));
+
+        let text = &story.written.generation.text;
+        assert!(text.contains("- Arthur — Knight (boîte 3666)\n"));
+        assert!(text.contains("- Barbe-Rousse — Pirate captain (boîte 5135)\n"));
+        assert!(text.contains("- 1× Horse (boîte 3666)\n- 1× Treasure chest (boîte 5135)\n"));
     }
 
     #[tokio::test]

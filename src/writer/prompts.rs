@@ -3,7 +3,7 @@
 use std::fmt::Write;
 
 use crate::augment::{Prompt, STORYTELLER_RULES, StoryOptions, build_context, reader_request};
-use crate::model::SetInventory;
+use crate::model::Collection;
 use crate::writer::plan::{Issue, StoryPlan, find_part, part_label, render_plan, step_objects};
 
 /// Number of plot points for a story of `words` words.
@@ -15,9 +15,9 @@ pub(crate) fn outline_length(words: u32) -> usize {
     }
 }
 
-pub(crate) fn plan(inventory: &SetInventory, options: &StoryOptions) -> Prompt {
-    let context = build_context(inventory, &options.context);
-    let request = reader_request(inventory, options);
+pub(crate) fn plan(boxes: &Collection, options: &StoryOptions) -> Prompt {
+    let context = build_context(boxes, &options.context);
+    let request = reader_request(boxes, options);
     let steps = outline_length(options.target_words);
     Prompt {
         system: format!(
@@ -69,20 +69,20 @@ ni liste de pièces.";
 /// Draft of plot point `index` (DOC-style: the detailed plan steers each
 /// passage; the story so far keeps continuity).
 pub(crate) fn draft(
-    inventory: &SetInventory,
+    boxes: &Collection,
     options: &StoryOptions,
     plan: &StoryPlan,
     story_so_far: &str,
     index: usize,
 ) -> Prompt {
-    let context = build_context(inventory, &options.context);
+    let context = build_context(boxes, &options.context);
     let total = plan.outline.len();
     let step = &plan.outline[index];
     let words = (options.target_words as usize / total.max(1)).max(60);
 
     let mut user = format!(
         "{context}\n\n<plan>\n{}</plan>\n\n",
-        render_plan(plan, inventory)
+        render_plan(plan, boxes)
     );
     if !story_so_far.is_empty() {
         let _ = write!(
@@ -98,11 +98,11 @@ pub(crate) fn draft(
             plan.characters
                 .iter()
                 .find(|c| c.name.trim().eq_ignore_ascii_case(name.trim()))
-                .and_then(|c| find_part(inventory, &c.figure))
+                .and_then(|c| find_part(boxes, &c.figure))
                 .map_or_else(|| name.clone(), |p| format!("{name} ({})", part_label(p)))
         })
         .collect();
-    let objects = step_objects(step, inventory);
+    let objects = step_objects(step, boxes);
     let position = if index == 0 {
         "C'est le début : installe le décor et présente les personnages."
     } else if index + 1 == total {
@@ -143,8 +143,8 @@ fn or_none(items: &[String]) -> String {
 
 /// Re3's "Edit" module, adapted: a reviewer looks for anything the story
 /// uses that the box doesn't contain.
-pub(crate) fn review(inventory: &SetInventory, options: &StoryOptions, story: &str) -> Prompt {
-    let context = build_context(inventory, &options.context);
+pub(crate) fn review(boxes: &Collection, options: &StoryOptions, story: &str) -> Prompt {
+    let context = build_context(boxes, &options.context);
     Prompt {
         system: "\
 Tu es relecteur pour une maison d'édition jeunesse. Tu vérifies qu'une histoire peut \
@@ -168,12 +168,12 @@ fourni entre balises <set>. Réponds uniquement avec le JSON demandé."
 
 /// Rewrites the story, fixing only the reviewed issues.
 pub(crate) fn revise(
-    inventory: &SetInventory,
+    boxes: &Collection,
     options: &StoryOptions,
     story: &str,
     issues: &[Issue],
 ) -> Prompt {
-    let context = build_context(inventory, &options.context);
+    let context = build_context(boxes, &options.context);
     let mut user = format!(
         "{context}\n\n<histoire>\n{story}\n</histoire>\n\n\
          Un relecteur a relevé ces écarts avec le contenu de la boîte :\n"

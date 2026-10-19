@@ -8,7 +8,8 @@ use rag_mobil::augment::{ContextOptions, StoryOptions};
 use rag_mobil::generator::{
     LlmConfig, LlmGenerator, ReasoningEffort, ReplayGenerator, StoryGenerator, llm,
 };
-use rag_mobil::retriever::{InventorySource, JsonFile, PlaymoDb, playmodb};
+use rag_mobil::model::Collection;
+use rag_mobil::retriever::{Cached, InventorySource, JsonFile, PlaymoDb, cache, playmodb};
 use rag_mobil::writer::{Observer, Step, WriterOptions, WritingMethod, first_prompt};
 use rag_mobil::{RagError, RagPipeline, SetInventory, SetNumber};
 
@@ -55,8 +56,10 @@ impl From<Effort> for ReasoningEffort {
 #[derive(Debug, Parser)]
 #[command(version, about)]
 struct Cli {
-    /// Numéro du set Playmobil (ex. 3666).
-    set_number: String,
+    /// Numéros des sets Playmobil (ex. 3666). Avec plusieurs sets, une seule
+    /// histoire mélange le contenu de toutes les boîtes.
+    #[arg(required = true, value_name = "SET")]
+    set_numbers: Vec<String>,
 
     /// Langue de l'histoire.
     #[arg(short, long, default_value = "français")]
@@ -116,10 +119,23 @@ struct Cli {
     #[arg(long)]
     dry_run: bool,
 
-    /// Lit l'inventaire dans un fichier JSON (sortie de --inventory-json) au
-    /// lieu d'interroger PlaymoDB.
+    /// Lit les inventaires dans un fichier JSON (sortie de --inventory-json)
+    /// au lieu d'interroger PlaymoDB.
     #[arg(long, value_name = "FICHIER")]
     inventory_file: Option<PathBuf>,
+
+    /// Dossier du cache des inventaires PlaymoDB [défaut :
+    /// ~/.cache/rag-mobil/playmodb, ou l'équivalent du système].
+    #[arg(long, env = "RAG_MOBIL_CACHE_DIR", value_name = "DOSSIER")]
+    cache_dir: Option<PathBuf>,
+
+    /// N'utilise pas le cache : PlaymoDB est interrogé à chaque fois.
+    #[arg(long, conflicts_with = "refresh")]
+    no_cache: bool,
+
+    /// Interroge PlaymoDB même si le cache est à jour, et met le cache à jour.
+    #[arg(long)]
+    refresh: bool,
 
     /// Contourne le LLM : chaque prompt est écrit dans DOSSIER/NN-*.prompt.txt
     /// et la réponse lue dans DOSSIER/NN-*.answer.txt ; relancez après avoir
@@ -128,16 +144,36 @@ struct Cli {
     replay: Option<PathBuf>,
 }
 
-/// PlaymoDB, or a saved inventory.
+/// PlaymoDB (cached or not), or saved inventories.
 enum Source {
     Web(PlaymoDb),
+    Cached(Cached<PlaymoDb>),
     File(JsonFile),
+}
+
+impl Source {
+    /// Where each set will come from, e.g. `3666 (cache), 5135 (PlaymoDB)`.
+    fn describe(&self, sets: &[SetNumber]) -> String {
+        sets.iter()
+            .map(|set| {
+                let origin = match self {
+                    Self::Web(_) => "PlaymoDB",
+                    Self::Cached(cache) if cache.cached(set).is_some() => "cache",
+                    Self::Cached(_) => "PlaymoDB",
+                    Self::File(_) => "fichier",
+                };
+                format!("{set} ({origin})")
+            })
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
 }
 
 impl InventorySource for Source {
     async fn fetch(&self, set: &SetNumber) -> rag_mobil::Result<SetInventory> {
         match self {
             Self::Web(source) => source.fetch(set).await,
+            Self::Cached(source) => source.fetch(set).await,
             Self::File(source) => source.fetch(set).await,
         }
     }
@@ -171,10 +207,23 @@ fn hint(err: &RagError) -> Option<String> {
 }
 
 async fn run(cli: Cli) -> anyhow::Result<()> {
-    let set = SetNumber::parse(&cli.set_number)?;
+    let mut sets: Vec<SetNumber> = Vec::new();
+    for raw in &cli.set_numbers {
+        let set = SetNumber::parse(raw)?;
+        if !sets.contains(&set) {
+            sets.push(set);
+        }
+    }
     let source = match &cli.inventory_file {
         Some(path) => Source::File(JsonFile(path.clone())),
-        None => Source::Web(PlaymoDb::new(&cli.playmodb_url)?),
+        None if cli.no_cache => Source::Web(PlaymoDb::new(&cli.playmodb_url)?),
+        None => {
+            let dir = cli
+                .cache_dir
+                .clone()
+                .unwrap_or_else(|| cache::default_cache_dir().join("playmodb"));
+            Source::Cached(Cached::new(PlaymoDb::new(&cli.playmodb_url)?, dir).refresh(cli.refresh))
+        }
     };
     let options = StoryOptions {
         language: cli.language,
@@ -188,11 +237,20 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
 
     // Offline modes: retrieval (+ augmentation) only.
     if cli.inventory_json || cli.dry_run {
-        let inventory = source.fetch(&set).await?;
+        let mut inventories = Vec::new();
+        for set in &sets {
+            inventories.push(source.fetch(set).await?);
+        }
+        let collection = Collection::new(inventories);
         if cli.inventory_json {
-            println!("{}", serde_json::to_string_pretty(&inventory)?);
+            // One set: the inventory itself; several: an array.
+            let json = match collection.sets.as_slice() {
+                [one] => serde_json::to_string_pretty(one)?,
+                many => serde_json::to_string_pretty(many)?,
+            };
+            println!("{json}");
         } else {
-            let prompt = first_prompt(&inventory, &options, cli.method.into());
+            let prompt = first_prompt(&collection, &options, cli.method.into());
             println!(
                 "=== SYSTEM ===\n{}\n\n=== USER ===\n{}",
                 prompt.system, prompt.user
@@ -206,14 +264,14 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
         review: !cli.no_review,
     };
     match cli.replay {
-        Some(dir) => tell_story(source, ReplayGenerator::new(dir), &set, &options, writer).await,
+        Some(dir) => tell_story(source, ReplayGenerator::new(dir), &sets, &options, writer).await,
         None => {
             let generator = LlmGenerator::new(LlmConfig {
                 model: cli.model,
                 effort: cli.effort.map(Into::into),
                 fallback_model: (!cli.no_fallback).then_some(cli.fallback_model),
             });
-            tell_story(source, generator, &set, &options, writer).await
+            tell_story(source, generator, &sets, &options, writer).await
         }
     }
 }
@@ -221,25 +279,21 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
 async fn tell_story<G: StoryGenerator>(
     source: Source,
     generator: G,
-    set: &SetNumber,
+    sets: &[SetNumber],
     options: &StoryOptions,
     writer: WriterOptions,
 ) -> anyhow::Result<()> {
-    if matches!(source, Source::Web(_)) {
-        eprintln!("[rag-mobil] récupération de l'inventaire du set {set} sur PlaymoDB…");
-    }
+    eprintln!("[rag-mobil] inventaires : {}…", source.describe(sets));
     let pipeline = RagPipeline::new(source, generator);
-    let story = pipeline.run(set, options, writer, &mut Terminal).await?;
+    let story = pipeline.run(sets, options, writer, &mut Terminal).await?;
     println!();
 
     let g = &story.written.generation;
     eprintln!(
-        "[rag-mobil] set {} « {} » — {} pièces distinctes, {} figurine(s) — modèle {}, \
-         {} appel(s){}",
-        story.inventory.set_number,
-        story.inventory.name,
-        story.inventory.parts.len(),
-        story.inventory.figures().count(),
+        "[rag-mobil] {} — {} pièces distinctes, {} figurine(s) — modèle {}, {} appel(s){}",
+        story.collection.label(),
+        story.collection.part_count(),
+        story.collection.figures().count(),
         g.model,
         story.written.calls,
         g.output_tokens
