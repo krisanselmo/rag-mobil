@@ -175,6 +175,7 @@ mod tests {
                 Step::Reviewing => "review".into(),
                 Step::ReviewUnreadable => "review-unreadable".into(),
                 Step::Revising(_) => "revise".into(),
+                Step::SceneSetupDropped => "setup-dropped".into(),
             });
         }
     }
@@ -217,7 +218,7 @@ mod tests {
         let generator = ScriptedGenerator::default();
         let writer = WriterOptions {
             method: WritingMethod::Direct,
-            review: true,
+            ..WriterOptions::default()
         };
         let (story, recorder) = run(&generator, writer).await;
 
@@ -263,6 +264,273 @@ mod tests {
         assert!(draft2.contains("Barbe-Rousse cherche partout."));
         assert!(draft2.contains("Objets de la boîte à utiliser : Treasure chest"));
         assert!(draft2.contains("conclus l'histoire"));
+    }
+
+    fn staged() -> WriterOptions {
+        WriterOptions {
+            scene_setup: true,
+            ..WriterOptions::default()
+        }
+    }
+
+    #[tokio::test]
+    async fn scene_setup_precedes_each_part() {
+        let generator = ScriptedGenerator::new(&[
+            plan_json("30 00 001"),
+            "Barbe-Rousse cherche partout.".into(),
+            "Il ouvre enfin le coffre.".into(),
+            r#"{"issues": []}"#.into(),
+        ]);
+        let (story, _) = run(&generator, staged()).await;
+
+        let text = &story.written.generation.text;
+        assert!(text.contains(
+            "# Le trésor de Barbe-Rousse\n\n\
+             > 🧱 **Mise en place** : Barbe-Rousse (Pirate captain)\n\n\
+             Barbe-Rousse cherche partout.\n\n\
+             > 🧱 **Mise en place** : Barbe-Rousse (Pirate captain) ; Treasure chest\n\n\
+             Il ouvre enfin le coffre.\n\n## Dans ta boîte"
+        ));
+        assert!(story.written.staged);
+        assert_eq!(story.written.scenes.len(), 2);
+    }
+
+    fn one_issue() -> String {
+        json!({"issues": [{"excerpt": "un cheval", "problem": "pas de cheval", "fix": "à pied"}]})
+            .to_string()
+    }
+
+    #[tokio::test]
+    async fn revision_keeps_the_scenes_apart() {
+        let generator = ScriptedGenerator::new(&[
+            plan_json("30 00 001"),
+            "Il part avec un cheval.".into(),
+            "Il trouve le coffre.".into(),
+            one_issue(),
+            "Il part à pied.\n\n* * *\n\nIl trouve le coffre.".into(),
+        ]);
+        let (story, recorder) = run(&generator, staged()).await;
+
+        assert_eq!(recorder.steps.last().unwrap(), "revise");
+        assert_eq!(
+            story.written.scenes,
+            ["Il part à pied.", "Il trouve le coffre."]
+        );
+        let text = &story.written.generation.text;
+        assert!(!text.contains("* * *"));
+        assert_eq!(text.matches("Mise en place").count(), 2);
+        let prompts = generator.prompts.lock().unwrap();
+        let revise = &prompts[4].1.user;
+        assert!(revise.contains("Il part avec un cheval.\n\n* * *\n\nIl trouve le coffre."));
+        assert!(revise.contains("en 2 parties séparées par des lignes « * * * »"));
+    }
+
+    #[tokio::test]
+    async fn revision_that_merges_the_scenes_drops_the_setups() {
+        let generator = ScriptedGenerator::new(&[
+            plan_json("30 00 001"),
+            "Il part avec un cheval.".into(),
+            "Il trouve le coffre.".into(),
+            one_issue(),
+            "Il part à pied.\n\nIl trouve le coffre.".into(),
+        ]);
+        let (story, recorder) = run(&generator, staged()).await;
+
+        assert_eq!(recorder.steps.last().unwrap(), "setup-dropped");
+        assert!(!story.written.staged);
+        let text = &story.written.generation.text;
+        assert!(!text.contains("Mise en place"));
+        assert!(text.contains("Il part à pied.\n\nIl trouve le coffre."));
+    }
+
+    /// p1 → (p2, p3); p2 → (p4, p3); p3, p4 endings.
+    fn game_json(figure: &str, goto: &str) -> String {
+        json!({
+            "title": "Le coffre perdu",
+            "premise": "Un capitaine cherche son coffre.",
+            "setting": "Le pont du navire.",
+            "characters": [{"name": "Barbe-Rousse", "figure": figure, "portrait": "capitaine"}],
+            "paragraphs": [
+                {"id": "p1", "event": "Le coffre a disparu.", "characters": ["Barbe-Rousse"], "objects": [],
+                 "choices": [{"label": "Chercher sur le pont", "goto": "p2"}, {"label": "Fouiller la cale", "goto": goto}]},
+                {"id": "p2", "event": "Rien sur le pont.", "characters": ["Barbe-Rousse"], "objects": [],
+                 "choices": [{"label": "Monter au mât", "goto": "p4"}, {"label": "Descendre", "goto": "p3"}]},
+                {"id": "p3", "event": "Le coffre est dans la cale.", "characters": ["Barbe-Rousse"], "objects": ["30 00 002"], "choices": []},
+                {"id": "p4", "event": "Il voit le coffre de là-haut.", "characters": ["Barbe-Rousse"], "objects": ["30 00 002"], "choices": []},
+            ],
+        })
+        .to_string()
+    }
+
+    fn interactive() -> WriterOptions {
+        WriterOptions {
+            method: WritingMethod::Interactive,
+            ..WriterOptions::default()
+        }
+    }
+
+    #[tokio::test]
+    async fn interactive_story_is_a_gamebook() {
+        let generator = ScriptedGenerator::new(&[
+            game_json("30 00 001", "p3"),
+            "Le coffre a disparu !".into(),
+            "Le pont est vide.".into(),
+            "Le coffre était dans la cale.".into(),
+            "Du haut du mât, il le voit.".into(),
+            r#"{"issues": []}"#.into(),
+        ]);
+        let (story, recorder) = run(&generator, interactive()).await;
+
+        assert_eq!(
+            recorder.steps,
+            [
+                "plan",
+                "plan-ready",
+                "draft 1/4",
+                "draft 2/4",
+                "draft 3/4",
+                "draft 4/4",
+                "review"
+            ]
+        );
+        let written = &story.written;
+        assert_eq!(written.calls, 6);
+        // Reading order: p1, p2, p3 (2nd choice of p1), p4.
+        assert_eq!(
+            written.paragraphs[0].choices,
+            [
+                ("Chercher sur le pont".to_owned(), 2),
+                ("Fouiller la cale".to_owned(), 3)
+            ]
+        );
+        assert_eq!(
+            written.paragraphs[1].choices[0],
+            ("Monter au mât".to_owned(), 4)
+        );
+        let text = &written.generation.text;
+        assert!(text.starts_with("# Le coffre perdu\n\n> 🎲 C'est toi qui choisis"));
+        assert!(text.contains(
+            "## 1\n\nLe coffre a disparu !\n\n**Que choisis-tu ?**\n\n\
+             - Chercher sur le pont → **va au 2**\n- Fouiller la cale → **va au 3**\n"
+        ));
+        assert!(text.contains("## 3\n\nLe coffre était dans la cale.\n\n**— Fin —**\n"));
+        assert!(text.contains("## Dans ta boîte"));
+
+        let prompts = generator.prompts.lock().unwrap();
+        assert!(
+            prompts[0]
+                .1
+                .user
+                .contains("histoire interactive en 6 à 9 paragraphes")
+        );
+        // p4 is reached through p1 then p2: both are in its context.
+        let p4 = &prompts[4].1.user;
+        assert!(p4.contains("<histoire_jusqu_ici>\nLe coffre a disparu !\n\nLe pont est vide.\n"));
+        assert!(p4.contains("une des fins de l'histoire"));
+        let p1 = &prompts[1].1.user;
+        assert!(p1.contains("choisir entre : Chercher sur le pont ; Fouiller la cale"));
+        // The review sees numbered paragraphs.
+        assert!(
+            prompts[5]
+                .1
+                .user
+                .contains("§1\nLe coffre a disparu !\n\n§2\n")
+        );
+    }
+
+    #[tokio::test]
+    async fn interactive_review_rewrites_only_the_quoted_paragraph() {
+        let issues = json!({"issues": [{
+            "excerpt": "avec   sa CLÉ", "problem": "pas de clé", "fix": "sans clé",
+        }]});
+        let generator = ScriptedGenerator::new(&[
+            game_json("30 00 001", "p3"),
+            "Le coffre a disparu !".into(),
+            "Le pont est vide.".into(),
+            "Il ouvre le coffre avec sa clé.".into(),
+            "Du haut du mât, il le voit.".into(),
+            issues.to_string(),
+            "Il ouvre le coffre en tirant fort.".into(),
+        ]);
+        let (story, recorder) = run(&generator, interactive()).await;
+
+        assert_eq!(recorder.steps.last().unwrap(), "revise");
+        assert_eq!(story.written.calls, 7);
+        assert_eq!(
+            story.written.scenes[2],
+            "Il ouvre le coffre en tirant fort."
+        );
+        assert_eq!(story.written.scenes[1], "Le pont est vide.");
+    }
+
+    #[tokio::test]
+    async fn broken_graph_is_asked_again_then_abandoned() {
+        let generator = ScriptedGenerator::new(&[
+            game_json("30 00 001", "p9"),
+            game_json("30 00 001", "p1"), // a loop
+            "# Une histoire\n\nIl était une fois…".into(),
+        ]);
+        let (story, recorder) = run(&generator, interactive()).await;
+
+        assert_eq!(recorder.steps, ["plan", "plan-rejected", "plan-abandoned"]);
+        let prompts = generator.prompts.lock().unwrap();
+        assert!(prompts[1].1.user.contains("« p9 », qui n'existe pas"));
+        assert!(story.written.paragraphs.is_empty());
+        assert!(story.written.plan.is_none());
+    }
+
+    #[tokio::test]
+    async fn saga_episode_keeps_the_names() {
+        use crate::saga::{Episode, Saga};
+        let boxes: crate::model::Collection = FakeSource::default()
+            .fetch(&SetNumber::parse("5135").unwrap())
+            .await
+            .unwrap()
+            .into();
+        let first: crate::writer::StoryPlan =
+            serde_json::from_str(&plan_json("30 00 001")).unwrap();
+        let options = StoryOptions {
+            saga: Saga {
+                episodes: vec![Episode::new(&boxes, &first, true)],
+            },
+            ..StoryOptions::default()
+        };
+        // The captain renamed: rejected, then named back.
+        let renamed = plan_json("30 00 001").replace("Barbe-Rousse", "Capitaine Crochet");
+        let generator = ScriptedGenerator::new(&[
+            renamed.clone(),
+            renamed,
+            "Partie 1.".into(),
+            "Partie 2.".into(),
+            r#"{"issues": []}"#.into(),
+        ]);
+        let pipeline = RagPipeline::new(FakeSource::default(), &generator);
+        let mut recorder = Recorder::default();
+        let story = pipeline
+            .run(
+                &[SetNumber::parse("5135").unwrap()],
+                &options,
+                WriterOptions::default(),
+                &mut recorder,
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(
+            recorder.steps[..4],
+            ["plan", "plan-rejected", "plan-repaired", "plan-ready"]
+        );
+        let plan = story.written.plan.unwrap();
+        assert_eq!(plan.characters[0].name, "Barbe-Rousse");
+        assert_eq!(plan.outline[0].characters, ["Barbe-Rousse"]);
+        let prompts = generator.prompts.lock().unwrap();
+        let plan_prompt = &prompts[0].1.user;
+        assert!(plan_prompt.contains(
+            "<episodes_precedents>\nÉpisode 1 « Le trésor de Barbe-Rousse » : Un capitaine \
+             cherche son coffre.\n- Le coffre a disparu.\n- Il le retrouve.\n"
+        ));
+        assert!(plan_prompt.contains("l'épisode 2 d'une saga"));
+        assert!(prompts[1].1.user.contains("s'appelait « Barbe-Rousse »"));
     }
 
     #[tokio::test]

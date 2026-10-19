@@ -6,6 +6,12 @@ pub enum RagError {
     #[error("numéro de set invalide : « {0} » (attendu : chiffres uniquement, ex. 3666)")]
     InvalidSetNumber(String),
 
+    #[error(
+        "pièce manquante invalide : « {0} » (attendu : une référence, éventuellement suivie \
+         de :N pour N exemplaires, ex. 30 07 640:2)"
+    )]
+    InvalidMissingPart(String),
+
     /// The payload says which set and which source(s) were asked.
     #[error("set introuvable : {0}")]
     SetNotFound(String),
@@ -51,6 +57,9 @@ pub enum RagError {
         path: std::path::PathBuf,
         source: std::io::Error,
     },
+
+    #[error("impression PDF impossible : {0}")]
+    Pdf(String),
 
     #[error("JSON invalide : {0}")]
     Json(#[from] serde_json::Error),

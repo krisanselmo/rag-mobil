@@ -8,14 +8,18 @@
 //! 4. [`writer`] — the writing method: one call, or Plan → Draft → Edit
 //!    adapted from the open-source Re3/DOC story generators.
 //!
-//! [`pipeline::RagPipeline`] chains them.
+//! [`pipeline::RagPipeline`] chains them; [`html`] renders the story as a
+//! page with the pictures of the parts, [`pdf`] prints it.
 
 pub mod augment;
 pub mod error;
 pub mod generator;
+pub mod html;
 pub mod model;
+pub mod pdf;
 pub mod pipeline;
 pub mod retriever;
+pub mod saga;
 pub mod writer;
 
 pub use error::{RagError, Result};

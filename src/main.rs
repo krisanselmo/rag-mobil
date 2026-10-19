@@ -10,12 +10,13 @@ use rag_mobil::augment::{ContextOptions, StoryOptions};
 use rag_mobil::generator::{
     LlmConfig, LlmGenerator, ReasoningEffort, ReplayGenerator, StoryGenerator, llm,
 };
-use rag_mobil::model::Collection;
+use rag_mobil::model::{Collection, MissingPart};
 use rag_mobil::retriever::{
     Answered, Cached, Fallback, HttpJson, InventorySource, JsonFile, PlaymoDb, cache, playmodb,
 };
+use rag_mobil::saga::{Episode, Saga};
 use rag_mobil::writer::{Observer, Step, WriterOptions, WritingMethod, first_prompt};
-use rag_mobil::{RagError, RagPipeline, SetInventory, SetNumber};
+use rag_mobil::{RagError, RagPipeline, SetInventory, SetNumber, html, pdf};
 
 /// Méthode de rédaction.
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -24,6 +25,9 @@ enum Method {
     Planned,
     /// Un seul appel, l'histoire s'affiche au fil de l'écriture.
     Direct,
+    /// Histoire dont le lecteur choisit la suite : paragraphes numérotés et
+    /// choix (comme --interactive).
+    Interactive,
 }
 
 impl From<Method> for WritingMethod {
@@ -31,6 +35,36 @@ impl From<Method> for WritingMethod {
         match method {
             Method::Planned => Self::Planned,
             Method::Direct => Self::Direct,
+            Method::Interactive => Self::Interactive,
+        }
+    }
+}
+
+/// Format de l'histoire sur la sortie standard.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+enum Format {
+    /// Markdown, affiché au fil de l'écriture avec --method direct.
+    Markdown,
+    /// Page HTML autonome, avec les images des pièces (à lire ou imprimer).
+    Html,
+    /// Le livret HTML imprimé en PDF (A4) par Chrome, Chromium ou Edge.
+    Pdf,
+}
+
+/// Mise en page du livret imprimé (HTML et PDF).
+#[derive(Debug, Clone, Copy, ValueEnum)]
+enum Layout {
+    /// Livret : couverture pleine page, une page par scène.
+    Booklet,
+    /// Compacte : en-tête court, texte sur deux colonnes, petites images.
+    Compact,
+}
+
+impl From<Layout> for html::Layout {
+    fn from(layout: Layout) -> Self {
+        match layout {
+            Layout::Booklet => Self::Booklet,
+            Layout::Compact => Self::Compact,
         }
     }
 }
@@ -90,6 +124,47 @@ struct Cli {
     /// Méthode de rédaction.
     #[arg(long, value_enum, default_value_t = Method::Planned)]
     method: Method,
+
+    /// Histoire dont tu es le héros : des paragraphes numérotés, chacun
+    /// terminé par des choix qui renvoient à la suite, et plusieurs fins
+    /// (raccourci de --method interactive).
+    #[arg(long, conflicts_with = "method")]
+    interactive: bool,
+
+    /// Saga : fichier JSON des épisodes déjà racontés (créé s'il n'existe
+    /// pas). L'histoire en est la suite, avec les mêmes noms pour les mêmes
+    /// figurines, et s'y ajoute comme nouvel épisode.
+    #[arg(long, env = "RAG_MOBIL_SAGA", value_name = "FICHIER")]
+    saga: Option<PathBuf>,
+
+    /// Méthode planned : avant chaque partie, une « Mise en place » liste les
+    /// personnages et objets à installer, d'après le plan validé.
+    #[arg(long, env = "RAG_MOBIL_SCENE_SETUP", value_parser = BoolishValueParser::new())]
+    scene_setup: bool,
+
+    /// Format de sortie ; pdf s'écrit dans un fichier (> livret.pdf).
+    #[arg(short, long, value_enum, env = "RAG_MOBIL_FORMAT", default_value_t = Format::Markdown)]
+    format: Format,
+
+    /// --format html ou pdf : mise en page à l'impression.
+    #[arg(long, value_enum, env = "RAG_MOBIL_LAYOUT", default_value_t = Layout::Booklet)]
+    layout: Layout,
+
+    /// --format pdf : argument passé au navigateur (ex. --no-sandbox dans un
+    /// conteneur lancé en root). Répétable. Le navigateur se choisit avec
+    /// RAG_MOBIL_BROWSER.
+    #[arg(long, value_name = "ARG", allow_hyphen_values = true)]
+    browser_arg: Vec<String>,
+
+    /// Pièce absente de la boîte (perdue, cassée), par sa référence : toutes
+    /// les copies (30 07 640) ou N d'entre elles (30 07 640:2). Répétable.
+    #[arg(long, value_name = "REF[:N]", value_parser = MissingPart::parse)]
+    missing: Vec<MissingPart>,
+
+    /// Fichier des pièces absentes : une par ligne, au format de --missing ;
+    /// lignes vides et commentaires (#) ignorés.
+    #[arg(long, env = "RAG_MOBIL_MISSING_FILE", value_name = "FICHIER")]
+    missing_file: Option<PathBuf>,
 
     /// Méthode planned : pas de relecture de fidélité à la fin.
     #[arg(long)]
@@ -297,6 +372,24 @@ fn hint(err: &RagError) -> Option<String> {
     }
 }
 
+/// `--missing-file`: one missing part per line, `#` starting a comment.
+fn read_missing_file(path: &PathBuf) -> anyhow::Result<Vec<MissingPart>> {
+    let text = std::fs::read_to_string(path).map_err(|source| RagError::Io {
+        path: path.clone(),
+        source,
+    })?;
+    let mut missing = Vec::new();
+    for (n, line) in text.lines().enumerate() {
+        let line = line.split('#').next().unwrap_or_default().trim();
+        if !line.is_empty() {
+            let part = MissingPart::parse(line)
+                .map_err(|err| anyhow::anyhow!("{}, ligne {} : {err}", path.display(), n + 1))?;
+            missing.push(part);
+        }
+    }
+    Ok(missing)
+}
+
 async fn run(cli: Cli) -> anyhow::Result<()> {
     let mut sets: Vec<SetNumber> = Vec::new();
     for raw in &cli.set_numbers {
@@ -329,6 +422,23 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
         }
         (None, None) => Source::Playmo(playmo()?),
     };
+    let method = if cli.interactive {
+        WritingMethod::Interactive
+    } else {
+        cli.method.into()
+    };
+    let saga = match &cli.saga {
+        Some(path) if method == WritingMethod::Direct => {
+            eprintln!(
+                "[rag-mobil] --saga ignoré : il demande la méthode planned ou interactive \
+                 ({} non lu)",
+                path.display()
+            );
+            Saga::default()
+        }
+        Some(path) => Saga::load(path)?,
+        None => Saga::default(),
+    };
     let options = StoryOptions {
         language: cli.language,
         reader_age: cli.age,
@@ -338,11 +448,28 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
         context: ContextOptions {
             include_all: cli.include_all,
         },
+        saga,
     };
 
+    let mut missing = match &cli.missing_file {
+        Some(path) => read_missing_file(path)?,
+        None => Vec::new(),
+    };
+    missing.extend(cli.missing);
+    let (mut collection, origins) = source.fetch_all(&sets).await?;
+    let offline = cli.inventory_json || cli.dry_run;
+    if !offline {
+        eprintln!("[rag-mobil] inventaires : {origins}");
+    }
+    if !missing.is_empty() {
+        eprintln!("[rag-mobil] pièces absentes de la boîte :");
+        for line in collection.remove_missing(&missing) {
+            eprintln!("  - {line}");
+        }
+    }
+
     // Offline modes: retrieval (+ augmentation) only.
-    if cli.inventory_json || cli.dry_run {
-        let (collection, _) = source.fetch_all(&sets).await?;
+    if offline {
         if cli.inventory_json {
             // One set: the inventory itself; several: an array.
             let json = match collection.sets.as_slice() {
@@ -351,7 +478,7 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
             };
             println!("{json}");
         } else {
-            let prompt = first_prompt(&collection, &options, cli.method.into());
+            let prompt = first_prompt(&collection, &options, method);
             println!(
                 "=== SYSTEM ===\n{}\n\n=== USER ===\n{}",
                 prompt.system, prompt.user
@@ -360,36 +487,115 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
         return Ok(());
     }
 
+    if cli.scene_setup && method == WritingMethod::Direct {
+        eprintln!("[rag-mobil] --scene-setup ignoré : il demande la méthode planned");
+    }
+    let saga = cli.saga.filter(|_| method != WritingMethod::Direct);
+    if saga.is_some() {
+        eprintln!("[rag-mobil] saga : épisode {}", options.saga.next_number());
+    }
     let writer = WriterOptions {
-        method: cli.method.into(),
+        method,
         review: !cli.no_review,
+        scene_setup: cli.scene_setup,
+    };
+    // Before any LLM call: a PDF needs a browser and a file.
+    let printer = match cli.format {
+        Format::Pdf => {
+            use std::io::IsTerminal;
+            if std::io::stdout().is_terminal() {
+                anyhow::bail!("--format pdf écrit un fichier : redirigez la sortie (> livret.pdf)");
+            }
+            Some((pdf::find_browser()?, cli.browser_arg))
+        }
+        _ => None,
+    };
+    let telling = Telling {
+        collection,
+        sets: &sets,
+        options: &options,
+        writer,
+        format: cli.format,
+        layout: cli.layout.into(),
+        printer,
+        saga,
     };
     match cli.replay {
-        Some(dir) => tell_story(source, ReplayGenerator::new(dir), &sets, &options, writer).await,
+        Some(dir) => telling.tell(ReplayGenerator::new(dir)).await,
         None => {
             let generator = LlmGenerator::new(LlmConfig {
                 model: cli.model,
                 effort: cli.effort.map(Into::into),
                 fallback_model: (!cli.no_fallback).then_some(cli.fallback_model),
             });
-            tell_story(source, generator, &sets, &options, writer).await
+            telling.tell(generator).await
         }
     }
 }
 
-async fn tell_story<G: StoryGenerator>(
-    source: Source,
-    generator: G,
-    sets: &[SetNumber],
-    options: &StoryOptions,
+/// What to tell, once the inventories are fetched.
+struct Telling<'a> {
+    collection: Collection,
+    sets: &'a [SetNumber],
+    options: &'a StoryOptions,
     writer: WriterOptions,
-) -> anyhow::Result<()> {
-    let (collection, origins) = source.fetch_all(sets).await?;
-    eprintln!("[rag-mobil] inventaires : {origins}");
-    let pipeline = RagPipeline::new(Fetched(collection), generator);
-    let story = pipeline.run(sets, options, writer, &mut Terminal).await?;
-    println!();
+    format: Format,
+    layout: html::Layout,
+    /// `--format pdf`: the browser and its extra arguments.
+    printer: Option<(PathBuf, Vec<String>)>,
+    /// `--saga`: where to add the new episode.
+    saga: Option<PathBuf>,
+}
 
+impl Telling<'_> {
+    async fn tell<G: StoryGenerator>(self, generator: G) -> anyhow::Result<()> {
+        let pipeline = RagPipeline::new(Fetched(self.collection), generator);
+        let mut terminal = Terminal {
+            stream: self.format == Format::Markdown,
+        };
+        let story = pipeline
+            .run(self.sets, self.options, self.writer, &mut terminal)
+            .await?;
+        match self.format {
+            Format::Markdown => println!(),
+            Format::Html => print!("{}", html::render(&story, self.options, self.layout)),
+            Format::Pdf => {
+                let (browser, args) = self.printer.expect("browser found before writing");
+                eprintln!("[rag-mobil] impression PDF ({})…", browser.display());
+                let page = html::render(&story, self.options, self.layout);
+                let bytes = pdf::print(&page, &browser, &args)?;
+                let mut stdout = std::io::stdout();
+                stdout.write_all(&bytes)?;
+                stdout.flush()?;
+            }
+        }
+        summary(&story);
+        if let Some(path) = &self.saga {
+            match &story.written.plan {
+                Some(plan) => {
+                    let mut saga = self.options.saga.clone();
+                    let linear = story.written.paragraphs.is_empty();
+                    saga.episodes
+                        .push(Episode::new(&story.collection, plan, linear));
+                    saga.save(path)?;
+                    eprintln!(
+                        "[rag-mobil] épisode {} ajouté à {}",
+                        saga.episodes.len(),
+                        path.display()
+                    );
+                }
+                None => eprintln!(
+                    "[rag-mobil] pas de plan (rédaction en un seul appel) : épisode non \
+                     ajouté à {}",
+                    path.display()
+                ),
+            }
+        }
+        Ok(())
+    }
+}
+
+fn summary(story: &rag_mobil::Story) {
     let g = &story.written.generation;
     eprintln!(
         "[rag-mobil] {} — {} pièces distinctes, {} figurine(s) — modèle {}, {} appel(s){}",
@@ -405,14 +611,18 @@ async fn tell_story<G: StoryGenerator>(
     if g.truncated {
         eprintln!("[rag-mobil] attention : histoire tronquée (limite max_tokens atteinte)");
     }
-    Ok(())
 }
 
-/// Story on stdout, progress on stderr.
-struct Terminal;
+/// Story on stdout (unless rendered at the end), progress on stderr.
+struct Terminal {
+    stream: bool,
+}
 
 impl Observer for Terminal {
     fn text(&mut self, chunk: &str) {
+        if !self.stream {
+            return;
+        }
         let mut stdout = std::io::stdout();
         let _ = stdout.write_all(chunk.as_bytes());
         let _ = stdout.flush();
@@ -453,6 +663,10 @@ impl Observer for Terminal {
                     eprintln!("  - {}", issue.problem);
                 }
             }
+            Step::SceneSetupDropped => eprintln!(
+                "[rag-mobil] mise en place retirée : la correction n'a pas gardé les parties \
+                 séparées"
+            ),
         }
     }
 }

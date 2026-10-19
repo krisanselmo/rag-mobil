@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 use crate::augment::StoryOptions;
-use crate::model::{Collection, Part, SetInventory};
+use crate::model::{Collection, Part, SetInventory, reference_key};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StoryPlan {
@@ -115,23 +115,19 @@ pub(crate) fn review_schema() -> Value {
     })
 }
 
-fn digits(s: &str) -> String {
-    s.chars().filter(char::is_ascii_digit).collect()
-}
-
 /// Every box holding a reference (spacing and any `réf.` prefix ignored),
 /// with the matching part.
 pub fn holdings<'a>(
     collection: &'a Collection,
     reference: &str,
 ) -> Vec<(&'a SetInventory, &'a Part)> {
-    let wanted = digits(reference);
+    let wanted = reference_key(reference);
     if wanted.is_empty() {
         return Vec::new();
     }
     collection
         .parts()
-        .filter(|(_, p)| digits(&p.number) == wanted)
+        .filter(|(_, p)| reference_key(&p.number) == wanted)
         .collect()
 }
 
@@ -294,6 +290,25 @@ pub fn render_plan(plan: &StoryPlan, collection: &Collection) -> String {
 /// `Parrot body (light blue) + Parrot wings (yellow)`.
 /// A piece already shown with an earlier object of the step isn't repeated.
 pub fn step_objects(step: &PlotPoint, collection: &Collection, citations: bool) -> Vec<String> {
+    step_items(step, collection)
+        .into_iter()
+        .map(|item| match item {
+            Ok(pieces) => pieces
+                .into_iter()
+                .map(|p| cited_label(p, citations))
+                .collect::<Vec<_>>()
+                .join(" + "),
+            Err(reference) => reference.clone(),
+        })
+        .collect()
+}
+
+/// Objects of one step, each with its companion pieces; an unknown
+/// reference is kept as is (`Err`).
+fn step_items<'a>(
+    step: &'a PlotPoint,
+    collection: &'a Collection,
+) -> Vec<std::result::Result<Vec<&'a Part>, &'a String>> {
     let mut shown = HashSet::new();
     step.objects
         .iter()
@@ -304,17 +319,83 @@ pub fn step_objects(step: &PlotPoint, collection: &Collection, citations: bool) 
                 }
                 let companions = companions(part, set);
                 shown.extend(companions.iter().map(|p| p.number.clone()));
-                Some(
-                    std::iter::once(*part)
-                        .chain(companions)
-                        .map(|p| cited_label(p, citations))
-                        .collect::<Vec<_>>()
-                        .join(" + "),
-                )
+                Some(Ok(std::iter::once(*part).chain(companions).collect()))
             }
-            None => Some(r.clone()),
+            None => Some(Err(r)),
         })
         .collect()
+}
+
+/// What to put on the table before a part of the story is played.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SceneSetup<'a> {
+    /// Each character present, with its figure.
+    pub characters: Vec<(&'a str, &'a Part)>,
+    /// Each object used, with its companion pieces.
+    pub objects: Vec<Vec<&'a Part>>,
+}
+
+impl SceneSetup<'_> {
+    pub fn is_empty(&self) -> bool {
+        self.characters.is_empty() && self.objects.is_empty()
+    }
+}
+
+/// The scene setup of a plot point, built from the validated plan: only
+/// parts that are in the boxes.
+pub fn scene_setup<'a>(
+    step: &'a PlotPoint,
+    plan: &'a StoryPlan,
+    collection: &'a Collection,
+) -> SceneSetup<'a> {
+    let characters = step
+        .characters
+        .iter()
+        .filter_map(|name| {
+            let character = plan.characters.iter().find(|c| key(&c.name) == key(name))?;
+            let figure = find_part(collection, &character.figure)?;
+            Some((character.name.as_str(), figure))
+        })
+        .collect();
+    let objects = step_items(step, collection)
+        .into_iter()
+        .filter_map(std::result::Result::ok)
+        .collect();
+    SceneSetup {
+        characters,
+        objects,
+    }
+}
+
+/// The scene setup as a Markdown quote, before the part it sets up:
+/// `> 🧱 **Mise en place** : Léon (Castle Trumpeter) ; Horse, Halberd`.
+pub fn scene_setup_markdown(setup: &SceneSetup<'_>, options: &StoryOptions) -> String {
+    let label = |part: &Part| cited_label(part, options.citations);
+    let characters: Vec<String> = setup
+        .characters
+        .iter()
+        .map(|(name, figure)| format!("{name} ({})", label(figure)))
+        .collect();
+    let objects: Vec<String> = setup
+        .objects
+        .iter()
+        .map(|pieces| {
+            pieces
+                .iter()
+                .map(|p| label(p))
+                .collect::<Vec<_>>()
+                .join(" + ")
+        })
+        .collect();
+    let items: Vec<String> = [characters.join(", "), objects.join(", ")]
+        .into_iter()
+        .filter(|s| !s.is_empty())
+        .collect();
+    format!(
+        "> 🧱 **{}** : {}",
+        Labels::new(options).scene_setup,
+        items.join(" ; ")
+    )
 }
 
 /// Largest group of same-named pieces still treated as one object: beyond
@@ -350,41 +431,76 @@ pub fn companions<'a>(part: &Part, set: &'a SetInventory) -> Vec<&'a Part> {
         .collect()
 }
 
-/// The closing "In your box" section, built from the plan by code so that it
-/// only ever lists parts that really are in the boxes. With several boxes,
-/// each line says which box to look in.
-pub fn in_your_box(plan: &StoryPlan, collection: &Collection, options: &StoryOptions) -> String {
-    let french = options.language.to_lowercase().starts_with("fr");
-    let label = |part: &Part| cited_label(part, options.citations);
-    let (heading, figures_label, objects_label, box_word) = if french {
-        ("Dans ta boîte", "Personnages", "Objets", "boîte")
-    } else {
-        ("In your box", "Characters", "Objects", "box")
-    };
-    let origin = |set: &SetInventory| {
-        if collection.is_single() {
-            String::new()
-        } else {
-            format!(" ({box_word} {})", set.set_number)
-        }
-    };
+/// Headings of the parts of the story written by code.
+#[derive(Debug, Clone, Copy)]
+pub struct Labels {
+    pub in_your_box: &'static str,
+    pub characters: &'static str,
+    pub objects: &'static str,
+    pub scene_setup: &'static str,
+    /// `boîte`, as in `(boîte 3666)`.
+    pub a_box: &'static str,
+    /// How to read an interactive story.
+    pub interactive: &'static str,
+    pub choose: &'static str,
+    /// `va au`, as in `va au 3`.
+    pub go_to: &'static str,
+    pub the_end: &'static str,
+}
 
-    let mut out = format!("## {heading}\n");
-    if !plan.characters.is_empty() {
-        let _ = write!(out, "\n**{figures_label}**\n");
-        for c in &plan.characters {
-            let label = match holdings(collection, &c.figure).first() {
-                Some((set, part)) => format!("{}{}", label(part), origin(set)),
-                None => c.figure.clone(),
-            };
-            let _ = writeln!(out, "- {} — {label}", c.name);
+impl Labels {
+    pub fn new(options: &StoryOptions) -> Self {
+        if options.language.to_lowercase().starts_with("fr") {
+            Self {
+                in_your_box: "Dans ta boîte",
+                characters: "Personnages",
+                objects: "Objets",
+                scene_setup: "Mise en place",
+                a_box: "boîte",
+                interactive: "C'est toi qui choisis la suite : commence au paragraphe 1, \
+                              puis suis tes choix.",
+                choose: "Que choisis-tu ?",
+                go_to: "va au",
+                the_end: "Fin",
+            }
+        } else {
+            Self {
+                in_your_box: "In your box",
+                characters: "Characters",
+                objects: "Objects",
+                scene_setup: "Set the scene",
+                a_box: "box",
+                interactive: "You choose what happens: start at paragraph 1, then follow \
+                              your choices.",
+                choose: "What do you choose?",
+                go_to: "go to",
+                the_end: "The End",
+            }
         }
     }
+}
+
+/// What the story uses from the boxes, from the plan.
+#[derive(Debug, Clone)]
+pub struct BoxContents<'a> {
+    /// Each character, with its figure when it is in the boxes.
+    pub characters: Vec<(&'a PlannedCharacter, Option<(&'a SetInventory, &'a Part)>)>,
+    /// Each object (not a figure) once per box holding it, with its
+    /// companion pieces.
+    pub objects: Vec<(&'a SetInventory, &'a Part)>,
+}
+
+pub fn box_contents<'a>(plan: &'a StoryPlan, collection: &'a Collection) -> BoxContents<'a> {
+    let characters = plan
+        .characters
+        .iter()
+        .map(|c| (c, holdings(collection, &c.figure).first().copied()))
+        .collect();
 
     // Each object comes with its companion pieces (parrot body → wings),
     // from every box that holds it.
     let mut seen = HashSet::new();
-    let objects: Vec<(&SetInventory, &Part)> = plan
+    let objects = plan
         .outline
         .iter()
         .flat_map(|s| &s.objects)
@@ -398,9 +514,41 @@ pub fn in_your_box(plan: &StoryPlan, collection: &Collection, options: &StoryOpt
             !p.is_figure() && seen.insert((set.set_number.clone(), p.number.clone()))
         })
         .collect();
-    if !objects.is_empty() {
-        let _ = write!(out, "\n**{objects_label}**\n");
-        for (set, part) in objects {
+    BoxContents {
+        characters,
+        objects,
+    }
+}
+
+/// The closing "In your box" section, built from the plan by code so that it
+/// only ever lists parts that really are in the boxes. With several boxes,
+/// each line says which box to look in.
+pub fn in_your_box(plan: &StoryPlan, collection: &Collection, options: &StoryOptions) -> String {
+    let labels = Labels::new(options);
+    let label = |part: &Part| cited_label(part, options.citations);
+    let origin = |set: &SetInventory| {
+        if collection.is_single() {
+            String::new()
+        } else {
+            format!(" ({} {})", labels.a_box, set.set_number)
+        }
+    };
+    let contents = box_contents(plan, collection);
+
+    let mut out = format!("## {}\n", labels.in_your_box);
+    if !contents.characters.is_empty() {
+        let _ = write!(out, "\n**{}**\n", labels.characters);
+        for (c, figure) in contents.characters {
+            let label = match figure {
+                Some((set, part)) => format!("{}{}", label(part), origin(set)),
+                None => c.figure.clone(),
+            };
+            let _ = writeln!(out, "- {} — {label}", c.name);
+        }
+    }
+    if !contents.objects.is_empty() {
+        let _ = write!(out, "\n**{}**\n", labels.objects);
+        for (set, part) in contents.objects {
             let quantity = part.quantity.map(|q| format!("{q}× ")).unwrap_or_default();
             let _ = writeln!(out, "- {quantity}{}{}", label(part), origin(set));
         }
@@ -610,6 +758,44 @@ pub(crate) mod tests {
             part("30 07 640", "Halberd", "Tool", Some(2)),
         ];
         Collection::new(vec![inventory(), ship])
+    }
+
+    #[test]
+    fn scene_setup_lists_what_to_put_on_the_table() {
+        let mut inventory = inventory();
+        inventory.parts.extend([
+            part("30 06 198", "Parrot body", "Animal", Some(1)),
+            part("30 06 199", "Parrot wings", "Animal", Some(1)),
+        ]);
+        let boxes: Collection = inventory.into();
+        let mut plan = valid_plan();
+        plan.outline[1].objects.push("30 06 198".into());
+        plan.outline[1].characters.push("Fantôme".into());
+
+        let setup = scene_setup(&plan.outline[1], &plan, &boxes);
+        let names: Vec<&str> = setup.characters.iter().map(|(n, _)| *n).collect();
+        assert_eq!(names, ["Rose", "Léon"], "unknown names left out");
+        assert_eq!(setup.objects.len(), 3);
+        assert_eq!(
+            scene_setup_markdown(&setup, &StoryOptions::default()),
+            "> 🧱 **Mise en place** : Rose (Lady in red dress), Léon (Castle Trumpeter) ; \
+             Horse (old-style), Halberd, Parrot body + Parrot wings"
+        );
+        let cited = StoryOptions {
+            citations: true,
+            ..english()
+        };
+        let first = scene_setup(&plan.outline[0], &plan, &boxes);
+        assert_eq!(
+            scene_setup_markdown(&first, &cited),
+            "> 🧱 **Set the scene** : Léon (Castle Trumpeter [réf. 30 00 496])"
+        );
+        let empty = PlotPoint {
+            event: "".into(),
+            characters: vec![],
+            objects: vec![],
+        };
+        assert!(scene_setup(&empty, &plan, &boxes).is_empty());
     }
 
     #[test]

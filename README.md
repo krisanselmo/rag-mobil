@@ -51,6 +51,21 @@ rag-mobil 3666 --language English --effort high
 # Rédaction en un seul appel, affichée au fil de l'écriture (plus rapide)
 rag-mobil 3666 --method direct
 
+# Livret illustré, avec la mise en place de chaque scène : HTML, ou PDF à imprimer
+rag-mobil 3799 --scene-setup --format html > livret.html
+rag-mobil 3799 --scene-setup --format pdf > livret.pdf
+rag-mobil 3799 --scene-setup --format pdf --layout compact > livret.pdf   # 2 pages au lieu de 7
+
+# Histoire dont tu es le héros : paragraphes numérotés, choix, plusieurs fins
+rag-mobil 3799 --interactive --format pdf > aventure.pdf
+
+# Une saga : chaque histoire est la suite de la précédente, mêmes personnages
+rag-mobil 3799 --saga pirates.json      # épisode 1
+rag-mobil 3799 70145 --saga pirates.json  # épisode 2, avec une nouvelle boîte
+
+# La boîte réelle : le perroquet est perdu, 2 hallebardes sur 4 aussi
+rag-mobil 3666 --missing "30 06 368" --missing "30 07 640:2"
+
 # Autres fournisseurs
 rag-mobil 3666 -m gpt-5.4-mini
 rag-mobil 3666 -m ollama::llama3.2        # local, sans clé API
@@ -71,7 +86,15 @@ vont sur `stderr` (`rag-mobil 3666 > histoire.md` fonctionne).
 | `-w, --words` / `RAG_MOBIL_WORDS` | `600` | Longueur visée |
 | `-t, --theme` | — | Souhait libre |
 | `--citations` / `RAG_MOBIL_CITATIONS` | off | Cite chaque pièce nommée par sa référence (voir ci-dessous) |
-| `--method` | `planned` | `planned` (plan, rédaction, relecture) ou `direct` (un appel) |
+| `--method` | `planned` | `planned` (plan, rédaction, relecture), `direct` (un appel) ou `interactive` |
+| `--interactive` | off | Histoire dont tu es le héros (raccourci de `--method interactive`, voir ci-dessous) |
+| `--saga` / `RAG_MOBIL_SAGA` | — | Fichier JSON des épisodes : l'histoire en est la suite, puis s'y ajoute (voir ci-dessous) |
+| `--scene-setup` / `RAG_MOBIL_SCENE_SETUP` | off | Méthode `planned` : « Mise en place » avant chaque partie (voir ci-dessous) |
+| `-f, --format` / `RAG_MOBIL_FORMAT` | `markdown` | `markdown`, `html` ou `pdf` (livret illustré, voir ci-dessous) |
+| `--layout` / `RAG_MOBIL_LAYOUT` | `booklet` | `--format html` ou `pdf` : `booklet` (livret) ou `compact` (économe en papier) |
+| `--browser-arg` | — | `--format pdf` : argument passé au navigateur (ex. `--no-sandbox`) ; répétable |
+| `--missing REF[:N]` | — | Pièce absente de la boîte : toutes les copies, ou N ; répétable |
+| `--missing-file` / `RAG_MOBIL_MISSING_FILE` | — | Pièces absentes, une par ligne (voir ci-dessous) |
 | `--no-review` | off | Méthode `planned` : saute la relecture de fidélité |
 | `--include-all` | off | Garde aussi les notices papier dans le contexte |
 | `-m, --model` / `RAG_MOBIL_MODEL` | `claude-opus-5-5` | Modèle ; le fournisseur est déduit du nom |
@@ -98,6 +121,125 @@ affichage les retire (`\s*\[réf\.[^\]]*\]`) ou fait de chaque référence un li
 Dans la méthode `planned`, la section « Dans ta boîte » est écrite par le code, donc ses
 citations sont toujours exactes ; dans le texte, c'est le LLM qui les recopie.
 
+### Histoire dont tu es le héros
+
+Avec `--interactive`, le plan n'est plus une suite d'étapes mais un graphe : 6 à 9
+paragraphes, chacun terminé par 2 ou 3 choix qui renvoient à un autre paragraphe, et 2 à
+4 fins. Comme pour le plan linéaire, chaque personnage et chaque objet est une
+référence vérifiée contre la boîte ; le code vérifie aussi le graphe : chaque choix mène
+à un paragraphe qui existe, aucun paragraphe n'est inatteignable, pas de boucle, au
+moins 2 fins. En cas d'écart, le plan est redemandé une fois avec la liste des
+erreurs ; un graphe encore cassé fait écrire l'histoire en un seul appel (non
+interactive).
+
+Les paragraphes sont numérotés dans l'ordre de lecture (en largeur depuis le début), et
+chacun est rédigé avec, comme contexte, les paragraphes qui y mènent. La relecture voit
+tous les paragraphes ; seuls ceux dont elle cite un passage sont réécrits.
+
+```markdown
+## 1
+
+Coco le perroquet se posa sur le hamac de Tom…
+
+**Que choisis-tu ?**
+
+- Pépin propose de faire le tour de l'île en barque → **va au 2**
+- Robinson veut d'abord fouiller la grotte → **va au 3**
+```
+
+En HTML et en PDF, les choix sont des liens vers les paragraphes, et un paragraphe
+imprimé ne se coupe pas entre deux pages. `--scene-setup` ajoute la mise en place de
+chaque paragraphe.
+
+### Sagas
+
+`--saga pirates.json` enchaîne les histoires : le fichier (créé s'il n'existe pas)
+garde chaque épisode raconté — boîtes, titre, prémisse, personnages (nom, figurine,
+portrait) et étapes — et le plan de l'épisode suivant les reçoit dans
+`<episodes_precedents>`, avec la consigne de ne pas répéter l'intrigue. Les personnages
+déjà connus dont la figurine est dans la boîte sont proposés avec leur nom et leur
+caractère ; les autres ne peuvent qu'être évoqués.
+
+Le code vérifie la continuité, figurine par figurine : une figurine déjà connue garde son
+nom (« la figurine 30 13 020 s'appelait « Pépin » : garde ce nom »), et un nom déjà
+donné ne passe pas à une autre figurine. Le plan est redemandé une fois ; s'il reste des
+écarts, les noms d'origine sont remis. On peut changer de boîte d'un épisode à l'autre :
+seules les figurines présentes reviennent. L'épisode est ajouté au fichier une fois
+l'histoire écrite, sauf si le plan a échoué (rédaction en un seul appel). `--saga`
+demande la méthode `planned` ou `interactive` ; une histoire interactive est gardée
+sans ses étapes, puisque son déroulé dépend du lecteur.
+
+### Pièces perdues ou cassées
+
+L'inventaire décrit la boîte neuve ; la vraie boîte a souvent perdu des pièces. `--missing`
+les retire de l'inventaire avant tout le reste : le plan ne peut plus les choisir, la
+relecture les signale, « Dans ta boîte » ne les cite pas.
+
+```bash
+rag-mobil 3666 --missing "30 06 368"          # toutes les copies
+rag-mobil 3666 --missing "30 07 640:2"        # 2 hallebardes perdues sur 4
+rag-mobil 3666 --missing-file ma-boite.txt    # la liste, gardée dans un fichier
+```
+
+```text
+# ma-boite.txt : une pièce par ligne, au format de --missing
+30 06 368        # le perroquet
+30 07 640:2
+```
+
+La référence s'écrit avec ou sans espaces (`3007640`, `réf. 30 07 640`). Avec plusieurs
+boîtes, les copies sont retirées de la première boîte qui les contient, puis des
+suivantes. Une pièce dont la quantité est inconnue (`?`) n'est retirée que sans `:N`.
+Chaque pièce est rapportée sur `stderr` (`retirée`, `1 restant(s)`, `absente des
+boîtes, ignorée`). `--inventory-json` montre l'inventaire après retrait.
+
+### Mise en place des scènes
+
+Avec `--scene-setup` (méthode `planned`), chaque partie de l'histoire commence par ce
+qu'il faut installer pour la jouer, tiré du plan validé et écrit **par le code**, donc
+sans pièce inventée :
+
+```markdown
+> 🧱 **Mise en place** : Pépin (Pirate, red vest and ponytail) ; Rowboat, one-seater (dark brown) + Rowboat gear: seat, oarlocks, paddles (light brown), Lantern (silver/yellow)
+```
+
+Pour que chaque mise en place reste devant la bonne partie, la réécriture qui suit la
+relecture reçoit les parties séparées par des lignes `* * *` et doit les garder. Si elle
+les fusionne, l'histoire corrigée est gardée, sans mise en place (message sur `stderr`).
+
+### Livret HTML et PDF
+
+`--format html` écrit une page HTML autonome (styles inclus, thème clair ou sombre)
+au lieu du Markdown :
+
+- une couverture : titre, portraits des personnages, prémisse, boîtes utilisées ;
+- une vignette de chaque pièce (champ `image` de l'inventaire, images de PlaymoDB) ;
+- la mise en place de chaque scène en cartes illustrées, avec `--scene-setup` ;
+- « Dans ta boîte » en cartes à cocher : personnages, objets, quantités, référence, boîte ;
+- avec `--citations`, chaque `[réf. …]` du texte devient la vignette de la pièce.
+
+Le HTML que contiendrait le texte du LLM est affiché comme du texte, et seules les
+images en `http(s)` sont reprises. Les images sont chargées depuis PlaymoDB à
+l'ouverture de la page. Avec `--format html` ou `pdf`, l'histoire s'affiche à la fin,
+même avec `--method direct`.
+
+Imprimée (ou enregistrée en PDF depuis le navigateur), la page devient un livret A4 :
+couverture encadrée sur la première page, une page par scène avec une mise en place
+compacte, texte en 14 pt justifié avec césure, « Dans ta boîte » sur une nouvelle page
+avec une case à cocher par pièce pour rassembler les pièces avant de jouer, numéros de
+page (sauf sur la couverture).
+
+`--layout compact` garde le même contenu mais économise le papier : un en-tête court
+au lieu de la couverture, l'histoire sur deux colonnes sans saut de page, des mises en
+place et un « Dans ta boîte » en petites vignettes, juste après l'histoire. Pour le set
+3799 avec `--scene-setup`, 2 pages au lieu de 7 (3 au lieu de 8 en interactif).
+
+`--format pdf` fait cette impression directement : le livret est imprimé par un Chrome,
+Chromium ou Edge sans interface, déjà installé (cherché dans le `PATH` et aux
+emplacements habituels, ou indiqué par `RAG_MOBIL_BROWSER`). Le PDF s'écrit sur
+`stdout`, à rediriger vers un fichier. Le navigateur est cherché avant tout appel au
+LLM. Dans un conteneur lancé en root, Chromium demande `--browser-arg --no-sandbox`.
+
 ## Architecture
 
 ```
@@ -105,8 +247,11 @@ src/
 ├── main.rs              CLI (clap)
 ├── lib.rs
 ├── error.rs             RagError (thiserror), un variant par étape
-├── model.rs             SetNumber, Part, SetInventory
+├── model.rs             SetNumber, Part, SetInventory, pièces absentes
 ├── pipeline.rs          RagPipeline<S: InventorySource, G: StoryGenerator>
+├── saga.rs              --saga : épisodes précédents, continuité des personnages
+├── html.rs              --format html : livret illustré (pulldown-cmark)
+├── pdf.rs               --format pdf : le livret imprimé par Chrome sans interface
 ├── retriever/           R — récupération
 │   ├── mod.rs           trait InventorySource
 │   ├── playmodb.rs      client HTTP (2 pages en parallèle)
@@ -123,7 +268,8 @@ src/
 │   └── llm.rs           générateur multi-fournisseurs (genai) + repli en cas de refus
 └── writer/              rédaction
     ├── mod.rs           méthodes direct / planned, Observer (progression)
-    ├── plan.rs          plan, schémas JSON, vérification du plan contre l'inventaire
+    ├── plan.rs          plan, vérification contre l'inventaire, mise en place, « Dans ta boîte »
+    ├── interactive.rs   histoire dont tu es le héros : graphe de paragraphes, vérifié
     ├── prompts.rs       prompts plan / rédaction / relecture / correction
     └── planned.rs       Plan → Rédaction → Relecture (adapté de Re3/DOC)
 ```

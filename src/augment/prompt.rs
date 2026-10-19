@@ -3,6 +3,7 @@
 
 use crate::augment::context::{ContextOptions, build_context};
 use crate::model::Collection;
+use crate::saga::Saga;
 
 /// What the user wants from the story.
 #[derive(Debug, Clone)]
@@ -18,6 +19,8 @@ pub struct StoryOptions {
     /// Cite each part the story names, in the format of [`CITATION_FORMAT`].
     pub citations: bool,
     pub context: ContextOptions,
+    /// Previous episodes, when the story continues a saga.
+    pub saga: Saga,
 }
 
 impl Default for StoryOptions {
@@ -29,6 +32,7 @@ impl Default for StoryOptions {
             extra_instructions: None,
             citations: false,
             context: ContextOptions::default(),
+            saga: Saga::default(),
         }
     }
 }

@@ -15,21 +15,22 @@ use crate::error::Result;
 use crate::generator::{Generation, StoryGenerator};
 use crate::model::Collection;
 use crate::writer::plan::{
-    Review, StoryPlan, in_your_box, plan_schema, review_schema, sanitize, validate,
+    Review, StoryPlan, in_your_box, plan_schema, review_schema, sanitize, scene_setup,
+    scene_setup_markdown, validate,
 };
-use crate::writer::{Observer, Step, Written, prompts};
+use crate::writer::{Observer, Step, WriterOptions, Written, prompts};
 
 /// Aggregated stats over the calls of one story.
 #[derive(Default)]
-struct Tally {
-    calls: u32,
-    output_tokens: Option<u64>,
-    truncated: bool,
-    model: String,
+pub(crate) struct Tally {
+    pub(crate) calls: u32,
+    pub(crate) output_tokens: Option<u64>,
+    pub(crate) truncated: bool,
+    pub(crate) model: String,
 }
 
 impl Tally {
-    fn add(&mut self, generation: &Generation) {
+    pub(crate) fn add(&mut self, generation: &Generation) {
         self.calls += 1;
         self.output_tokens = match (self.output_tokens, generation.output_tokens) {
             (Some(a), Some(b)) => Some(a + b),
@@ -42,7 +43,7 @@ impl Tally {
 
 /// Parses a JSON object, tolerating code fences or prose around it
 /// (providers without structured outputs).
-fn parse_json<T: DeserializeOwned>(text: &str) -> Result<T> {
+pub(crate) fn parse_json<T: DeserializeOwned>(text: &str) -> Result<T> {
     let json = match (text.find('{'), text.rfind('}')) {
         (Some(start), Some(end)) if start < end => &text[start..=end],
         _ => text,
@@ -65,9 +66,14 @@ async fn make_plan<G: StoryGenerator, O: Observer>(
         .generate_json(&base, "story_plan", &schema)
         .await?;
     tally.add(&first);
+    let check = |plan: &StoryPlan| {
+        let mut errors = validate(plan, boxes);
+        errors.extend(options.saga.validate(plan, boxes));
+        errors
+    };
     let errors = match parse_json::<StoryPlan>(&first.text) {
         Ok(plan) => {
-            let errors = validate(&plan, boxes);
+            let errors = check(&plan);
             if errors.is_empty() {
                 return Ok(Ok(plan));
             }
@@ -87,12 +93,12 @@ async fn make_plan<G: StoryGenerator, O: Observer>(
         Ok(plan) => plan,
         Err(err) => return Ok(Err(format!("plan corrigé illisible ({err})"))),
     };
-    let errors = validate(&plan, boxes);
+    let errors = check(&plan);
     if errors.is_empty() {
         return Ok(Ok(plan));
     }
     observer.step(Step::PlanRepaired(&errors));
-    let plan = sanitize(plan, boxes);
+    let plan = options.saga.restore_names(sanitize(plan, boxes), boxes);
     if plan.outline.is_empty() {
         return Ok(Err(format!(
             "plus aucune étape valide ({})",
@@ -104,7 +110,7 @@ async fn make_plan<G: StoryGenerator, O: Observer>(
 
 /// The plan couldn't be fixed (small local models often break the JSON):
 /// rather than failing, write the story in one call, like `--method direct`.
-async fn fall_back_to_direct<G: StoryGenerator, O: Observer>(
+pub(crate) async fn fall_back_to_direct<G: StoryGenerator, O: Observer>(
     generator: &G,
     boxes: &Collection,
     options: &StoryOptions,
@@ -122,16 +128,36 @@ async fn fall_back_to_direct<G: StoryGenerator, O: Observer>(
             output_tokens: tally.output_tokens,
         },
         plan: None,
+        scenes: Vec::new(),
+        staged: false,
+        paragraphs: Vec::new(),
         issues: Vec::new(),
         calls: tally.calls,
     })
+}
+
+/// Splits a revised story on the scene breaks kept by the reviser; `None`
+/// if it didn't keep `count` parts.
+fn split_scenes(story: &str, count: usize) -> Option<Vec<String>> {
+    let mut scenes = vec![String::new()];
+    for line in story.lines() {
+        if line.trim() == prompts::SCENE_BREAK {
+            scenes.push(String::new());
+        } else {
+            let scene = scenes.last_mut().expect("never empty");
+            scene.push_str(line);
+            scene.push('\n');
+        }
+    }
+    let scenes: Vec<String> = scenes.iter().map(|s| s.trim().to_owned()).collect();
+    (scenes.len() == count && scenes.iter().all(|s| !s.is_empty())).then_some(scenes)
 }
 
 pub(crate) async fn write<G: StoryGenerator, O: Observer>(
     generator: &G,
     boxes: &Collection,
     options: &StoryOptions,
-    review: bool,
+    writer: WriterOptions,
     observer: &mut O,
 ) -> Result<Written> {
     let mut tally = Tally::default();
@@ -147,24 +173,23 @@ pub(crate) async fn write<G: StoryGenerator, O: Observer>(
     observer.step(Step::PlanReady(&plan));
 
     // 2. Draft, one plot point at a time
-    let mut story = String::new();
+    let mut scenes: Vec<String> = Vec::with_capacity(plan.outline.len());
     for index in 0..plan.outline.len() {
         observer.step(Step::Drafting {
             part: index + 1,
             total: plan.outline.len(),
         });
+        let story = scenes.join("\n\n");
         let prompt = prompts::draft(boxes, options, &plan, &story, index);
         let part = generator.generate(&prompt, |_| {}).await?;
         tally.add(&part);
-        if !story.is_empty() {
-            story.push_str("\n\n");
-        }
-        story.push_str(part.text.trim());
+        scenes.push(part.text.trim().to_owned());
     }
+    let story = scenes.join("\n\n");
 
     // 3. Edit: review, then one rewrite if needed
     let mut issues = Vec::new();
-    if review {
+    if writer.review {
         observer.step(Step::Reviewing);
         let prompt = prompts::review(boxes, options, &story);
         let report = generator
@@ -181,13 +206,54 @@ pub(crate) async fn write<G: StoryGenerator, O: Observer>(
         };
         if !issues.is_empty() {
             observer.step(Step::Revising(&issues));
-            let prompt = prompts::revise(boxes, options, &story, &issues);
+            // With scene setups, the parts must stay apart: the reviser
+            // gets them separated by scene breaks, and is asked to keep them.
+            let staged = writer.scene_setup && scenes.len() > 1;
+            let prompt = if staged {
+                let story = scenes.join(&format!("\n\n{}\n\n", prompts::SCENE_BREAK));
+                prompts::revise(boxes, options, &story, &issues, Some(scenes.len()))
+            } else {
+                prompts::revise(boxes, options, &story, &issues, None)
+            };
             let revised = generator.generate(&prompt, |_| {}).await?;
             tally.add(&revised);
-            story = revised.text.trim().to_owned();
+            let revised = revised.text.trim();
+            scenes = match split_scenes(revised, scenes.len()) {
+                Some(parts) if staged => parts,
+                _ => {
+                    if staged {
+                        observer.step(Step::SceneSetupDropped);
+                    }
+                    // Without the breaks, should some be left over.
+                    let text = revised
+                        .lines()
+                        .filter(|l| !staged || l.trim() != prompts::SCENE_BREAK)
+                        .collect::<Vec<_>>()
+                        .join("\n");
+                    vec![text.trim().to_owned()]
+                }
+            };
         }
     }
 
+    let staged = writer.scene_setup && scenes.len() == plan.outline.len();
+    let story = if staged {
+        scenes
+            .iter()
+            .zip(&plan.outline)
+            .map(|(scene, step)| {
+                let setup = scene_setup(step, &plan, boxes);
+                if setup.is_empty() {
+                    scene.clone()
+                } else {
+                    format!("{}\n\n{scene}", scene_setup_markdown(&setup, options))
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("\n\n")
+    } else {
+        scenes.join("\n\n")
+    };
     let text = format!(
         "# {}\n\n{story}\n\n{}",
         plan.title.trim(),
@@ -203,6 +269,9 @@ pub(crate) async fn write<G: StoryGenerator, O: Observer>(
             output_tokens: tally.output_tokens,
         },
         plan: Some(plan),
+        scenes,
+        staged,
+        paragraphs: Vec::new(),
         issues,
         calls: tally.calls,
     })
@@ -211,6 +280,17 @@ pub(crate) async fn write<G: StoryGenerator, O: Observer>(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn splits_scenes_on_breaks() {
+        let story = "Un.\n\n* * *\n\nDeux,\nsuite.\n  * * *  \nTrois.";
+        assert_eq!(
+            split_scenes(story, 3).unwrap(),
+            ["Un.", "Deux,\nsuite.", "Trois."]
+        );
+        assert!(split_scenes(story, 2).is_none());
+        assert!(split_scenes("Un.\n* * *\n* * *\nTrois.", 3).is_none());
+    }
 
     #[test]
     fn parses_json_wrapped_in_fences() {
