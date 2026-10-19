@@ -75,6 +75,7 @@ mod tests {
                 quantity: Some(1),
                 category: category.into(),
                 components: vec![],
+                image: None,
             };
             if set.as_str() == "3666" {
                 return Ok(SetInventory {

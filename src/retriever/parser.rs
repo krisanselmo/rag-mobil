@@ -1,8 +1,9 @@
 //! Pure HTML parsing for PlaymoDB pages. No I/O here, so it is fully unit-testable.
 //!
 //! Two pages are combined:
-//! - `showinv.pl` gives the set metadata (name, theme, release date) and the
-//!   *category* of each part (parts are grouped under `<h4>` headings);
+//! - `showinv.pl` gives the set metadata (name, theme, release date), the
+//!   *category* of each part (parts are grouped under `<h4>` headings) and,
+//!   with `pics=on`, its picture;
 //! - `listinv.pl` gives a tab-separated `<pre>` table with *quantities*
 //!   and sub-components (wigs, hats... attached to figures).
 
@@ -143,6 +144,12 @@ pub fn parse_showinv(html: &str) -> ShowInvPage {
                 let Some(number) = first_text(".listpartnumber") else {
                     continue;
                 };
+                // The part's own picture links to its page; the name's icons don't.
+                let image = el
+                    .select(&selector("a[title] > img[src]"))
+                    .filter_map(|img| img.value().attr("src"))
+                    .find(|src| src.contains("/parts/"))
+                    .map(str::to_owned);
                 page.parts.push(Part {
                     number: normalize_part_number(&number),
                     name: first_text(".listpartname").unwrap_or_default(),
@@ -150,6 +157,7 @@ pub fn parse_showinv(html: &str) -> ShowInvPage {
                     quantity: None,
                     category: category.clone(),
                     components: Vec::new(),
+                    image,
                 });
             }
             "a" if el
@@ -169,6 +177,7 @@ pub fn parse_showinv(html: &str) -> ShowInvPage {
                     quantity: None,
                     category: category.clone(),
                     components: Vec::new(),
+                    image: None,
                 });
             }
             _ => {}
@@ -256,6 +265,11 @@ pub fn merge(show: &ShowInvPage, list: Vec<ListInvRow>) -> Vec<Part> {
         .iter()
         .map(|p| (p.number.as_str(), p.category.as_str()))
         .collect();
+    let images: HashMap<&str, &str> = show
+        .parts
+        .iter()
+        .filter_map(|p| Some((p.number.as_str(), p.image.as_deref()?)))
+        .collect();
 
     list.into_iter()
         .filter(|row| !has_counts || row.quantity.is_some())
@@ -265,6 +279,7 @@ pub fn merge(show: &ShowInvPage, list: Vec<ListInvRow>) -> Vec<Part> {
                 .copied()
                 .unwrap_or(CATEGORY_UNKNOWN)
                 .to_owned(),
+            image: images.get(row.number.as_str()).map(|s| (*s).to_owned()),
             number: row.number,
             name: row.name,
             color: row.color,
@@ -282,6 +297,28 @@ mod tests {
     const LISTINV: &str = include_str!("../../tests/fixtures/listinv_3666.html");
     const SHOWINV_MISSING: &str = include_str!("../../tests/fixtures/showinv_missing.html");
     const SHOWINV_NEW_LAYOUT: &str = include_str!("../../tests/fixtures/showinv_70145.html");
+
+    #[test]
+    fn reads_part_pictures() {
+        let page = parse_showinv(SHOWINV_NEW_LAYOUT);
+        let fish = page
+            .parts
+            .iter()
+            .find(|p| p.number == "30 66 6973")
+            .unwrap();
+        // The part's picture, not the photo icon beside its name.
+        assert_eq!(
+            fish.image.as_deref(),
+            Some("/parts/6/66/30%2066%206973_online.jpg")
+        );
+        // The text-only layout has none.
+        assert!(
+            parse_showinv(SHOWINV)
+                .parts
+                .iter()
+                .all(|p| p.image.is_none())
+        );
+    }
 
     #[test]
     fn parses_set_metadata() {

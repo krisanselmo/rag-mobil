@@ -166,9 +166,10 @@ c'est-à-dire un personnage possible ; les autres pièces sont regroupées par c
 
 Deux pages sont récupérées en parallèle puis fusionnées :
 
-- `showinv.pl?setnum=N` : nom, thème, date de sortie et **catégorie** de chaque pièce
-  (`Klicky` = figurines, `Animal`, `Furniture`, `Vehicle`…). Les deux mises en page de
-  PlaymoDB sont gérées (anciens sets en liste de liens, sets récents en blocs `lineup`).
+- `showinv.pl?setnum=N&pics=on` : nom, thème, date de sortie, **catégorie** et **image**
+  de chaque pièce (`Klicky` = figurines, `Animal`, `Furniture`, `Vehicle`…). Les deux mises
+  en page de PlaymoDB sont gérées (liste de liens, blocs `lineup` avec photos). L'image
+  (champ `image`, adresse absolue) ne sert pas au prompt : elle est pour qui affiche l'inventaire.
 - `listinv.pl?setnum=N` : tableau texte avec les **quantités** et les sous-éléments
   (perruque, chapeau… rattachés à une figurine).
 

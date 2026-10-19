@@ -43,6 +43,9 @@ pub struct Part {
     pub category: String,
     /// Sub-components listed under the part (e.g. a figure's wig).
     pub components: Vec<String>,
+    /// Absolute URL of a picture of the part; not read by the prompt.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub image: Option<String>,
 }
 
 impl Part {
@@ -138,6 +141,7 @@ mod tests {
             quantity: None,
             category: category.into(),
             components: vec![],
+            image: None,
         }
     }
 

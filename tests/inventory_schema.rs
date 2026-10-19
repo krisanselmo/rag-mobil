@@ -28,6 +28,7 @@ fn full_inventory() -> SetInventory {
             quantity: Some(1),
             category: "Klicky".into(),
             components: vec!["Wig (hair), classic male - brown".into()],
+            image: Some("https://playmodb.org/parts/0/00/30%2000%20495.gif".into()),
         }],
         source_url: "https://playmodb.org/cgi-bin/showinv.pl?setnum=3666".into(),
     }
@@ -167,6 +168,7 @@ fn saved_inventories_follow_the_schema() {
     let schema = schema();
     let root_properties = properties(&schema);
     let part_properties = properties(&schema["$defs"]["part"]);
+    let part_required = required(&schema["$defs"]["part"]);
     for json in [
         include_str!("e2e/3799/inventory.json"),
         include_str!("e2e/3799+70145/inventory.json"),
@@ -181,8 +183,10 @@ fn saved_inventories_follow_the_schema() {
             let keys: BTreeSet<String> = object.keys().cloned().collect();
             assert_eq!(keys, root_properties);
             for part in object["parts"].as_array().unwrap() {
+                // Optional fields may be absent (`image`, from before it existed).
                 let keys: BTreeSet<String> = part.as_object().unwrap().keys().cloned().collect();
-                assert_eq!(keys, part_properties);
+                assert!(keys.is_subset(&part_properties), "{keys:?}");
+                assert!(part_required.is_subset(&keys), "{keys:?}");
             }
             serde_json::from_value::<SetInventory>(inventory).unwrap();
         }

@@ -123,6 +123,7 @@ mod tests {
             quantity,
             category: category.into(),
             components: vec![],
+            image: None,
         }
     }
 

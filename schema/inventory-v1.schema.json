@@ -79,6 +79,11 @@
           "description": "Sous-éléments de la pièce (perruque, chapeau d'une figurine…), éventuellement vide.",
           "type": "array",
           "items": { "type": "string" }
+        },
+        "image": {
+          "description": "Adresse absolue d'une image de la pièce, null ou absente si aucune. Pas lue par le prompt : sert à l'affichage.",
+          "type": ["string", "null"],
+          "examples": ["https://playmodb.org/parts/0/00/30%2000%20495.gif"]
         }
       }
     }
