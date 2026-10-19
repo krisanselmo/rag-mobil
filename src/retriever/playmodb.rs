@@ -70,14 +70,23 @@ impl Default for PlaymoDb {
 impl InventorySource for PlaymoDb {
     async fn fetch(&self, set: &SetNumber) -> Result<SetInventory> {
         let show_url = self.url("showinv.pl", set);
+        // The same page with a picture of each part.
+        let pics_url = format!("{show_url}&pics=on");
         let list_url = self.url("listinv.pl", set);
-        let (show_html, list_html) = tokio::try_join!(self.get(&show_url), self.get(&list_url))?;
+        let (show_html, list_html) = tokio::try_join!(self.get(&pics_url), self.get(&list_url))?;
 
         let show = parse_showinv(&show_html);
         if !show.found {
             return Err(RagError::SetNotFound(format!("{set} (absent de PlaymoDB)")));
         }
-        let parts = merge(&show, parse_listinv(&list_html));
+        let mut parts = merge(&show, parse_listinv(&list_html));
+        let base = reqwest::Url::parse(&pics_url).ok();
+        for part in &mut parts {
+            part.image = part
+                .image
+                .take()
+                .and_then(|src| Some(base.as_ref()?.join(&src).ok()?.to_string()));
+        }
         if parts.is_empty() {
             return Err(RagError::EmptyInventory(set.to_string()));
         }
