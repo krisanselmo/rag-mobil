@@ -2,9 +2,9 @@
 
 use std::fmt::Write;
 
-use crate::augment::{Prompt, STORYTELLER_RULES, StoryOptions, build_context, reader_request};
+use crate::augment::{Prompt, StoryOptions, build_context, reader_request, storyteller_rules};
 use crate::model::Collection;
-use crate::writer::plan::{Issue, StoryPlan, find_part, part_label, render_plan, step_objects};
+use crate::writer::plan::{Issue, StoryPlan, cited_label, find_part, render_plan, step_objects};
 
 /// Number of plot points for a story of `words` words.
 pub(crate) fn outline_length(words: u32) -> usize {
@@ -21,10 +21,11 @@ pub(crate) fn plan(boxes: &Collection, options: &StoryOptions) -> Prompt {
     let steps = outline_length(options.target_words);
     Prompt {
         system: format!(
-            "{STORYTELLER_RULES}\n\n\
+            "{}\n\n\
              Avant d'écrire, tu prépares le plan de l'histoire : une prémisse, un décor, \
              les personnages, puis les grandes étapes de l'intrigue. Réponds uniquement \
-             avec le JSON demandé."
+             avec le JSON demandé.",
+            storyteller_rules(options)
         ),
         user: format!(
             "{context}\n\n{request}\n\n\
@@ -99,10 +100,13 @@ pub(crate) fn draft(
                 .iter()
                 .find(|c| c.name.trim().eq_ignore_ascii_case(name.trim()))
                 .and_then(|c| find_part(boxes, &c.figure))
-                .map_or_else(|| name.clone(), |p| format!("{name} ({})", part_label(p)))
+                .map_or_else(
+                    || name.clone(),
+                    |p| format!("{name} ({})", cited_label(p, options.citations)),
+                )
         })
         .collect();
-    let objects = step_objects(step, boxes);
+    let objects = step_objects(step, boxes, options.citations);
     let position = if index == 0 {
         "C'est le début : installe le décor et présente les personnages."
     } else if index + 1 == total {
@@ -128,7 +132,7 @@ pub(crate) fn draft(
     );
 
     Prompt {
-        system: format!("{STORYTELLER_RULES}\n\n{DRAFT_STYLE}"),
+        system: format!("{}\n\n{DRAFT_STYLE}", storyteller_rules(options)),
         user,
     }
 }
@@ -192,7 +196,10 @@ pub(crate) fn revise(
         options.language
     );
     Prompt {
-        system: format!("{STORYTELLER_RULES}\n\nTu corriges une histoire existante."),
+        system: format!(
+            "{}\n\nTu corriges une histoire existante.",
+            storyteller_rules(options)
+        ),
         user,
     }
 }
