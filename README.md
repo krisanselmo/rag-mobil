@@ -54,6 +54,7 @@ rag-mobil 3666 --method direct
 # Livret illustré, avec la mise en place de chaque scène : HTML, ou PDF à imprimer
 rag-mobil 3799 --scene-setup --format html > livret.html
 rag-mobil 3799 --scene-setup --format pdf > livret.pdf
+rag-mobil 3799 --scene-setup --format pdf --layout compact > livret.pdf   # 2 pages au lieu de 7
 
 # Histoire dont tu es le héros : paragraphes numérotés, choix, plusieurs fins
 rag-mobil 3799 --interactive --format pdf > aventure.pdf
@@ -90,6 +91,7 @@ vont sur `stderr` (`rag-mobil 3666 > histoire.md` fonctionne).
 | `--saga` / `RAG_MOBIL_SAGA` | — | Fichier JSON des épisodes : l'histoire en est la suite, puis s'y ajoute (voir ci-dessous) |
 | `--scene-setup` / `RAG_MOBIL_SCENE_SETUP` | off | Méthode `planned` : « Mise en place » avant chaque partie (voir ci-dessous) |
 | `-f, --format` / `RAG_MOBIL_FORMAT` | `markdown` | `markdown`, `html` ou `pdf` (livret illustré, voir ci-dessous) |
+| `--layout` / `RAG_MOBIL_LAYOUT` | `booklet` | `--format html` ou `pdf` : `booklet` (livret) ou `compact` (économe en papier) |
 | `--browser-arg` | — | `--format pdf` : argument passé au navigateur (ex. `--no-sandbox`) ; répétable |
 | `--missing REF[:N]` | — | Pièce absente de la boîte : toutes les copies, ou N ; répétable |
 | `--missing-file` / `RAG_MOBIL_MISSING_FILE` | — | Pièces absentes, une par ligne (voir ci-dessous) |
@@ -226,6 +228,11 @@ couverture encadrée sur la première page, une page par scène avec une mise en
 compacte, texte en 14 pt justifié avec césure, « Dans ta boîte » sur une nouvelle page
 avec une case à cocher par pièce pour rassembler les pièces avant de jouer, numéros de
 page (sauf sur la couverture).
+
+`--layout compact` garde le même contenu mais économise le papier : un en-tête court
+au lieu de la couverture, l'histoire sur deux colonnes sans saut de page, des mises en
+place et un « Dans ta boîte » en petites vignettes, juste après l'histoire. Pour le set
+3799 avec `--scene-setup`, 2 pages au lieu de 7 (3 au lieu de 8 en interactif).
 
 `--format pdf` fait cette impression directement : le livret est imprimé par un Chrome,
 Chromium ou Edge sans interface, déjà installé (cherché dans le `PATH` et aux

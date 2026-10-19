@@ -18,8 +18,20 @@ use crate::pipeline::Story;
 use crate::writer::StoryPlan;
 use crate::writer::plan::{Labels, SceneSetup, box_contents, find_part, part_label, scene_setup};
 
+/// How the page is laid out when printed (or saved as PDF).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum Layout {
+    /// A booklet: full-page cover, one page per scene, "In your box" on its
+    /// own page.
+    #[default]
+    Booklet,
+    /// Saves paper: a short header instead of the cover, the story in two
+    /// columns without page breaks, small pictures.
+    Compact,
+}
+
 /// The whole page.
-pub fn render(story: &Story, options: &StoryOptions) -> String {
+pub fn render(story: &Story, options: &StoryOptions, layout: Layout) -> String {
     let collection = &story.collection;
     let written = &story.written;
     let labels = Labels::new(options);
@@ -28,6 +40,7 @@ pub fn render(story: &Story, options: &StoryOptions) -> String {
     let (title, body) = match &written.plan {
         Some(plan) => {
             let mut body = cover_html(plan, collection, &texts);
+            body.push_str("<div class=\"story\">\n");
             if !written.paragraphs.is_empty() {
                 body.push_str(&gamebook_html(written, plan, collection, &labels));
             } else if written.staged {
@@ -47,6 +60,7 @@ pub fn render(story: &Story, options: &StoryOptions) -> String {
                     markdown(&written.scenes.join("\n\n"), collection)
                 );
             }
+            body.push_str("</div>\n");
             body.push_str(&in_your_box_html(plan, collection, &labels, &texts));
             (plan.title.trim().to_owned(), body)
         }
@@ -57,10 +71,14 @@ pub fn render(story: &Story, options: &StoryOptions) -> String {
                 .lines()
                 .find_map(|l| l.strip_prefix("# "))
                 .map_or_else(|| collection.label(), |t| t.trim().to_owned());
-            (title, markdown(text, collection))
+            let body = format!(
+                "<div class=\"story\">\n{}</div>\n",
+                markdown(text, collection)
+            );
+            (title, body)
         }
     };
-    page(&title, &body, collection, &texts)
+    page(&title, &body, collection, &texts, layout)
 }
 
 /// Words of the page outside the story (HTML).
@@ -101,7 +119,7 @@ impl Texts {
     }
 }
 
-fn page(title: &str, body: &str, collection: &Collection, texts: &Texts) -> String {
+fn page(title: &str, body: &str, collection: &Collection, texts: &Texts, layout: Layout) -> String {
     let Texts {
         written_from,
         trademark,
@@ -112,6 +130,10 @@ fn page(title: &str, body: &str, collection: &Collection, texts: &Texts) -> Stri
     } else {
         format!(" lang=\"{}\"", texts.lang)
     };
+    let class = match layout {
+        Layout::Booklet => "booklet",
+        Layout::Compact => "compact",
+    };
     // The heading comes from the plan (or the text): escaped, unlike the body.
     let heading = if body.contains("<h1>") {
         String::new()
@@ -121,7 +143,7 @@ fn page(title: &str, body: &str, collection: &Collection, texts: &Texts) -> Stri
     format!(
         "<!doctype html>\n<html{lang}>\n<head>\n<meta charset=\"utf-8\">\n\
          <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n\
-         <title>{title}</title>\n<style>{STYLE}</style>\n</head>\n<body>\n<main>\n\
+         <title>{title}</title>\n<style>{STYLE}{COMPACT}</style>\n</head>\n<body class=\"{class}\">\n<main>\n\
          {heading}{body}</main>\n<footer>{written_from} {sets}.<br>{trademark}</footer>\n\
          </body>\n</html>\n",
         title = escape(title),
@@ -547,6 +569,57 @@ footer {
 }
 "#;
 
+/// Print rules of [`Layout::Compact`], over the booklet's.
+const COMPACT: &str = r#"
+@page compact { size: A4; margin: 11mm 12mm 14mm; }
+@media print {
+  body.compact { page: compact; font-size: 10.5pt; line-height: 1.4; }
+  .compact .cover {
+    min-height: 0; padding: 0 0 3mm; margin: 0 0 4mm; border: 0; border-radius: 0;
+    border-bottom: 2px solid var(--accent); break-after: auto; display: block;
+  }
+  .compact .cover h1 { font-size: 20pt; margin: 1mm 0 2mm; }
+  .compact .kicker { font-size: 7pt; }
+  .compact .cast { gap: 4mm; margin: 0 0 2mm; }
+  .compact .cast li { width: 18mm; font-size: 8pt; }
+  .compact .cast img { height: 20mm; margin-bottom: 1mm; }
+  .compact .cast .no-image { line-height: 20mm; font-size: 2rem; }
+  .compact .premise { font-size: 9.5pt; margin-bottom: 1mm; }
+  .compact .boxes { font-size: 7.5pt; margin: 0; }
+  /* The story in two columns, no forced page break. */
+  .compact .story { column-count: 2; column-gap: 7mm; column-rule: 1px solid var(--line); }
+  .compact .scene + .scene { break-before: auto; margin-top: 3mm; padding-top: 2mm; border-top: 1px dashed var(--line); }
+  .compact p { margin: 0 0 .5em; }
+  .compact .setup { margin: 0 0 2mm; padding: 1.5mm 2mm 2mm; border-radius: 4px; }
+  .compact .setup h3 { font-size: 7pt; margin: 0 0 1mm; }
+  .compact .setup .cards { grid-template-columns: repeat(auto-fill, minmax(14mm, 1fr)); gap: 1mm; }
+  .compact .setup figure { padding: .5mm; border-radius: 3px; }
+  .compact .setup .pictures { height: 9mm; }
+  .compact .setup .no-image { line-height: 9mm; font-size: 1.2rem; }
+  .compact .setup figcaption { font-size: 5.5pt; line-height: 1.15; margin-top: .5mm; }
+  .compact .setup figcaption b { font-size: 6pt; }
+  .compact .how { font-size: 8pt; column-span: all; }
+  .compact .paragraph { margin-top: 2mm; padding-top: 1mm; }
+  .compact h2.number { width: 1.7rem; height: 1.7rem; line-height: 1.7rem; font-size: .9rem; margin: 1mm auto 2mm; }
+  .compact .choices { padding: 1.5mm 2.5mm; margin: 2mm 0; font-size: 9pt; }
+  .compact .end { margin: 1mm 0 0; }
+  .compact img.ref { height: 1.4em; }
+  /* "In your box": a dense checklist after the story. */
+  .compact .box { break-before: auto; margin-top: 5mm; padding-top: 3mm; border-top: 2px solid var(--accent); }
+  .compact .box h2 { font-size: 13pt; margin: 0 0 1mm; }
+  .compact .box h3 { font-size: 7.5pt; margin: 2mm 0 1mm; }
+  .compact .tick { font-size: 7.5pt; margin: 0 0 1mm; }
+  .compact .box .cards { grid-template-columns: repeat(auto-fill, minmax(21mm, 1fr)); gap: 1.2mm; }
+  .compact .box figure { padding: 1mm; border-radius: 4px; }
+  .compact .box .pictures { height: 12mm; }
+  .compact .box .no-image { line-height: 12mm; font-size: 1.4rem; }
+  .compact .box figcaption { font-size: 6pt; line-height: 1.2; }
+  .compact .box figcaption b { font-size: 6.5pt; }
+  .compact figure input { width: 3mm; height: 3mm; top: 1mm; left: 1mm; }
+  .compact footer { margin-top: 3mm; font-size: 6.5pt; }
+}
+"#;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -588,7 +661,7 @@ mod tests {
             ],
             true,
         );
-        let html = render(&story, &StoryOptions::default());
+        let html = render(&story, &StoryOptions::default(), Layout::Booklet);
         assert!(html.starts_with("<!doctype html>\n<html lang=\"fr\">"));
         assert!(html.contains("<title>Le cheval perdu</title>"));
         // The cover: title, cast, premise, boxes.
@@ -632,7 +705,7 @@ mod tests {
     #[test]
     fn unstaged_story_has_no_setup() {
         let story = story("", true, &["Une seule partie."], false);
-        let html = render(&story, &StoryOptions::default());
+        let html = render(&story, &StoryOptions::default(), Layout::Booklet);
         assert!(!html.contains("class=\"setup\""));
         assert!(html.contains("<section class=\"scene\">\n<p>Une seule partie.</p>\n</section>"));
     }
@@ -646,7 +719,7 @@ mod tests {
             &[],
             false,
         );
-        let html = render(&story, &StoryOptions::default());
+        let html = render(&story, &StoryOptions::default(), Layout::Booklet);
         assert!(html.contains("<title>Le trompettiste</title>"));
         assert_eq!(html.matches("<h1>").count(), 1, "the text's own title");
         assert!(html.contains(
@@ -668,7 +741,7 @@ mod tests {
             },
             Paragraph { choices: vec![] },
         ];
-        let html = render(&story, &StoryOptions::default());
+        let html = render(&story, &StoryOptions::default(), Layout::Booklet);
         assert!(html.contains("<p class=\"how\">🎲 C'est toi qui choisis la suite"));
         assert!(
             html.contains("<section class=\"paragraph\" id=\"p1\">\n<h2 class=\"number\">1</h2>")
@@ -682,13 +755,28 @@ mod tests {
     }
 
     #[test]
+    fn compact_layout_is_a_class() {
+        let story = story("", true, &["Une partie."], false);
+        let booklet = render(&story, &StoryOptions::default(), Layout::Booklet);
+        let compact = render(&story, &StoryOptions::default(), Layout::Compact);
+        assert!(booklet.contains("<body class=\"booklet\">"));
+        assert!(compact.contains("<body class=\"compact\">"));
+        assert!(compact.contains("<div class=\"story\">\n<section class=\"scene\">"));
+        // Same content, only the print rules differ.
+        assert_eq!(
+            booklet.replace("class=\"booklet\"", "class=\"compact\""),
+            compact
+        );
+    }
+
+    #[test]
     fn english_labels() {
         let story = story("", true, &["One.", "Two."], true);
         let options = StoryOptions {
             language: "English".into(),
             ..StoryOptions::default()
         };
-        let html = render(&story, &options);
+        let html = render(&story, &options, Layout::Booklet);
         assert!(html.contains("<html lang=\"en\">"));
         assert!(html.contains("Set the scene"));
         assert!(html.contains("<h2>In your box</h2>"));

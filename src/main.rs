@@ -51,6 +51,24 @@ enum Format {
     Pdf,
 }
 
+/// Mise en page du livret imprimé (HTML et PDF).
+#[derive(Debug, Clone, Copy, ValueEnum)]
+enum Layout {
+    /// Livret : couverture pleine page, une page par scène.
+    Booklet,
+    /// Compacte : en-tête court, texte sur deux colonnes, petites images.
+    Compact,
+}
+
+impl From<Layout> for html::Layout {
+    fn from(layout: Layout) -> Self {
+        match layout {
+            Layout::Booklet => Self::Booklet,
+            Layout::Compact => Self::Compact,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, ValueEnum)]
 enum Effort {
     Low,
@@ -127,6 +145,10 @@ struct Cli {
     /// Format de sortie ; pdf s'écrit dans un fichier (> livret.pdf).
     #[arg(short, long, value_enum, env = "RAG_MOBIL_FORMAT", default_value_t = Format::Markdown)]
     format: Format,
+
+    /// --format html ou pdf : mise en page à l'impression.
+    #[arg(long, value_enum, env = "RAG_MOBIL_LAYOUT", default_value_t = Layout::Booklet)]
+    layout: Layout,
 
     /// --format pdf : argument passé au navigateur (ex. --no-sandbox dans un
     /// conteneur lancé en root). Répétable. Le navigateur se choisit avec
@@ -494,6 +516,7 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
         options: &options,
         writer,
         format: cli.format,
+        layout: cli.layout.into(),
         printer,
         saga,
     };
@@ -517,6 +540,7 @@ struct Telling<'a> {
     options: &'a StoryOptions,
     writer: WriterOptions,
     format: Format,
+    layout: html::Layout,
     /// `--format pdf`: the browser and its extra arguments.
     printer: Option<(PathBuf, Vec<String>)>,
     /// `--saga`: where to add the new episode.
@@ -534,11 +558,12 @@ impl Telling<'_> {
             .await?;
         match self.format {
             Format::Markdown => println!(),
-            Format::Html => print!("{}", html::render(&story, self.options)),
+            Format::Html => print!("{}", html::render(&story, self.options, self.layout)),
             Format::Pdf => {
                 let (browser, args) = self.printer.expect("browser found before writing");
                 eprintln!("[rag-mobil] impression PDF ({})…", browser.display());
-                let bytes = pdf::print(&html::render(&story, self.options), &browser, &args)?;
+                let page = html::render(&story, self.options, self.layout);
+                let bytes = pdf::print(&page, &browser, &args)?;
                 let mut stdout = std::io::stdout();
                 stdout.write_all(&bytes)?;
                 stdout.flush()?;
