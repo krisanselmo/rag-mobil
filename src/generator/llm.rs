@@ -13,8 +13,9 @@ use futures_util::StreamExt;
 use genai::Client;
 use genai::adapter::AdapterKind;
 use genai::chat::{
-    ChatMessage, ChatOptions, ChatRequest, ChatStreamEvent, ReasoningEffort, StopReason,
+    ChatMessage, ChatOptions, ChatRequest, ChatStreamEvent, JsonSpec, ReasoningEffort, StopReason,
 };
+use serde_json::Value;
 
 use crate::augment::Prompt;
 use crate::error::{RagError, Result};
@@ -67,6 +68,7 @@ impl LlmGenerator {
         &self,
         model: &str,
         request: &ChatRequest,
+        format: Option<&JsonSpec>,
         on_text: &mut F,
     ) -> Result<Attempt>
     where
@@ -78,7 +80,10 @@ impl LlmGenerator {
             .await?
             .model
             .adapter_kind;
-        let options = chat_options(kind, self.config.effort.clone());
+        let mut options = chat_options(kind, self.config.effort.clone());
+        if let Some(format) = format {
+            options = options.with_response_format(format.clone());
+        }
         let response = self
             .client
             .exec_chat_stream(model, request.clone(), Some(&options))
@@ -147,8 +152,15 @@ fn chat_options(kind: AdapterKind, effort: Option<ReasoningEffort>) -> ChatOptio
     options
 }
 
-impl StoryGenerator for LlmGenerator {
-    async fn generate<F>(&self, prompt: &Prompt, mut on_text: F) -> Result<Generation>
+impl LlmGenerator {
+    /// One generation, with the refusal fallback. `format` asks for
+    /// structured JSON output (`output_config.format` on Claude).
+    async fn run<F>(
+        &self,
+        prompt: &Prompt,
+        format: Option<&JsonSpec>,
+        mut on_text: F,
+    ) -> Result<Generation>
     where
         F: FnMut(&str) + Send,
     {
@@ -158,7 +170,7 @@ impl StoryGenerator for LlmGenerator {
         ]);
 
         let mut attempt = self
-            .stream_once(&self.config.model, &request, &mut on_text)
+            .stream_once(&self.config.model, &request, format, &mut on_text)
             .await?;
 
         if attempt.refused()
@@ -171,7 +183,9 @@ impl StoryGenerator for LlmGenerator {
                  (le texte ci-dessus est abandonné)",
                 attempt.model
             );
-            attempt = self.stream_once(fallback, &request, &mut on_text).await?;
+            attempt = self
+                .stream_once(fallback, &request, format, &mut on_text)
+                .await?;
         }
 
         if attempt.refused() {
@@ -186,6 +200,25 @@ impl StoryGenerator for LlmGenerator {
             model: attempt.model,
             output_tokens: attempt.output_tokens,
         })
+    }
+}
+
+impl StoryGenerator for LlmGenerator {
+    async fn generate<F>(&self, prompt: &Prompt, on_text: F) -> Result<Generation>
+    where
+        F: FnMut(&str) + Send,
+    {
+        self.run(prompt, None, on_text).await
+    }
+
+    async fn generate_json(
+        &self,
+        prompt: &Prompt,
+        name: &str,
+        schema: &Value,
+    ) -> Result<Generation> {
+        let format = JsonSpec::new(name, schema.clone());
+        self.run(prompt, Some(&format), |_| {}).await
     }
 }
 

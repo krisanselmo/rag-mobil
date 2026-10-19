@@ -37,7 +37,9 @@ pub struct Prompt {
     pub user: String,
 }
 
-const SYSTEM_PROMPT: &str = "\
+/// Storyteller role and inventory-fidelity rules, shared by every writing
+/// method (see [`crate::writer`]).
+pub const STORYTELLER_RULES: &str = "\
 Tu es un conteur pour enfants spécialisé dans l'univers Playmobil. Tu écris des \
 histoires qu'un enfant pourra rejouer avec le contenu exact d'une boîte Playmobil \
 posée devant lui.
@@ -61,36 +63,42 @@ mur) ne sont pas des objets de l'histoire, mais elles indiquent ce qu'on peut \
 construire (un château, une tour, un pont-levis...) : sers-t'en pour planter le \
 décor.
 - Les noms des pièces sont en anglais dans l'inventaire ; traduis-les \
-naturellement dans la langue de l'histoire.
+naturellement dans la langue de l'histoire. Chaque pièce est suivie de sa \
+référence [réf. …] : elle sert au plan, ne la cite jamais dans l'histoire.";
 
+/// Style for the single-call ("direct") method.
+const DIRECT_STYLE: &str = "\
 Style : une histoire complète (début, péripétie, résolution), adaptée à l'âge \
 demandé, chaleureuse, sans violence graphique, avec des dialogues. Commence par un \
 titre sur la première ligne, puis l'histoire. Termine par une courte section \
 \"Dans ta boîte\" listant les figurines et les objets de l'inventaire utilisés \
 dans l'histoire, pour que l'enfant puisse les retrouver.";
 
-pub fn build_prompt(inventory: &SetInventory, options: &StoryOptions) -> Prompt {
-    let context = build_context(inventory, &options.context);
+/// "A story in {language} for a {age}-year-old, ~{words} words, set N" +
+/// the child's wish: the reader-facing part of every request.
+pub fn reader_request(inventory: &SetInventory, options: &StoryOptions) -> String {
     let wish = options
         .extra_instructions
         .as_deref()
-        .map(|w| format!("\nSouhait particulier de l'enfant : {w}\n"))
+        .map(|w| format!("\nSouhait particulier de l'enfant : {w}"))
         .unwrap_or_default();
-
-    let user = format!(
-        "{context}\n\n\
-         Écris une histoire en {language} pour un enfant de {age} ans, d'environ \
-         {words} mots, qui se joue avec le set Playmobil {number} « {name} » décrit \
-         ci-dessus.\n{wish}",
+    format!(
+        "L'histoire est en {language}, pour un enfant de {age} ans, d'environ {words} \
+         mots, et se joue avec le set Playmobil {number} « {name} » décrit ci-dessus.{wish}",
         language = options.language,
         age = options.reader_age,
         words = options.target_words,
         number = inventory.set_number,
         name = inventory.name,
-    );
+    )
+}
 
+/// Single-call prompt: the whole story in one generation.
+pub fn build_prompt(inventory: &SetInventory, options: &StoryOptions) -> Prompt {
+    let context = build_context(inventory, &options.context);
+    let request = reader_request(inventory, options);
     Prompt {
-        system: SYSTEM_PROMPT.to_owned(),
-        user,
+        system: format!("{STORYTELLER_RULES}\n\n{DIRECT_STYLE}"),
+        user: format!("{context}\n\nÉcris cette histoire. {request}\n"),
     }
 }

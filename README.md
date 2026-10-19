@@ -10,9 +10,9 @@ peut rejouer **avec ce qu'il a vraiment dans sa boîte** : mêmes figurines, mê
 mêmes quantités.
 
 ```
-numéro de set ──► Retrieve ──► Augment ──► Generate ──► histoire
-                  PlaymoDB     contexte    LLM (genai)
-                  (scraping)   + prompt    (streaming)
+numéro de set ──► Retrieve ──► Augment ──► Rédaction ─────────────────► histoire
+                  PlaymoDB     contexte    Plan → Rédaction → Relecture
+                  (scraping)   + prompt    (Re3/DOC), via un LLM (genai)
 ```
 
 ## Installation
@@ -43,16 +43,19 @@ rag-mobil 3666
 rag-mobil 5135 --age 5 --words 400 --theme "une tempête et un trésor perdu"
 rag-mobil 3666 --language English --effort high
 
+# Rédaction en un seul appel, affichée au fil de l'écriture (plus rapide)
+rag-mobil 3666 --method direct
+
 # Autres fournisseurs
 rag-mobil 3666 -m gpt-5.4-mini
 rag-mobil 3666 -m ollama::llama3.2        # local, sans clé API
 
 # Sans appel au LLM (pas besoin de clé API)
 rag-mobil 3666 --inventory-json   # inventaire récupéré, en JSON
-rag-mobil 3666 --dry-run          # prompt augmenté complet
+rag-mobil 3666 --dry-run          # premier prompt envoyé au LLM
 ```
 
-L'histoire s'affiche sur `stdout` au fil de la génération ; les messages de progression
+L'histoire s'affiche sur `stdout` (en Markdown) ; les étapes et messages de progression
 vont sur `stderr` (`rag-mobil 3666 > histoire.md` fonctionne).
 
 | Option | Défaut | Rôle |
@@ -61,6 +64,8 @@ vont sur `stderr` (`rag-mobil 3666 > histoire.md` fonctionne).
 | `-a, --age` | `7` | Âge du lecteur |
 | `-w, --words` | `600` | Longueur visée |
 | `-t, --theme` | — | Souhait libre |
+| `--method` | `planned` | `planned` (plan, rédaction, relecture) ou `direct` (un appel) |
+| `--no-review` | off | Méthode `planned` : saute la relecture de fidélité |
 | `--include-all` | off | Garde aussi les notices papier dans le contexte |
 | `-m, --model` / `RAG_MOBIL_MODEL` | `claude-opus-5-5` | Modèle ; le fournisseur est déduit du nom |
 | `--effort` | `medium` pour Claude, défaut du fournisseur sinon | `low`, `medium`, `high`, `xhigh`, `max` |
@@ -84,9 +89,14 @@ src/
 ├── augment/             A — augmentation
 │   ├── context.rs       inventaire → contexte structuré (<set>, <personnages>, <pieces>)
 │   └── prompt.rs        prompt système (règles de fidélité) + message utilisateur
-└── generator/           G — génération
-    ├── mod.rs           trait StoryGenerator
-    └── llm.rs           générateur multi-fournisseurs (genai) + repli en cas de refus
+├── generator/           G — génération
+│   ├── mod.rs           trait StoryGenerator (texte en streaming, JSON structuré)
+│   └── llm.rs           générateur multi-fournisseurs (genai) + repli en cas de refus
+└── writer/              rédaction
+    ├── mod.rs           méthodes direct / planned, Observer (progression)
+    ├── plan.rs          plan, schémas JSON, vérification du plan contre l'inventaire
+    ├── prompts.rs       prompts plan / rédaction / relecture / correction
+    └── planned.rs       Plan → Rédaction → Relecture (adapté de Re3/DOC)
 ```
 
 ### Retrieve — PlaymoDB
@@ -133,13 +143,42 @@ ajoute ce qui est propre au projet :
 Les autres fournisseurs gardent leurs réglages par défaut (beaucoup de modèles locaux
 refusent les paramètres de raisonnement) ; `--effort` permet de les forcer.
 
-Un autre LLM peut être branché en implémentant le trait `StoryGenerator`, et une autre
-source de données (cache local, autre base) via `InventorySource`.
+### Rédaction — méthode Re3/DOC
+
+Par défaut, l'histoire n'est pas écrite d'un seul jet : la rédaction reprend la méthode
+de deux générateurs d'histoires open source issus de la recherche (licence MIT),
+[Re3](https://github.com/yangkevin2/emnlp22-re3-story-generation) (*Recursive
+Reprompting and Revision*, EMNLP 2022) et
+[DOC](https://github.com/yangkevin2/doc-story-generation) (*Detailed Outline
+Control*, ACL 2023), adaptée à la contrainte d'inventaire :
+
+1. **Plan** (module *Plan* de Re3) : le LLM produit en JSON structuré une prémisse, un
+   décor, les personnages et 3 à 5 étapes. Chaque personnage désigne **la référence d'une
+   figurine** de la boîte, chaque étape **les références des objets** utilisés.
+2. **Vérification du plan, par le code** : chaque référence doit exister dans
+   l'inventaire, un personnage doit être une figurine, une figurine ne joue pas plus de
+   rôles que d'exemplaires dans la boîte. En cas d'écart, le plan est redemandé une fois
+   avec la liste des erreurs ; s'il reste des écarts, les références invalides sont
+   retirées. Cette étape remplace les modèles de classement entraînés de Re3.
+3. **Rédaction** (contrôle par plan détaillé de DOC) : une partie par étape, guidée par
+   le plan, les personnages et objets de l'étape et le texte déjà écrit.
+4. **Relecture** (module *Edit* de Re3) : un relecteur liste en JSON les écarts avec la
+   boîte (objet absent, quantité dépassée, apparence contredite) ; s'il y en a, une
+   seule réécriture les corrige.
+5. **« Dans ta boîte »** : la liste finale des personnages et objets est générée **par
+   le code** à partir du plan validé, elle ne cite donc que des pièces de la boîte.
+
+Cela représente 5 à 9 appels au LLM au lieu d'un : l'histoire s'affiche à la fin, les
+étapes sur `stderr`. `--method direct` revient à un seul appel en streaming.
+
+Un autre LLM peut être branché en implémentant le trait `StoryGenerator`, une autre
+source de données (cache local, autre base) via `InventorySource`, et le déroulé suivi
+via le trait `Observer`.
 
 ## Développement
 
 ```bash
-cargo test     # hors-ligne : fixtures HTML (tests/fixtures/) et faux serveur Claude (tests/llm_mock.rs)
+cargo test     # hors-ligne : fixtures HTML, faux serveur Claude, rédaction avec un LLM scripté
 cargo clippy --all-targets
 cargo fmt
 ```

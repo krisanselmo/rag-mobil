@@ -28,6 +28,7 @@ fn render_part(out: &mut String, part: &Part) {
     if let Some(color) = &part.color {
         let _ = write!(out, " ({color})");
     }
+    let _ = write!(out, " [réf. {}]", part.number);
     if !part.components.is_empty() {
         let _ = write!(out, " — avec : {}", part.components.join(" ; "));
     }
@@ -139,7 +140,7 @@ mod tests {
         let trumpeter = ctx.find("Castle Trumpeter").unwrap();
         let halberd = ctx.find("Halberd").unwrap();
         assert!(figures < trumpeter && trumpeter < halberd);
-        assert!(ctx.contains("4× Halberd (red)"));
+        assert!(ctx.contains("4× Halberd (red) [réf. 30 00 000]"));
         assert!(ctx.contains("?× Throne"));
         assert!(!ctx.contains("Instructions"));
     }

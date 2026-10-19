@@ -231,3 +231,37 @@ async fn max_tokens_marks_story_truncated() {
         .unwrap();
     assert!(generation.truncated);
 }
+
+#[tokio::test]
+async fn structured_output_sends_json_schema() {
+    let (url, recorded) = mock_server(vec![claude_stream(
+        "claude-opus-5-5",
+        &["{\"issues\": ", "[]}"],
+        "end_turn",
+    )])
+    .await;
+
+    let schema = json!({
+        "type": "object",
+        "properties": {"issues": {"type": "array", "items": {"type": "string"}}},
+        "required": ["issues"],
+    });
+    let generation = generator(url, None)
+        .generate_json(&prompt(), "story_review", &schema)
+        .await
+        .unwrap();
+    assert_eq!(generation.text, "{\"issues\": []}");
+
+    let requests = recorded.lock().unwrap();
+    let output_config = &requests[0].body["output_config"];
+    assert_eq!(output_config["effort"], "medium");
+    assert_eq!(output_config["format"]["type"], "json_schema");
+    assert_eq!(
+        output_config["format"]["schema"]["properties"]["issues"]["type"],
+        "array"
+    );
+    assert_eq!(
+        output_config["format"]["schema"]["additionalProperties"],
+        false
+    );
+}

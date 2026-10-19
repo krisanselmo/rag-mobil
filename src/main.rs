@@ -3,10 +3,29 @@ use std::process::ExitCode;
 
 use clap::{Parser, ValueEnum};
 
-use rag_mobil::augment::{ContextOptions, StoryOptions, build_prompt};
+use rag_mobil::augment::{ContextOptions, StoryOptions};
 use rag_mobil::generator::{LlmConfig, LlmGenerator, ReasoningEffort, llm};
 use rag_mobil::retriever::{InventorySource, PlaymoDb, playmodb};
+use rag_mobil::writer::{Observer, Step, WriterOptions, WritingMethod, first_prompt};
 use rag_mobil::{RagError, RagPipeline, SetNumber};
+
+/// Méthode de rédaction.
+#[derive(Debug, Clone, Copy, ValueEnum)]
+enum Method {
+    /// Plan, rédaction étape par étape, relecture (méthode Re3/DOC).
+    Planned,
+    /// Un seul appel, l'histoire s'affiche au fil de l'écriture.
+    Direct,
+}
+
+impl From<Method> for WritingMethod {
+    fn from(method: Method) -> Self {
+        match method {
+            Method::Planned => Self::Planned,
+            Method::Direct => Self::Direct,
+        }
+    }
+}
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
 enum Effort {
@@ -51,6 +70,14 @@ struct Cli {
     /// Souhait libre (ex. "une histoire de fantômes").
     #[arg(short, long)]
     theme: Option<String>,
+
+    /// Méthode de rédaction.
+    #[arg(long, value_enum, default_value_t = Method::Planned)]
+    method: Method,
+
+    /// Méthode planned : pas de relecture de fidélité à la fin.
+    #[arg(long)]
+    no_review: bool,
 
     /// Garde toutes les catégories de pièces (y compris les notices papier).
     #[arg(long)]
@@ -133,7 +160,7 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
         if cli.inventory_json {
             println!("{}", serde_json::to_string_pretty(&inventory)?);
         } else {
-            let prompt = build_prompt(&inventory, &options);
+            let prompt = first_prompt(&inventory, &options, cli.method.into());
             println!(
                 "=== SYSTEM ===\n{}\n\n=== USER ===\n{}",
                 prompt.system, prompt.user
@@ -149,24 +176,25 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
     });
     let pipeline = RagPipeline::new(source, generator);
 
+    let writer = WriterOptions {
+        method: cli.method.into(),
+        review: !cli.no_review,
+    };
+
     eprintln!("[rag-mobil] récupération de l'inventaire du set {set} sur PlaymoDB…");
-    let mut stdout = std::io::stdout();
-    let story = pipeline
-        .run(&set, &options, |chunk| {
-            let _ = stdout.write_all(chunk.as_bytes());
-            let _ = stdout.flush();
-        })
-        .await?;
+    let story = pipeline.run(&set, &options, writer, &mut Terminal).await?;
     println!();
 
-    let g = &story.generation;
+    let g = &story.written.generation;
     eprintln!(
-        "[rag-mobil] set {} « {} » — {} pièces distinctes, {} figurine(s) — modèle {}{}",
+        "[rag-mobil] set {} « {} » — {} pièces distinctes, {} figurine(s) — modèle {}, \
+         {} appel(s){}",
         story.inventory.set_number,
         story.inventory.name,
         story.inventory.parts.len(),
         story.inventory.figures().count(),
         g.model,
+        story.written.calls,
         g.output_tokens
             .map(|t| format!(", ~{t} tokens générés"))
             .unwrap_or_default(),
@@ -175,4 +203,50 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
         eprintln!("[rag-mobil] attention : histoire tronquée (limite max_tokens atteinte)");
     }
     Ok(())
+}
+
+/// Story on stdout, progress on stderr.
+struct Terminal;
+
+impl Observer for Terminal {
+    fn text(&mut self, chunk: &str) {
+        let mut stdout = std::io::stdout();
+        let _ = stdout.write_all(chunk.as_bytes());
+        let _ = stdout.flush();
+    }
+
+    fn step(&mut self, step: Step<'_>) {
+        match step {
+            Step::Planning => eprintln!("[rag-mobil] plan de l'histoire…"),
+            Step::PlanRejected(errors) => eprintln!(
+                "[rag-mobil] plan pas fidèle à la boîte ({} écart(s)), nouvelle demande…",
+                errors.len()
+            ),
+            Step::PlanRepaired(errors) => {
+                eprintln!("[rag-mobil] références invalides retirées du plan :");
+                for error in errors {
+                    eprintln!("  - {error}");
+                }
+            }
+            Step::PlanReady(plan) => eprintln!(
+                "[rag-mobil] plan : « {} » — {} personnage(s), {} étape(s)",
+                plan.title,
+                plan.characters.len(),
+                plan.outline.len()
+            ),
+            Step::Drafting { part, total } => {
+                eprintln!("[rag-mobil] rédaction {part}/{total}…");
+            }
+            Step::Reviewing => eprintln!("[rag-mobil] relecture de fidélité…"),
+            Step::ReviewUnreadable => {
+                eprintln!("[rag-mobil] relecture illisible, histoire gardée sans correction");
+            }
+            Step::Revising(issues) => {
+                eprintln!("[rag-mobil] {} écart(s) corrigé(s) :", issues.len());
+                for issue in issues {
+                    eprintln!("  - {}", issue.problem);
+                }
+            }
+        }
+    }
 }
