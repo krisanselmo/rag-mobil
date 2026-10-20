@@ -563,9 +563,15 @@ pub struct Labels {
     pub the_end: &'static str,
 }
 
+/// `language` is lowercase, e.g. `deutsch`, `german`.
+pub(crate) fn is_german(language: &str) -> bool {
+    language.starts_with("de") || language.starts_with("german")
+}
+
 impl Labels {
     pub fn new(options: &StoryOptions) -> Self {
-        if options.language.to_lowercase().starts_with("fr") {
+        let language = options.language.to_lowercase();
+        if language.starts_with("fr") {
             Self {
                 in_your_box: "Dans ta boîte",
                 characters: "Personnages",
@@ -577,6 +583,19 @@ impl Labels {
                 choose: "Que choisis-tu ?",
                 go_to: "va au",
                 the_end: "Fin",
+            }
+        } else if is_german(&language) {
+            Self {
+                in_your_box: "In deiner Schachtel",
+                characters: "Figuren",
+                objects: "Gegenstände",
+                scene_setup: "Aufbauen",
+                a_box: "Schachtel",
+                interactive: "Du entscheidest, wie es weitergeht: Fang bei Abschnitt 1 an \
+                              und folge deinen Entscheidungen.",
+                choose: "Wofür entscheidest du dich?",
+                go_to: "geh zu",
+                the_end: "Ende",
             }
         } else {
             Self {

@@ -86,7 +86,7 @@ The story is printed on `stdout` (as Markdown); steps and progress messages go t
 
 | Option | Default | Purpose |
 |---|---|---|
-| `-l, --language` / `RAG_MOBIL_LANGUAGE` | `English` | Language of the story (e.g. `français`) |
+| `-l, --language` / `RAG_MOBIL_LANGUAGE` | `English` | Language of the story (e.g. `français`, `Deutsch`) |
 | `-a, --age` / `RAG_MOBIL_AGE` | `7` | Reader's age |
 | `-w, --words` / `RAG_MOBIL_WORDS` | `600` | Target length |
 | `-t, --theme` | — | Free-form wish |

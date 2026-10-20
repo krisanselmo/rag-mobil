@@ -16,7 +16,9 @@ use crate::augment::StoryOptions;
 use crate::model::{Collection, Part, SetInventory};
 use crate::pipeline::Story;
 use crate::writer::StoryPlan;
-use crate::writer::plan::{Labels, SceneSetup, box_contents, find_part, part_label, scene_setup};
+use crate::writer::plan::{
+    Labels, SceneSetup, box_contents, find_part, is_german, part_label, scene_setup,
+};
 
 /// How the page is laid out when printed (or saved as PDF).
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -104,6 +106,16 @@ impl Texts {
                 written_from: "Histoire écrite par rag-mobil d'après l'inventaire de",
                 trademark: "Projet non officiel. PLAYMOBIL® est une marque déposée de geobra \
                             Brandstätter Stiftung &amp; Co. KG. Images des pièces : PlaymoDB.",
+            }
+        } else if is_german(&language) {
+            Self {
+                lang: "de",
+                play_with: "Eine Geschichte zum Nachspielen mit deiner Playmobil-Schachtel",
+                tick: "Hake jedes Teil ab, sobald du es gefunden hast.",
+                found: "gefunden",
+                written_from: "Geschichte von rag-mobil geschrieben nach dem Inventar von",
+                trademark: "Inoffizielles Projekt. PLAYMOBIL® ist eine eingetragene Marke der geobra \
+                            Brandstätter Stiftung &amp; Co. KG. Bilder der Teile: PlaymoDB.",
             }
         } else {
             Self {
@@ -796,5 +808,17 @@ mod tests {
         assert!(html.contains("Mise en place"));
         assert!(html.contains("<h2>Dans ta boîte</h2>"));
         assert!(html.contains("<p class=\"tick\">Coche chaque pièce quand tu l'as trouvée.</p>"));
+    }
+
+    #[test]
+    fn german_labels() {
+        let story = story("", true, &["Eins.", "Zwei."], true);
+        let html = render(&story, &options("Deutsch"), Layout::Booklet);
+        assert!(html.contains("<html lang=\"de\">"));
+        assert!(html.contains("Aufbauen"));
+        assert!(html.contains("<h2>In deiner Schachtel</h2>"));
+        assert!(
+            html.contains("<p class=\"tick\">Hake jedes Teil ab, sobald du es gefunden hast.</p>")
+        );
     }
 }

@@ -81,9 +81,9 @@ rag-mobil 3666 --inventory-json   # the fetched inventory, as JSON
 rag-mobil 3666 --dry-run          # the first prompt sent to the LLM
 ```
 
-Geschichten auf Deutsch bekommst du mit `--language Deutsch`. Die Überschriften, die der Code
-selbst schreibt („In your box“, „Set the scene“, die Überschriften des Hefts…), bleiben dann
-auf Englisch: Es gibt sie nur auf Englisch und Französisch.
+Geschichten auf Deutsch bekommst du mit `--language Deutsch`. Auch die Überschriften, die der
+Code selbst schreibt, sind dann auf Deutsch („In deiner Schachtel“, „Aufbauen“, das Heft…); die
+Beispiele unten zeigen die englische Ausgabe („In your box“, „Set the scene“…).
 
 Die Geschichte wird auf `stdout` ausgegeben (als Markdown); Schritte und Fortschrittsmeldungen
 gehen nach `stderr` (`rag-mobil 3666 > story.md` funktioniert).
