@@ -1,8 +1,10 @@
 //! Prompt templates: a stable system prompt (the storyteller's rules) and a
 //! user message carrying the retrieved inventory plus the request.
 
+use std::fmt::Write;
+
 use crate::augment::context::{ContextOptions, build_context};
-use crate::model::Collection;
+use crate::model::{Collection, reference_key};
 use crate::saga::Saga;
 
 /// What the user wants from the story.
@@ -21,6 +23,9 @@ pub struct StoryOptions {
     pub context: ContextOptions,
     /// Previous episodes, when the story continues a saga.
     pub saga: Saga,
+    /// The child's favorite parts, by reference (`--star`): at the heart of
+    /// the story. Each must be in the boxes.
+    pub stars: Vec<String>,
 }
 
 impl Default for StoryOptions {
@@ -33,6 +38,7 @@ impl Default for StoryOptions {
             citations: false,
             context: ContextOptions::default(),
             saga: Saga::default(),
+            stars: Vec::new(),
         }
     }
 }
@@ -109,6 +115,7 @@ pub fn reader_request(collection: &Collection, options: &StoryOptions) -> String
         .as_deref()
         .map(|w| format!("\nSouhait particulier de l'enfant : {w}"))
         .unwrap_or_default();
+    let stars = favorite_parts(collection, &options.stars);
     let boxes = match collection.sets.as_slice() {
         [set] => format!(
             "le set Playmobil {} « {} » décrit ci-dessus",
@@ -125,11 +132,38 @@ pub fn reader_request(collection: &Collection, options: &StoryOptions) -> String
     };
     format!(
         "L'histoire est en {language}, pour un enfant de {age} ans, d'environ {words} \
-         mots, et se joue avec {boxes}.{wish}",
+         mots, et se joue avec {boxes}.{wish}{stars}",
         language = options.language,
         age = options.reader_age,
         words = options.target_words,
     )
+}
+
+/// The child's favorite parts (`--star`), one line each; references
+/// missing from the boxes are skipped.
+fn favorite_parts(collection: &Collection, stars: &[String]) -> String {
+    let mut lines = String::new();
+    for star in stars {
+        let wanted = reference_key(star);
+        let Some((_, part)) = collection
+            .parts()
+            .find(|(_, p)| reference_key(&p.number) == wanted)
+        else {
+            continue;
+        };
+        let label = match &part.color {
+            Some(color) => format!("{} ({color}) [réf. {}]", part.name, part.number),
+            None => format!("{} [réf. {}]", part.name, part.number),
+        };
+        let role = if part.is_figure() {
+            "fais-en le personnage principal, présent du début à la fin de l'histoire"
+        } else {
+            "donne-lui un rôle central dans l'intrigue : qu'il serve plusieurs fois, \
+             et pas seulement en passant"
+        };
+        let _ = write!(lines, "\nPièce préférée de l'enfant : {label} ; {role}.");
+    }
+    lines
 }
 
 /// Single-call prompt: the whole story in one generation.

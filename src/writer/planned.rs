@@ -15,8 +15,8 @@ use crate::error::Result;
 use crate::generator::{Generation, StoryGenerator};
 use crate::model::Collection;
 use crate::writer::plan::{
-    Review, StoryPlan, in_your_box, plan_schema, review_schema, sanitize, scene_setup,
-    scene_setup_markdown, validate,
+    Review, StoryPlan, feature_stars, in_your_box, plan_schema, review_schema, sanitize,
+    scene_setup, scene_setup_markdown, validate, validate_stars,
 };
 use crate::writer::{Observer, Step, WriterOptions, Written, prompts};
 
@@ -69,6 +69,7 @@ async fn make_plan<G: StoryGenerator, O: Observer>(
     let check = |plan: &StoryPlan| {
         let mut errors = validate(plan, boxes);
         errors.extend(options.saga.validate(plan, boxes));
+        errors.extend(validate_stars(plan, boxes, &options.stars));
         errors
     };
     let errors = match parse_json::<StoryPlan>(&first.text) {
@@ -99,6 +100,7 @@ async fn make_plan<G: StoryGenerator, O: Observer>(
     }
     observer.step(Step::PlanRepaired(&errors));
     let plan = options.saga.restore_names(sanitize(plan, boxes), boxes);
+    let plan = feature_stars(plan, boxes, &options.stars);
     if plan.outline.is_empty() {
         return Ok(Err(format!(
             "plus aucune étape valide ({})",

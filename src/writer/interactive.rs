@@ -14,8 +14,8 @@ use crate::error::Result;
 use crate::generator::{Generation, StoryGenerator};
 use crate::model::Collection;
 use crate::writer::plan::{
-    Labels, PlannedCharacter, PlotPoint, Review, StoryPlan, in_your_box, review_schema, sanitize,
-    scene_setup, scene_setup_markdown, validate,
+    Labels, PlannedCharacter, PlotPoint, Review, StoryPlan, feature_stars, in_your_box,
+    review_schema, sanitize, scene_setup, scene_setup_markdown, validate, validate_stars,
 };
 use crate::writer::planned::{Tally, fall_back_to_direct, parse_json};
 use crate::writer::{Observer, Step, WriterOptions, Written, prompts};
@@ -397,6 +397,7 @@ async fn make_plan<G: StoryGenerator, O: Observer>(
         let mut errors = validate_graph(plan);
         errors.extend(validate(&story, boxes));
         errors.extend(options.saga.validate(&story, boxes));
+        errors.extend(validate_stars(&story, boxes, &options.stars));
         errors
     };
 
@@ -438,6 +439,7 @@ async fn make_plan<G: StoryGenerator, O: Observer>(
     let story = options
         .saga
         .restore_names(sanitize(plan.story_plan(), boxes), boxes);
+    let story = feature_stars(story, boxes, &options.stars);
     Ok(Ok(plan.with_story_plan(story)))
 }
 

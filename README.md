@@ -63,6 +63,9 @@ rag-mobil 3799 --interactive --format pdf > aventure.pdf
 rag-mobil 3799 --saga pirates.json      # épisode 1
 rag-mobil 3799 70145 --saga pirates.json  # épisode 2, avec une nouvelle boîte
 
+# Le perroquet est la pièce préférée : il est au cœur de l'histoire
+rag-mobil 3799 --star "30 06 368"
+
 # La boîte réelle : le perroquet est perdu, 2 hallebardes sur 4 aussi
 rag-mobil 3666 --missing "30 06 368" --missing "30 07 640:2"
 
@@ -93,6 +96,7 @@ vont sur `stderr` (`rag-mobil 3666 > histoire.md` fonctionne).
 | `-f, --format` / `RAG_MOBIL_FORMAT` | `markdown` | `markdown`, `html` ou `pdf` (livret illustré, voir ci-dessous) |
 | `--layout` / `RAG_MOBIL_LAYOUT` | `booklet` | `--format html` ou `pdf` : `booklet` (livret) ou `compact` (économe en papier) |
 | `--browser-arg` | — | `--format pdf` : argument passé au navigateur (ex. `--no-sandbox`) ; répétable |
+| `--star REF` | — | Pièce préférée de l'enfant, au cœur de l'histoire ; répétable (voir ci-dessous) |
 | `--missing REF[:N]` | — | Pièce absente de la boîte : toutes les copies, ou N ; répétable |
 | `--missing-file` / `RAG_MOBIL_MISSING_FILE` | — | Pièces absentes, une par ligne (voir ci-dessous) |
 | `--no-review` | off | Méthode `planned` : saute la relecture de fidélité |
@@ -168,6 +172,27 @@ seules les figurines présentes reviennent. L'épisode est ajouté au fichier un
 l'histoire écrite, sauf si le plan a échoué (rédaction en un seul appel). `--saga`
 demande la méthode `planned` ou `interactive` ; une histoire interactive est gardée
 sans ses étapes, puisque son déroulé dépend du lecteur.
+
+### Pièce préférée
+
+`--star REF` met la pièce préférée de l'enfant au cœur de l'histoire : une figurine
+devient le personnage principal, un objet joue un rôle central. La référence s'écrit
+avec ou sans espaces, comme pour `--missing` ; elle doit être dans la boîte (après
+retrait des pièces absentes), sinon le programme s'arrête avant tout appel au LLM.
+L'option est répétable.
+
+Avec les méthodes `planned` et `interactive`, le code vérifie le plan : une figurine
+préférée doit jouer un personnage, présent dès la première étape et dans au moins la
+moitié des étapes ; un objet préféré doit servir dans au moins 2 étapes. En cas
+d'écart, le plan est redemandé une fois avec ces erreurs ; s'il en reste, le code
+ajoute la pièce aux premières étapes qui ne l'ont pas. Une figurine qui ne joue aucun
+personnage ne peut pas être ajoutée, faute de nom : l'histoire est écrite sans elle
+au premier plan. Avec `--method direct`, seule la consigne est donnée au LLM.
+
+```bash
+rag-mobil 3666 --star "30 00 496"                        # le trompettiste en héros
+rag-mobil 3799 --star 3006368 --star "30 13 020" --interactive
+```
 
 ### Pièces perdues ou cassées
 

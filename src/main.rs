@@ -15,6 +15,7 @@ use rag_mobil::retriever::{
     Answered, Cached, Fallback, HttpJson, InventorySource, JsonFile, PlaymoDb, cache, playmodb,
 };
 use rag_mobil::saga::{Episode, Saga};
+use rag_mobil::writer::plan::{find_part, part_label};
 use rag_mobil::writer::{Observer, Step, WriterOptions, WritingMethod, first_prompt};
 use rag_mobil::{RagError, RagPipeline, SetInventory, SetNumber, html, pdf};
 
@@ -160,6 +161,12 @@ struct Cli {
     /// les copies (30 07 640) ou N d'entre elles (30 07 640:2). Répétable.
     #[arg(long, value_name = "REF[:N]", value_parser = MissingPart::parse)]
     missing: Vec<MissingPart>,
+
+    /// Pièce préférée de l'enfant, par sa référence : une figurine devient le
+    /// personnage principal, un objet sert dans plusieurs étapes. Le plan est
+    /// vérifié en conséquence. Répétable.
+    #[arg(long, value_name = "REF")]
+    star: Vec<String>,
 
     /// Fichier des pièces absentes : une par ligne, au format de --missing ;
     /// lignes vides et commentaires (#) ignorés.
@@ -449,6 +456,7 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
             include_all: cli.include_all,
         },
         saga,
+        stars: cli.star,
     };
 
     let mut missing = match &cli.missing_file {
@@ -465,6 +473,25 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
         eprintln!("[rag-mobil] pièces absentes de la boîte :");
         for line in collection.remove_missing(&missing) {
             eprintln!("  - {line}");
+        }
+    }
+
+    // Before any LLM call: a favorite part must be in the boxes.
+    for star in &options.stars {
+        match find_part(&collection, star) {
+            Some(part) => eprintln!(
+                "[rag-mobil] pièce préférée : {} ({})",
+                part_label(part),
+                part.number
+            ),
+            None => anyhow::bail!(
+                "--star {star} : cette pièce n'est pas dans {}",
+                if collection.is_single() {
+                    "la boîte"
+                } else {
+                    "les boîtes"
+                }
+            ),
         }
     }
 
