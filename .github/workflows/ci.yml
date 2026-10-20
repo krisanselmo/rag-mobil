@@ -1,9 +1,13 @@
 name: CI
 
+# Private repo: minutes are billed (Windows x2). Branch pushes run
+# only through their PR to avoid doubled runs; docs-only changes are skipped.
 on:
   push:
-    branches: ["**"]
+    branches: [main]
+    paths-ignore: ["**.md", "docs/**", ".gitignore", ".gitattributes"]
   pull_request:
+    paths-ignore: ["**.md", "docs/**", ".gitignore", ".gitattributes"]
   workflow_dispatch:
 
 # Un nouveau push annule le run en cours sur la même branche.
@@ -18,57 +22,40 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  fmt:
-    name: Formatage
+  # fmt, clippy, docs, tests and MSRV share one runner and one cache: each job is
+  # billed rounded up to the minute and would rebuild the dependencies on its own.
+  linux:
+    name: Linux (fmt, clippy, tests, docs, MSRV)
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt
-      - run: cargo fmt --all --check
-
-  clippy:
-    name: Clippy
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy
-      - uses: Swatinem/rust-cache@v2
-      - run: cargo clippy --all-targets --locked -- -D warnings
-
-  test:
-    name: Tests (${{ matrix.os }})
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      # Tests hors-ligne uniquement (fixtures HTML), aucun accès réseau ni clé API.
-      - run: cargo test --all-targets --locked
-
-  msrv:
-    name: MSRV (1.88)
-    runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@1.88
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
-      - run: cargo check --all-targets --locked
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - run: cargo fmt --all --check
+      - run: cargo clippy --all-targets --locked -- -D warnings
+      # Tests hors-ligne uniquement (fixtures HTML), aucun accès réseau ni clé API.
+      - run: cargo test --all-targets --locked
+      - run: cargo doc --no-deps --locked
+        env:
+          RUSTDOCFLAGS: -D warnings
+      - name: MSRV (1.88)
+        run: cargo +1.88 check --all-targets --locked
 
-  docs:
-    name: Documentation
-    runs-on: ubuntu-latest
-    env:
-      RUSTDOCFLAGS: -D warnings
+  # Windows runners are billed x2: only after merge to main, or on demand.
+  windows:
+    name: Tests (Windows)
+    if: github.event_name != 'pull_request'
+    needs: linux
+    runs-on: windows-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - run: cargo doc --no-deps --locked
+      - run: cargo test --all-targets --locked
