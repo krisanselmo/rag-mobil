@@ -47,7 +47,7 @@ pub fn find_browser() -> Result<PathBuf> {
         .find(|p| p.is_file())
         .ok_or_else(|| {
             RagError::Pdf(format!(
-                "aucun navigateur Chrome, Chromium ou Edge trouvé ; indiquez-le avec {BROWSER_ENV}"
+                "no Chrome, Chromium or Edge browser found; set it with {BROWSER_ENV}"
             ))
         })
 }
@@ -94,7 +94,7 @@ pub fn print(html: &str, browser: &Path, extra_args: &[String]) -> Result<Vec<u8
         match std::fs::read(&pdf) {
             Ok(bytes) if bytes.starts_with(b"%PDF") => Ok(bytes),
             _ => Err(RagError::Pdf(format!(
-                "{} n'a pas produit de PDF ({}) : {}",
+                "{} produced no PDF ({}): {}",
                 browser.display(),
                 output.status,
                 String::from_utf8_lossy(&output.stderr)

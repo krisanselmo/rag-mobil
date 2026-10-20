@@ -58,7 +58,7 @@ impl Part {
 }
 
 /// A part reference reduced to its digits, so that `30 07 640`, `3007640`
-/// and `réf. 30 07 640` compare equal.
+/// and `ref. 30 07 640` compare equal.
 pub fn reference_key(reference: &str) -> String {
     reference.chars().filter(char::is_ascii_digit).collect()
 }
@@ -86,7 +86,11 @@ impl MissingPart {
             None => (raw, None),
         };
         let reference = reference.trim();
-        let reference = reference.strip_prefix("réf.").unwrap_or(reference).trim();
+        let reference = reference
+            .strip_prefix("ref.")
+            .or_else(|| reference.strip_prefix("réf."))
+            .unwrap_or(reference)
+            .trim();
         let valid = !reference.is_empty()
             && reference
                 .chars()
@@ -108,7 +112,7 @@ pub const CATEGORY_FIGURE: &str = "figure";
 pub const CATEGORY_UNKNOWN: &str = "Other";
 
 /// The retrieved document: everything we know about a set. Its JSON form is
-/// the inventory format v1 (`docs/format-inventaire.md`,
+/// the inventory format v1 (`docs/inventory-format.md`,
 /// `schema/inventory-v1.schema.json`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SetInventory {
@@ -166,10 +170,7 @@ impl Collection {
             let key = reference_key(&wanted.reference);
             let held = |p: &Part| reference_key(&p.number) == key;
             let Some(part) = self.sets.iter().flat_map(|s| &s.parts).find(|p| held(p)) else {
-                report.push(format!(
-                    "{} : absente des boîtes, ignorée",
-                    wanted.reference
-                ));
+                report.push(format!("{}: not in the boxes, ignored", wanted.reference));
                 continue;
             };
             let name = format!("{} ({})", part.number, part.name);
@@ -177,7 +178,7 @@ impl Collection {
                 for set in &mut self.sets {
                     set.parts.retain(|p| !held(p));
                 }
-                report.push(format!("{name} : retirée"));
+                report.push(format!("{name}: removed"));
                 continue;
             };
 
@@ -206,20 +207,20 @@ impl Collection {
                 .sum();
             report.push(match (removed, unknown) {
                 (0, true) => {
-                    format!("{name} : quantité inconnue, gardée (sans :N pour la retirer)")
+                    format!("{name}: unknown quantity, kept (without :N to remove it)")
                 }
-                _ if left == 0 && !unknown => format!("{name} : retirée"),
-                _ => format!("{name} : {removed} exemplaire(s) en moins, {left} restant(s)"),
+                _ if left == 0 && !unknown => format!("{name}: removed"),
+                _ => format!("{name}: {removed} fewer, {left} left"),
             });
         }
         report
     }
 
-    /// `3666 « Kings Large Castle », 5135 « Pirates Ship »`.
+    /// `3666 "Kings Large Castle", 5135 "Pirates Ship"`.
     pub fn label(&self) -> String {
         self.sets
             .iter()
-            .map(|s| format!("{} « {} »", s.set_number, s.name))
+            .map(|s| format!("{} \"{}\"", s.set_number, s.name))
             .collect::<Vec<_>>()
             .join(", ")
     }
@@ -258,7 +259,8 @@ mod tests {
             }
         );
         assert_eq!(parse("30 07 640:2").count, Some(2));
-        assert_eq!(parse("réf. 30 07 640 : 2").reference, "30 07 640");
+        assert_eq!(parse("ref. 30 07 640 : 2").reference, "30 07 640");
+        assert_eq!(parse("réf. 30 07 640").reference, "30 07 640");
         for raw in ["", "abc", "30 07 640:0", "30 07 640:x", ":2"] {
             assert!(MissingPart::parse(raw).is_err(), "{raw}");
         }
@@ -315,10 +317,10 @@ mod tests {
         assert_eq!(
             report,
             [
-                "30 06 368 (Parrot) : retirée",
-                "30 07 640 (Halberd) : 5 exemplaire(s) en moins, 1 restant(s)",
-                "30 08 000 (Flower) : quantité inconnue, gardée (sans :N pour la retirer)",
-                "99 99 999 : absente des boîtes, ignorée",
+                "30 06 368 (Parrot): removed",
+                "30 07 640 (Halberd): 5 fewer, 1 left",
+                "30 08 000 (Flower): unknown quantity, kept (without :N to remove it)",
+                "99 99 999: not in the boxes, ignored",
             ]
         );
         assert!(quantities(&boxes, "30 06 368").is_empty());
@@ -333,10 +335,7 @@ mod tests {
 
         let mut boxes = self::boxes();
         let all = [MissingPart::parse("30 07 640:9").unwrap()];
-        assert_eq!(
-            boxes.remove_missing(&all),
-            ["30 07 640 (Halberd) : retirée"]
-        );
+        assert_eq!(boxes.remove_missing(&all), ["30 07 640 (Halberd): removed"]);
         assert!(quantities(&boxes, "30 07 640").is_empty());
     }
 

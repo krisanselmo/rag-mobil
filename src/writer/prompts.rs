@@ -44,20 +44,20 @@ pub(crate) fn plan(boxes: &Collection, options: &StoryOptions) -> Prompt {
     Prompt {
         system: format!(
             "{}\n\n\
-             Avant d'écrire, tu prépares le plan de l'histoire : une prémisse, un décor, \
-             les personnages, puis les grandes étapes de l'intrigue. Réponds uniquement \
-             avec le JSON demandé.",
+             Before writing, you prepare the outline of the story: a premise, a setting, \
+             the characters, then the main steps of the plot. Answer only with the \
+             requested JSON.",
             storyteller_rules(options)
         ),
         user: format!(
             "{context}\n\n{request}\n\n\
-             Prépare le plan de cette histoire en {steps} étapes (un début, des \
-             péripéties, une résolution). Chaque personnage correspond à une figurine \
-             différente de <personnages>, désignée par sa référence ; une même figurine ne \
-             peut jouer plusieurs personnages que si la boîte en contient plusieurs. Pour \
-             chaque étape, indique les personnages présents (par leur nom) et les \
-             références des objets, animaux ou véhicules de <pieces> qu'ils utilisent. \
-             Rédige les textes du plan en {language}.",
+             Prepare the outline of this story in {steps} steps (a beginning, \
+             complications, a resolution). Each character is a different figure from \
+             <characters>, given by its reference; the same figure can play several \
+             characters only if the box contains several of it. For each step, list the \
+             characters present (by name) and the references of the objects, animals or \
+             vehicles from <pieces> they use. Write the texts of the outline in \
+             {language}.",
             language = options.language,
         ),
     }
@@ -66,16 +66,16 @@ pub(crate) fn plan(boxes: &Collection, options: &StoryOptions) -> Prompt {
 /// Re-asks for the plan, with the problems found in the previous one.
 pub(crate) fn plan_fix(base: &Prompt, previous: &str, errors: &[String]) -> Prompt {
     let mut user = format!(
-        "{}\n\nVoici ton plan précédent :\n{previous}\n\n\
-         Il n'est pas fidèle à la boîte :\n",
+        "{}\n\nHere is your previous outline:\n{previous}\n\n\
+         It is not faithful to the box:\n",
         base.user
     );
     for error in errors {
         let _ = writeln!(user, "- {error}");
     }
     user.push_str(
-        "\nRenvoie le plan complet corrigé, en n'utilisant que des références présentes \
-         dans <set>.",
+        "\nSend back the complete, corrected outline, using only references present in \
+         <set>.",
     );
     Prompt {
         system: base.system.clone(),
@@ -90,28 +90,27 @@ pub(crate) fn game_plan(boxes: &Collection, options: &StoryOptions) -> Prompt {
     Prompt {
         system: format!(
             "{}\n\n\
-             Avant d'écrire, tu prépares le plan d'une histoire interactive, dont le \
-             lecteur choisit la suite (comme un livre « dont tu es le héros ») : une \
-             prémisse, un décor, les personnages, puis des paragraphes reliés par des \
-             choix. Réponds uniquement avec le JSON demandé.",
+             Before writing, you prepare the outline of an interactive story, where the \
+             reader chooses what happens next (like a \"choose your own adventure\" \
+             book): a premise, a setting, the characters, then paragraphs linked by \
+             choices. Answer only with the requested JSON.",
             storyteller_rules(options)
         ),
         user: format!(
             "{context}\n\n{request}\n\n\
-             Prépare le plan de cette histoire interactive en 6 à 9 paragraphes. Le premier \
-             paragraphe est le début. Chaque paragraphe qui n'est pas une fin se termine \
-             par 2 choix (3 au plus) proposés au lecteur, chacun menant à un autre \
-             paragraphe, désigné par son identifiant ; deux choix peuvent mener au même \
-             paragraphe. Un paragraphe sans choix est une fin : prévois 2 à 4 fins \
-             différentes, toutes heureuses ou rassurantes. Pas de boucle : un choix mène \
-             toujours plus loin dans l'histoire, et chaque paragraphe est atteint par au \
-             moins un choix. Chaque personnage correspond à une figurine différente de \
-             <personnages>, désignée par sa référence ; une même figurine ne peut jouer \
-             plusieurs personnages que si la boîte en contient plusieurs. Pour chaque \
-             paragraphe, indique les personnages présents (par leur nom) et les références \
-             des objets, animaux ou véhicules de <pieces> qu'ils utilisent ; un choix est \
-             une décision courte, adressée au lecteur (« Pépin entre dans la grotte »). \
-             Rédige les textes du plan en {language}.",
+             Prepare the outline of this interactive story in 6 to 9 paragraphs. The \
+             first paragraph is the beginning. Each paragraph that is not an ending ends \
+             with 2 choices (3 at most) offered to the reader, each leading to another \
+             paragraph, given by its identifier; two choices may lead to the same \
+             paragraph. A paragraph without choices is an ending: plan 2 to 4 different \
+             endings, all happy or reassuring. No loops: a choice always leads further \
+             into the story, and every paragraph is reached by at least one choice. Each \
+             character is a different figure from <characters>, given by its reference; \
+             the same figure can play several characters only if the box contains \
+             several of it. For each paragraph, list the characters present (by name) \
+             and the references of the objects, animals or vehicles from <pieces> they \
+             use; a choice is a short decision, addressed to the reader (\"Pip goes \
+             into the cave\"). Write the texts of the outline in {language}.",
             language = options.language,
         ),
     }
@@ -159,16 +158,14 @@ pub(crate) fn paragraph(
         render_plan(plan, boxes)
     );
     if !path.is_empty() {
-        let _ = write!(
-            user,
-            "<histoire_jusqu_ici>\n{path}\n</histoire_jusqu_ici>\n\n"
-        );
+        let _ = write!(user, "<story_so_far>\n{path}\n</story_so_far>\n\n");
     }
     let (characters, objects) = step_cast(boxes, options, plan, index);
     let position = if index == 0 {
-        "C'est le début : installe le décor et présente les personnages.".to_owned()
+        "This is the beginning: set the scene and introduce the characters.".to_owned()
     } else if choices.is_empty() {
-        "C'est une des fins de l'histoire : conclus-la, de façon heureuse ou rassurante.".to_owned()
+        "This is one of the endings of the story: wrap it up in a happy or reassuring way."
+            .to_owned()
     } else {
         String::new()
     };
@@ -176,18 +173,18 @@ pub(crate) fn paragraph(
         String::new()
     } else {
         format!(
-            "Le paragraphe s'arrête au moment où il faut choisir entre : {}. N'écris pas \
-             ces choix, ils seront ajoutés après ton texte.",
-            choices.join(" ; ")
+            "The paragraph stops at the moment the reader must choose between: {}. Don't \
+             write these choices, they will be added after your text.",
+            choices.join("; ")
         )
     };
     let _ = write!(
         user,
-        "Écris le paragraphe {n} en {language}, pour un enfant de {age} ans, d'environ \
-         {words} mots.\n\
-         Ce qui se passe : {event}\n\
-         Personnages présents : {characters}\n\
-         Objets de la boîte à utiliser : {objects}\n\
+        "Write paragraph {n} in {language}, for a {age}-year-old child, about {words} \
+         words long.\n\
+         What happens: {event}\n\
+         Characters present: {characters}\n\
+         Objects from the box to use: {objects}\n\
          {position}{sep}{ending}",
         n = index + 1,
         language = options.language,
@@ -208,10 +205,10 @@ pub(crate) fn paragraph(
 }
 
 const DRAFT_STYLE: &str = "\
-Tu rédiges l'histoire partie par partie, en suivant un plan validé. Style : adapté \
-à l'âge demandé, chaleureux, sans violence graphique, avec des dialogues. Écris \
-uniquement la partie demandée, en prose : ni titre, ni intertitre, ni commentaire, \
-ni liste de pièces.";
+You write the story part by part, following an approved outline. Style: suited \
+to the requested age, warm, no graphic violence, with dialogue. Write only the \
+requested part, in prose: no title, no subheading, no commentary, no list of \
+pieces.";
 
 /// Draft of plot point `index` (DOC-style: the detailed plan steers each
 /// passage; the story so far keeps continuity).
@@ -232,28 +229,25 @@ pub(crate) fn draft(
         render_plan(plan, boxes)
     );
     if !story_so_far.is_empty() {
-        let _ = write!(
-            user,
-            "<histoire_jusqu_ici>\n{story_so_far}\n</histoire_jusqu_ici>\n\n"
-        );
+        let _ = write!(user, "<story_so_far>\n{story_so_far}\n</story_so_far>\n\n");
     }
 
     let (characters, objects) = step_cast(boxes, options, plan, index);
     let position = if index == 0 {
-        "C'est le début : installe le décor et présente les personnages."
+        "This is the beginning: set the scene and introduce the characters."
     } else if index + 1 == total {
-        "C'est la dernière partie : conclus l'histoire."
+        "This is the last part: bring the story to a close."
     } else {
-        "Ne conclus pas encore l'histoire."
+        "Don't bring the story to a close yet."
     };
 
     let _ = write!(
         user,
-        "Écris la partie {n}/{total} en {language}, pour un enfant de {age} ans, \
-         d'environ {words} mots.\n\
-         Ce qui se passe : {event}\n\
-         Personnages présents : {characters}\n\
-         Objets de la boîte à utiliser : {objects}\n\
+        "Write part {n}/{total} in {language}, for a {age}-year-old child, about \
+         {words} words long.\n\
+         What happens: {event}\n\
+         Characters present: {characters}\n\
+         Objects from the box to use: {objects}\n\
          {position}",
         n = index + 1,
         language = options.language,
@@ -271,9 +265,9 @@ pub(crate) fn draft(
 
 fn or_none(items: &[String]) -> String {
     if items.is_empty() {
-        "aucun en particulier".to_owned()
+        "none in particular".to_owned()
     } else {
-        items.join(" ; ")
+        items.join("; ")
     }
 }
 
@@ -283,20 +277,20 @@ pub(crate) fn review(boxes: &Collection, options: &StoryOptions, story: &str) ->
     let context = build_context(boxes, &options.context);
     Prompt {
         system: "\
-Tu es relecteur pour une maison d'édition jeunesse. Tu vérifies qu'une histoire peut \
-être rejouée avec le contenu exact d'une boîte Playmobil, dont l'inventaire est \
-fourni entre balises <set>. Réponds uniquement avec le JSON demandé."
+You are a reviewer for a children's publisher. You check that a story can be \
+played out with the exact contents of a Playmobil box, whose inventory is given \
+between <set> tags. Answer only with the requested JSON."
             .to_owned(),
         user: format!(
-            "{context}\n\n<histoire>\n{story}\n</histoire>\n\n\
-             Relève les problèmes de fidélité à la boîte :\n\
-             - un personnage qui agit sans correspondre à une figurine de <personnages> ;\n\
-             - un objet, animal ou véhicule utilisé qui n'est pas dans <pieces>, ou en \
-             plus grand nombre que dans la boîte ;\n\
-             - une apparence (vêtements, couleurs, coiffure) qui contredit la figurine.\n\
-             Ne relève pas ce qui est seulement évoqué, imaginé par les personnages ou \
-             construit avec les pièces de décor. Ne relève que de vrais problèmes : une \
-             liste vide est une bonne réponse. Écris en {}.",
+            "{context}\n\n<story>\n{story}\n</story>\n\n\
+             List the problems of faithfulness to the box:\n\
+             - a character who acts without matching a figure from <characters>;\n\
+             - an object, animal or vehicle used that is not in <pieces>, or in greater \
+             numbers than in the box;\n\
+             - an appearance (clothes, colors, hair) that contradicts the figure.\n\
+             Don't list what is only mentioned, imagined by the characters or built with \
+             the scenery pieces. List only real problems: an empty list is a good \
+             answer. Write in {}.",
             options.language
         ),
     }
@@ -318,32 +312,32 @@ pub(crate) fn revise(
 ) -> Prompt {
     let context = build_context(boxes, &options.context);
     let mut user = format!(
-        "{context}\n\n<histoire>\n{story}\n</histoire>\n\n\
-         Un relecteur a relevé ces écarts avec le contenu de la boîte :\n"
+        "{context}\n\n<story>\n{story}\n</story>\n\n\
+         A reviewer found these mismatches with the contents of the box:\n"
     );
     for issue in issues {
         let _ = writeln!(
             user,
-            "- « {} » : {} → {}",
+            "- \"{}\": {} → {}",
             issue.excerpt, issue.problem, issue.fix
         );
     }
     let _ = write!(
         user,
-        "\nRéécris l'histoire complète en {} en corrigeant uniquement ces écarts ; \
-         garde tout le reste à l'identique. Ni titre, ni commentaire, ni liste de pièces.",
+        "\nRewrite the complete story in {}, fixing only these mismatches; keep \
+         everything else exactly as it is. No title, no commentary, no list of pieces.",
         options.language
     );
     if let Some(count) = scenes {
         let _ = write!(
             user,
-            " L'histoire est en {count} parties séparées par des lignes « {SCENE_BREAK} » : \
-             garde ces séparateurs, au même endroit."
+            " The story is in {count} parts separated by \"{SCENE_BREAK}\" lines: keep \
+             these separators, in the same places."
         );
     }
     Prompt {
         system: format!(
-            "{}\n\nTu corriges une histoire existante.",
+            "{}\n\nYou are correcting an existing story.",
             storyteller_rules(options)
         ),
         user,

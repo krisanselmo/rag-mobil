@@ -233,8 +233,8 @@ impl LlmGenerator {
         {
             // A refusal can land mid-stream: the partial text is dropped.
             eprintln!(
-                "\n[rag-mobil] {} a décliné la requête, nouvelle tentative avec {fallback} \
-                 (le texte ci-dessus est abandonné)",
+                "\n[rag-mobil] {} declined the request, retrying with {fallback} \
+                 (the text above is dropped)",
                 attempt.model
             );
             attempt = self

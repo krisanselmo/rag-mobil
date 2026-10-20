@@ -10,13 +10,13 @@ use crate::saga::Saga;
 /// What the user wants from the story.
 #[derive(Debug, Clone)]
 pub struct StoryOptions {
-    /// Output language, e.g. `français`, `English`.
+    /// Output language, e.g. `English`, `français`.
     pub language: String,
     /// Age of the target reader.
     pub reader_age: u8,
     /// Approximate length in words.
     pub target_words: u32,
-    /// Free-form wish ("une histoire de pirates fantômes"...).
+    /// Free-form wish ("a story about ghost pirates"...).
     pub extra_instructions: Option<String>,
     /// Cite each part the story names, in the format of [`CITATION_FORMAT`].
     pub citations: bool,
@@ -31,7 +31,7 @@ pub struct StoryOptions {
 impl Default for StoryOptions {
     fn default() -> Self {
         Self {
-            language: "français".into(),
+            language: "English".into(),
             reader_age: 7,
             target_words: 600,
             extra_instructions: None,
@@ -52,60 +52,58 @@ pub struct Prompt {
 
 /// How a story cites a part with `citations` on: the inventory's reference
 /// after the name, several in one group for a multi-piece object. A reader
-/// strips `\s*\[réf\.[^\]]*\]` or turns each reference into a link.
-pub const CITATION_FORMAT: &str = "[réf. 30 06 368], ou [réf. 30 06 198, 30 06 199]";
+/// strips `\s*\[ref\.[^\]]*\]` or turns each reference into a link.
+pub const CITATION_FORMAT: &str = "[ref. 30 06 368], or [ref. 30 06 198, 30 06 199]";
 
 /// Storyteller role and inventory-fidelity rules, shared by every writing
 /// method (see [`crate::writer`]); see [`storyteller_rules`] for the ending.
 const STORYTELLER_ROLE: &str = "\
-Tu es un conteur pour enfants spécialisé dans l'univers Playmobil. Tu écris des \
-histoires qu'un enfant pourra rejouer avec le contenu exact d'une boîte Playmobil \
-posée devant lui.
+You are a children's storyteller specializing in the Playmobil world. You write \
+stories that a child can play out with the exact contents of a Playmobil box set \
+out in front of them.
 
-L'inventaire officiel de la boîte t'est fourni entre balises <set>. Il provient de \
-PlaymoDB, une base de données de fans, et c'est ta seule source de vérité sur ce \
-que contient la boîte. La fidélité à cet inventaire est ce qui rend l'histoire \
-utile : l'enfant doit pouvoir trouver chaque personnage et chaque objet cités.
+The official inventory of the box is given to you between <set> tags. It comes \
+from PlaymoDB, a fan database, and it is your only source of truth about what the \
+box contains. Faithfulness to this inventory is what makes the story useful: the \
+child must be able to find every character and every object mentioned.
 
-Règles de fidélité :
-- Les personnages principaux sont les figurines de <personnages>. Tu peux leur \
-donner un prénom et un caractère, mais leur apparence (vêtements, couleurs, \
-coiffure, accessoires) doit correspondre à leur description. N'invente pas de \
-personnage supplémentaire qui jouerait un rôle actif ; un personnage hors boîte ne \
-peut être qu'évoqué (\"le roi voisin\", \"un dragon dont on parle\").
-- Les objets, animaux, véhicules et éléments de décor que les personnages \
-utilisent doivent figurer dans <pieces>. Respecte les quantités : s'il y a 2 \
-chevaux, il n'y en a pas 3. Une quantité \"?\" signifie qu'elle est inconnue.
-- Les pièces purement techniques (connecteurs, clips, charnières, morceaux de \
-mur) ne sont pas des objets de l'histoire, mais elles indiquent ce qu'on peut \
-construire (un château, une tour, un pont-levis...) : sers-t'en pour planter le \
-décor.
-- Les noms des pièces sont en anglais dans l'inventaire ; traduis-les \
-naturellement dans la langue de l'histoire. Chaque pièce est suivie de sa \
-référence [réf. …] : ";
+Faithfulness rules:
+- The main characters are the figures from <characters>. You can give them a \
+name and a personality, but their appearance (clothes, colors, hair, \
+accessories) must match their description. Don't invent any extra character who \
+would play an active role; a character outside the box can only be mentioned \
+(\"the neighboring king\", \"a dragon people talk about\").
+- The objects, animals, vehicles and pieces of scenery the characters use must \
+appear in <pieces>. Respect the quantities: if there are 2 horses, there are not \
+3. A quantity \"?\" means it is unknown.
+- Purely technical pieces (connectors, clips, hinges, wall sections) are not \
+objects of the story, but they show what can be built (a castle, a tower, a \
+drawbridge...): use them to set the scene.
+- Piece names are in English in the inventory; translate them naturally into the \
+language of the story. Each piece is followed by its reference [ref. …]: ";
 
 /// The storyteller's rules, with or without citing references in the story.
 pub fn storyteller_rules(options: &StoryOptions) -> String {
     if options.citations {
         format!(
-            "{STORYTELLER_ROLE}chaque fois que l'histoire nomme une figurine ou une pièce \
-             de la boîte, recopie sa référence juste après le nom, entre crochets : \
-             {CITATION_FORMAT} pour un objet fait de plusieurs pièces. Ces références sont \
-             retirées ou changées en liens à l'affichage : la phrase doit rester correcte \
-             sans elles. Ne cite que des références présentes dans <set>."
+            "{STORYTELLER_ROLE}each time the story names a figure or a piece from the \
+             box, copy its reference right after the name, in square brackets: \
+             {CITATION_FORMAT} for an object made of several pieces. These references are \
+             removed or turned into links when displayed: the sentence must still read \
+             correctly without them. Only cite references present in <set>."
         )
     } else {
-        format!("{STORYTELLER_ROLE}elle sert au plan, ne la cite jamais dans l'histoire.")
+        format!("{STORYTELLER_ROLE}it is for the outline, never cite it in the story.")
     }
 }
 
 /// Style for the single-call ("direct") method.
 const DIRECT_STYLE: &str = "\
-Style : une histoire complète (début, péripétie, résolution), adaptée à l'âge \
-demandé, chaleureuse, sans violence graphique, avec des dialogues. Commence par un \
-titre sur la première ligne, puis l'histoire. Termine par une courte section \
-\"Dans ta boîte\" listant les figurines et les objets de l'inventaire utilisés \
-dans l'histoire, pour que l'enfant puisse les retrouver.";
+Style: a complete story (beginning, complication, resolution), suited to the \
+requested age, warm, no graphic violence, with dialogue. Start with a title on \
+the first line, then the story. End with a short \"In your box\" section listing \
+the figures and objects from the inventory used in the story, so the child can \
+find them.";
 
 /// "A story in {language} for a {age}-year-old, ~{words} words, set N" +
 /// the child's wish: the reader-facing part of every request.
@@ -113,26 +111,25 @@ pub fn reader_request(collection: &Collection, options: &StoryOptions) -> String
     let wish = options
         .extra_instructions
         .as_deref()
-        .map(|w| format!("\nSouhait particulier de l'enfant : {w}"))
+        .map(|w| format!("\nThe child's special wish: {w}"))
         .unwrap_or_default();
     let stars = favorite_parts(collection, &options.stars);
     let boxes = match collection.sets.as_slice() {
         [set] => format!(
-            "le set Playmobil {} « {} » décrit ci-dessus",
+            "the Playmobil set {} \"{}\" described above",
             set.set_number, set.name
         ),
         _ => format!(
-            "les {} sets Playmobil décrits ci-dessus, réunis : {}. Les personnages \
-             et les pièces de toutes les boîtes se rencontrent dans la même histoire ; \
-             une référence présente dans plusieurs boîtes compte les exemplaires de \
-             chacune",
+            "the {} Playmobil sets described above, together: {}. The characters \
+             and pieces of all the boxes meet in the same story; a reference present \
+             in several boxes counts the copies of each",
             collection.sets.len(),
             collection.label()
         ),
     };
     format!(
-        "L'histoire est en {language}, pour un enfant de {age} ans, d'environ {words} \
-         mots, et se joue avec {boxes}.{wish}{stars}",
+        "The story is in {language}, for a {age}-year-old child, about {words} words \
+         long, and is played with {boxes}.{wish}{stars}",
         language = options.language,
         age = options.reader_age,
         words = options.target_words,
@@ -152,16 +149,16 @@ fn favorite_parts(collection: &Collection, stars: &[String]) -> String {
             continue;
         };
         let label = match &part.color {
-            Some(color) => format!("{} ({color}) [réf. {}]", part.name, part.number),
-            None => format!("{} [réf. {}]", part.name, part.number),
+            Some(color) => format!("{} ({color}) [ref. {}]", part.name, part.number),
+            None => format!("{} [ref. {}]", part.name, part.number),
         };
         let role = if part.is_figure() {
-            "fais-en le personnage principal, présent du début à la fin de l'histoire"
+            "make it the main character, present from the beginning to the end of the story"
         } else {
-            "donne-lui un rôle central dans l'intrigue : qu'il serve plusieurs fois, \
-             et pas seulement en passant"
+            "give it a central role in the plot: use it several times, not just in \
+             passing"
         };
-        let _ = write!(lines, "\nPièce préférée de l'enfant : {label} ; {role}.");
+        let _ = write!(lines, "\nThe child's favorite piece: {label}; {role}.");
     }
     lines
 }
@@ -172,7 +169,7 @@ pub fn build_prompt(collection: &Collection, options: &StoryOptions) -> Prompt {
     let request = reader_request(collection, options);
     Prompt {
         system: format!("{}\n\n{DIRECT_STYLE}", storyteller_rules(options)),
-        user: format!("{context}\n\nÉcris cette histoire. {request}\n"),
+        user: format!("{context}\n\nWrite this story. {request}\n"),
     }
 }
 
@@ -183,12 +180,12 @@ mod tests {
     #[test]
     fn citations_switch_the_reference_rule() {
         let hidden = storyteller_rules(&StoryOptions::default());
-        assert!(hidden.ends_with("ne la cite jamais dans l'histoire."));
+        assert!(hidden.ends_with("never cite it in the story."));
         let cited = storyteller_rules(&StoryOptions {
             citations: true,
             ..StoryOptions::default()
         });
         assert!(cited.contains(CITATION_FORMAT));
-        assert!(!cited.contains("ne la cite jamais"));
+        assert!(!cited.contains("never cite it"));
     }
 }

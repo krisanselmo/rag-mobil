@@ -1,45 +1,45 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/krisanselmo/rag-mobil/main/schema/inventory-v1.schema.json",
-  "title": "Inventaire d'un set Playmobil (format v1)",
-  "description": "Un inventaire tel que rag-mobil le lit (--inventory-url, --inventory-file, cache) et l'écrit (--inventory-json). Voir docs/format-inventaire.md. Les champs inconnus sont ignorés.",
+  "title": "Inventory of a Playmobil set (format v1)",
+  "description": "An inventory as rag-mobil reads it (--inventory-url, --inventory-file, cache) and writes it (--inventory-json). See docs/inventory-format.md. Unknown fields are ignored.",
   "type": "object",
   "required": ["set_number", "name", "parts", "source_url"],
   "properties": {
     "set_number": {
-      "description": "Numéro du set, chiffres uniquement (1 à 8). Doit être celui demandé.",
+      "description": "Set number, digits only (1 to 8). Must be the one requested.",
       "type": "string",
       "pattern": "^[0-9]{1,8}$",
       "examples": ["3666", "70145"]
     },
     "name": {
-      "description": "Nom du set.",
+      "description": "Set name.",
       "type": "string",
       "examples": ["Kings Large Castle"]
     },
     "theme": {
-      "description": "Thème (gamme), null si inconnu.",
+      "description": "Theme (product line), null if unknown.",
       "type": ["string", "null"],
       "examples": ["Knights"]
     },
     "focus": {
-      "description": "Sous-thème, null si inconnu.",
+      "description": "Sub-theme, null if unknown.",
       "type": ["string", "null"],
       "examples": ["Building"]
     },
     "release_date": {
-      "description": "Date de sortie en texte libre (PlaymoDB : AAAA/MM), null si inconnue.",
+      "description": "Release date as free text (PlaymoDB: YYYY/MM), null if unknown.",
       "type": ["string", "null"],
       "examples": ["1993/09"]
     },
     "parts": {
-      "description": "Contenu de la boîte, une entrée par référence. Ne doit pas être vide.",
+      "description": "Contents of the box, one entry per reference. Must not be empty.",
       "type": "array",
       "minItems": 1,
       "items": { "$ref": "#/$defs/part" }
     },
     "source_url": {
-      "description": "Adresse où un humain peut vérifier l'inventaire (ou tout identifiant de la source).",
+      "description": "URL where a human can check the inventory (or any identifier of the source).",
       "type": "string",
       "examples": ["https://playmodb.org/cgi-bin/showinv.pl?setnum=3666"]
     }
@@ -50,38 +50,38 @@
       "required": ["number", "name", "category", "components"],
       "properties": {
         "number": {
-          "description": "Référence de la pièce, unique dans le set ; le LLM la cite dans son plan.",
+          "description": "Piece reference, unique within the set; the LLM cites it in its plan.",
           "type": "string",
           "examples": ["30 00 4950"]
         },
         "name": {
-          "description": "Nom de la pièce.",
+          "description": "Piece name.",
           "type": "string",
           "examples": ["Castle Trumpeter"]
         },
         "color": {
-          "description": "Couleur, null si inconnue ou sans objet.",
+          "description": "Color, null if unknown or not applicable.",
           "type": ["string", "null"],
           "examples": ["red"]
         },
         "quantity": {
-          "description": "Nombre d'exemplaires dans la boîte, null si inconnu.",
+          "description": "Number of copies in the box, null if unknown.",
           "type": ["integer", "null"],
           "minimum": 0,
           "maximum": 4294967295
         },
         "category": {
-          "description": "Catégorie en texte libre. Klicky ou figure (sans tenir compte de la casse) : une figurine, donc un personnage possible. Paper : notices, écartées du prompt.",
+          "description": "Category as free text. Klicky or figure (case-insensitive): a figure, hence a possible character. Paper: instructions, left out of the prompt.",
           "type": "string",
           "examples": ["figure", "Klicky", "Animal", "Furniture", "Vehicle", "Paper"]
         },
         "components": {
-          "description": "Sous-éléments de la pièce (perruque, chapeau d'une figurine…), éventuellement vide.",
+          "description": "Sub-items of the piece (a figure's wig, hat…), possibly empty.",
           "type": "array",
           "items": { "type": "string" }
         },
         "image": {
-          "description": "Adresse absolue d'une image de la pièce, null ou absente si aucune. Pas lue par le prompt : sert à l'affichage.",
+          "description": "Absolute URL of an image of the piece, null or absent if none. Not read by the prompt: used for display.",
           "type": ["string", "null"],
           "examples": ["https://playmodb.org/parts/0/00/30%2000%20495.gif"]
         }

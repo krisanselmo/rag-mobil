@@ -1,4 +1,4 @@
-//! Rédaction: how the story text is produced from the augmented context.
+//! Writing: how the story text is produced from the augmented context.
 //!
 //! - [`WritingMethod::Direct`]: one LLM call writes the whole story.
 //! - [`WritingMethod::Planned`]: Plan → Draft → Edit, adapted from the
@@ -25,7 +25,7 @@ pub enum WritingMethod {
     #[default]
     Planned,
     /// Like `Planned`, but the plan is a graph of paragraphs ending with
-    /// choices for the reader ("dont tu es le héros").
+    /// choices for the reader ("choose your own adventure").
     Interactive,
 }
 

@@ -1,69 +1,69 @@
-# Le trésor de l'île aux tortues
+# The Treasure of Turtle Island
 
-Au milieu de la mer bleue, il y avait une toute petite île de sable doré. On y trouvait deux palmiers, de gros buissons verts, une colline d'herbe et, perchée sur des pilotis, une cabane au toit de paille.
+In the middle of the blue sea, there was a tiny island of golden sand. It had two palm trees, big green bushes, a grassy hill and, perched on stilts, a hut with a straw roof.
 
-Dans la cabane, Tom, le naufragé aux cheveux roux, se balançait doucement dans son hamac jaune.
-— Quelle belle journée pour ne rien faire ! soupira-t-il en bâillant.
+In the hut, Tom, the red-haired castaway, was gently swinging in his yellow hammock.
+"What a lovely day for doing nothing!" he sighed with a yawn.
 
-En bas, Robinson, le vieil habitant de l'île à la longue barbe blanche, cueillait des noix de coco au pied d'un palmier.
-— Ne rien faire ? Et qui va m'aider à remplir le panier, paresseux ? dit-il en riant.
+Down below, Robinson, the old islander with the long white beard, was picking coconuts at the foot of a palm tree.
+"Doing nothing? And who's going to help me fill the basket, lazybones?" he said with a laugh.
 
-Sur sa balançoire dorée, Coco, le perroquet bleu aux ailes jaunes, chantait à tue-tête :
-— Coco-coco ! Bonjour l'île !
+On his golden swing, Coco, the blue parrot with yellow wings, was singing at the top of his voice:
+"Coco-coco! Good morning, island!"
 
-Et Biquette, la chèvre blanche, broutait l'herbe de la colline sans se soucier de personne. Tout était calme… pour l'instant.
+And Billy, the white goat, was grazing on the hill without a care in the world. Everything was calm… for now.
 
-Soudain, Coco se tut et pencha la tête.
-— Bateau ! Bateau ! cria-t-il.
+Suddenly, Coco fell silent and tilted his head.
+"Boat! Boat!" he squawked.
 
-Une petite barque brune approchait sur les vagues. Dedans, un pirate en gilet rouge, avec une longue queue-de-cheval noire, ramait de toutes ses forces. Derrière lui, sur le banc, était posé un coffre en bois avec une grosse serrure de fer.
+A little brown rowing boat was coming over the waves. In it, a pirate in a red vest, with a long black ponytail, was rowing with all his might. Behind him, on the bench, sat a wooden chest with a big iron lock.
 
-— Hisse… et ho ! Hisse… et ho ! grognait le pirate. Je suis Pépin, le pirate le plus rusé des sept mers, et personne ne trouvera mon trésor !
+"Heave… ho! Heave… ho!" grunted the pirate. "I am Pépin, the cleverest pirate of the seven seas, and nobody will ever find my treasure!"
 
-La barque glissa sur le sable. Pépin sauta dans l'eau, tira son coffre jusqu'à la plage et regarda autour de lui. Il n'avait pas vu la cabane cachée derrière les palmiers.
+The boat slid onto the sand. Pépin jumped into the water, dragged his chest up the beach and looked around. He hadn't seen the hut hidden behind the palm trees.
 
-— Il me faut une cachette secrète, chuchota-t-il.
+"I need a secret hiding place," he whispered.
 
-Il alluma sa lanterne et partit vers les grands rochers gris, en traînant le coffre derrière lui. Mais il avait chaud, et surtout… il avait très soif.
+He lit his lantern and set off towards the big grey rocks, dragging the chest behind him. But he was hot, and above all… he was very thirsty.
 
-Pépin tourna autour des rochers. Il les tapota, les poussa, les renifla même. Rien !
-— Cette grotte n'a pas de porte ! ronchonna-t-il.
+Pépin walked around the rocks. He tapped them, pushed them, even sniffed them. Nothing!
+"This cave hasn't got a door!" he grumbled.
 
-Coco, curieux, s'envola et se posa sur un gros rocher. Toc, toc, fit son bec. Le rocher sonnait creux !
-— Porte secrète ! Porte secrète ! chanta le perroquet.
+Curious Coco flew up and landed on a big rock. Tap, tap, went his beak. The rock sounded hollow!
+"Secret door! Secret door!" sang the parrot.
 
-Pépin sursauta et poussa le rocher de toutes ses forces. Mais la porte secrète était coincée par le sable. Il poussa, tira, souffla… elle ne bougeait pas d'un millimètre.
+Pépin jumped and pushed the rock with all his strength. But the secret door was stuck with sand. He pushed, he pulled, he puffed… it didn't move an inch.
 
-— Besoin d'un coup de main ? demanda une voix.
+"Need a hand?" asked a voice.
 
-C'était Tom, descendu de son hamac, suivi de Robinson.
-— Qui êtes-vous ? s'écria Pépin, un peu gêné.
-— Les habitants de l'île, sourit Robinson en caressant sa barbe blanche. Et ce rocher, on le connaît bien !
+It was Tom, down from his hammock, with Robinson behind him.
+"Who are you?" cried Pépin, a little embarrassed.
+"We live on this island," smiled Robinson, stroking his white beard. "And we know this rock very well!"
 
-Tom prit la pelle pour dégager le sable. Robinson glissa le crochet de la gaffe sous le rocher. Un, deux, trois… crrrac ! La porte secrète s'ouvrit enfin sur une grotte fraîche et sombre.
+Tom took the shovel to clear away the sand. Robinson slipped the hook of the boat hook under the rock. One, two, three… crrrack! The secret door finally opened onto a cool, dark cave.
 
-Pépin tira son coffre dans la grotte, fit glisser le loquet de la serrure et souleva le couvercle. Tom ouvrit de grands yeux : pas d'or, pas de perles… seulement trois sacs jaunes !
-— Ce sont des graines de fleurs, avoua Pépin en rougissant. Mon seul trésor. Sur mon bateau, rien ne pousse…
-— Alors plantons-les ici ! proposa Robinson.
+Pépin pulled his chest into the cave, slid the latch of the lock and lifted the lid. Tom's eyes grew wide: no gold, no pearls… just three yellow bags!
+"They're flower seeds," Pépin admitted, blushing. "My only treasure. Nothing grows on my ship…"
+"Then let's plant them here!" said Robinson.
 
-Tout l'après-midi, ils creusèrent et semèrent. Bientôt, neuf belles fleurs roses s'ouvrirent au soleil, au pied des palmiers.
+All afternoon, they dug and sowed. Soon, nine beautiful pink flowers opened in the sunshine, at the foot of the palm trees.
 
-Pour fêter ça, Robinson sortit sa cruche bleue et ses deux tasses. Il n'y avait que deux tasses pour trois amis… Alors Pépin éclata de rire et but directement à la cruche !
-— Glou, glou… Enfin, je n'ai plus soif !
+To celebrate, Robinson brought out his blue jug and his two cups. There were only two cups for three friends… So Pépin burst out laughing and drank straight from the jug!
+"Glug, glug… At last, I'm not thirsty any more!"
 
-Au bord de l'eau, deux tortues de mer sortirent la tête pour admirer l'île fleurie.
-— Tu repars demain ? demanda Tom.
-Pépin regarda les fleurs, Coco et ses nouveaux amis.
-— Non, dit-il. Un trésor, c'est bien mieux quand on le partage.
+At the water's edge, two sea turtles poked their heads out to admire the island in bloom.
+"Are you leaving tomorrow?" asked Tom.
+Pépin looked at the flowers, at Coco and at his new friends.
+"No," he said. "A treasure is much better when you share it."
 
-## Dans ta boîte
+## In your box
 
-**Personnages**
+**Characters**
 - Robinson — Crusoe (long white beard)
 - Tom — Castaway
 - Pépin — Pirate, red vest and ponytail
 
-**Objets**
+**Objects**
 - 1× Hammock (light yellow)
 - 3× Palm tree leaves and coconuts (green)
 - 2× Palm tree trunk, straight (brown)

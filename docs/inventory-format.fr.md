@@ -1,5 +1,7 @@
 # Format d'inventaire v1
 
+[English](inventory-format.md) · Français
+
 `rag-mobil` n'invente rien : l'histoire est écrite à partir de l'inventaire exact de la
 boîte. Ce document décrit le format JSON de cet inventaire, pour brancher une autre base
 que [PlaymoDB](https://playmodb.org) (sa propre collection, un autre site, une
@@ -90,10 +92,10 @@ ignorés (on peut ajouter `"$schema"` ou ses propres champs).
 
 - **les figurines** : `Klicky` (le nom PlaymoDB) ou `figure`, sans tenir compte de la
   casse. Ce sont les seules pièces qui peuvent devenir des personnages ; elles ouvrent
-  le contexte, dans un bloc `<personnages>`. Une source qui n'est pas PlaymoDB devrait
+  le contexte, dans un bloc `<characters>`. Une source qui n'est pas PlaymoDB devrait
   utiliser `figure`.
 - **les autres pièces** sont regroupées par catégorie, dans l'ordre alphabétique, un bloc
-  `<pieces categorie="…">` par catégorie. Des noms courts et parlants aident le LLM
+  `<pieces category="…">` par catégorie. Des noms courts et parlants aident le LLM
   (`Animal`, `Furniture`, `Vehicle`, `Tool`, `Weapon`…) ; une catégorie fourre-tout
   (`Other`) convient aussi.
 

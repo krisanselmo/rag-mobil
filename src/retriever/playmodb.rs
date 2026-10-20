@@ -77,7 +77,7 @@ impl InventorySource for PlaymoDb {
 
         let show = parse_showinv(&show_html);
         if !show.found {
-            return Err(RagError::SetNotFound(format!("{set} (absent de PlaymoDB)")));
+            return Err(RagError::SetNotFound(format!("{set} (not in PlaymoDB)")));
         }
         let mut parts = merge(&show, parse_listinv(&list_html));
         let base = reqwest::Url::parse(&pics_url).ok();

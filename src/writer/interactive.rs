@@ -1,4 +1,4 @@
-//! Interactive story ("dont tu es le héros"): the plan is a graph of
+//! Interactive story (choose your own adventure): the plan is a graph of
 //! paragraphs, each ending with choices that lead further on, down to
 //! several endings. Like the linear plan, every character and object is a
 //! reference checked against the boxes; the graph itself (links, endings,
@@ -47,7 +47,7 @@ pub struct Node {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Choice {
-    /// What the reader decides, e.g. "Pépin explore la grotte".
+    /// What the reader decides, e.g. "Pip explores the cave".
     pub label: String,
     /// `id` of the paragraph it leads to.
     pub goto: String,
@@ -206,22 +206,16 @@ pub fn validate_graph(plan: &GamePlan) -> Vec<String> {
     let mut errors = Vec::new();
     if plan.paragraphs.len() < MIN_PARAGRAPHS {
         errors.push(format!(
-            "il faut au moins {MIN_PARAGRAPHS} paragraphes (il y en a {})",
+            "at least {MIN_PARAGRAPHS} paragraphs are needed (there are {})",
             plan.paragraphs.len()
         ));
     }
     let mut ids = HashSet::new();
     for node in &plan.paragraphs {
         if node.id.trim().is_empty() {
-            errors.push(format!(
-                "le paragraphe « {} » n'a pas d'identifiant",
-                node.event
-            ));
+            errors.push(format!("the paragraph \"{}\" has no id", node.event));
         } else if !ids.insert(node.id.trim()) {
-            errors.push(format!(
-                "l'identifiant « {} » est donné à deux paragraphes",
-                node.id
-            ));
+            errors.push(format!("the id \"{}\" is given to two paragraphs", node.id));
         }
     }
     let index = plan.index();
@@ -229,26 +223,26 @@ pub fn validate_graph(plan: &GamePlan) -> Vec<String> {
         let id = node.id.trim();
         if node.choices.len() == 1 {
             errors.push(format!(
-                "le paragraphe « {id} » n'a qu'un choix : il en faut 2 ou {MAX_CHOICES}, ou \
-                 aucun pour une fin"
+                "the paragraph \"{id}\" has only one choice: it needs 2 or {MAX_CHOICES}, or \
+                 none for an ending"
             ));
         }
         if node.choices.len() > MAX_CHOICES {
             errors.push(format!(
-                "le paragraphe « {id} » propose {} choix : {MAX_CHOICES} au plus",
+                "the paragraph \"{id}\" offers {} choices: {MAX_CHOICES} at most",
                 node.choices.len()
             ));
         }
         for choice in &node.choices {
             let goto = choice.goto.trim();
             if choice.label.trim().is_empty() {
-                errors.push(format!("un choix du paragraphe « {id} » n'a pas de texte"));
+                errors.push(format!("a choice of the paragraph \"{id}\" has no text"));
             }
             if goto == id {
-                errors.push(format!("le paragraphe « {id} » mène à lui-même"));
+                errors.push(format!("the paragraph \"{id}\" leads to itself"));
             } else if !index.contains_key(goto) {
                 errors.push(format!(
-                    "le paragraphe « {id} » mène à « {goto} », qui n'existe pas"
+                    "the paragraph \"{id}\" leads to \"{goto}\", which does not exist"
                 ));
             }
         }
@@ -260,7 +254,7 @@ pub fn validate_graph(plan: &GamePlan) -> Vec<String> {
         .count();
     if endings < 2 {
         errors.push(format!(
-            "il faut au moins 2 fins (paragraphes sans choix), il y en a {endings}"
+            "at least 2 endings (paragraphs without choices) are needed, there are {endings}"
         ));
     }
     if plan
@@ -268,21 +262,21 @@ pub fn validate_graph(plan: &GamePlan) -> Vec<String> {
         .first()
         .is_some_and(|n| n.choices.is_empty())
     {
-        errors.push("le premier paragraphe doit proposer des choix".into());
+        errors.push("the first paragraph must offer choices".into());
     }
     let reachable: HashSet<usize> = plan.reading_order().iter().map(|(i, _)| *i).collect();
     for (i, node) in plan.paragraphs.iter().enumerate() {
         if !reachable.contains(&i) {
             errors.push(format!(
-                "aucun choix ne mène au paragraphe « {} »",
+                "no choice leads to the paragraph \"{}\"",
                 node.id.trim()
             ));
         }
     }
     if let Some(id) = find_loop(plan) {
         errors.push(format!(
-            "les choix forment une boucle qui repasse par « {id} » : un choix doit toujours \
-             mener plus loin"
+            "the choices form a loop through \"{id}\": a choice must always \
+             lead further on"
         ));
     }
     errors
@@ -332,17 +326,17 @@ pub(crate) fn game_schema() -> Value {
     json!({
         "type": "object",
         "properties": {
-            "title": string("Titre de l'histoire"),
-            "premise": string("Prémisse, en une ou deux phrases"),
-            "setting": string("Décor, construit avec les pièces de la boîte"),
+            "title": string("Title of the story"),
+            "premise": string("Premise, in one or two sentences"),
+            "setting": string("Setting, built with the pieces in the box"),
             "characters": {
                 "type": "array",
                 "items": {
                     "type": "object",
                     "properties": {
-                        "name": string("Prénom ou surnom"),
-                        "figure": string("Référence [réf. …] de la figurine dans <personnages>"),
-                        "portrait": string("Caractère et apparence, fidèle à la figurine"),
+                        "name": string("First name or nickname"),
+                        "figure": string("Reference [ref. …] of the figure in <characters>"),
+                        "portrait": string("Personality and looks, true to the figure"),
                     },
                     "required": ["name", "figure", "portrait"],
                     "additionalProperties": false,
@@ -350,22 +344,22 @@ pub(crate) fn game_schema() -> Value {
             },
             "paragraphs": {
                 "type": "array",
-                "description": "Le premier paragraphe est le début",
+                "description": "The first paragraph is the beginning",
                 "items": {
                     "type": "object",
                     "properties": {
-                        "id": string("Identifiant court et unique, ex. p1"),
-                        "event": string("Ce qui se passe dans ce paragraphe"),
-                        "characters": strings("Noms des personnages présents"),
-                        "objects": strings("Références [réf. …] des pièces utilisées"),
+                        "id": string("Short, unique id, e.g. p1"),
+                        "event": string("What happens in this paragraph"),
+                        "characters": strings("Names of the characters present"),
+                        "objects": strings("References [ref. …] of the pieces used"),
                         "choices": {
                             "type": "array",
-                            "description": "2 ou 3 choix ; aucun pour une fin",
+                            "description": "2 or 3 choices; none for an ending",
                             "items": {
                                 "type": "object",
                                 "properties": {
-                                    "label": string("Ce que le lecteur décide"),
-                                    "goto": string("Identifiant du paragraphe où mène ce choix"),
+                                    "label": string("What the reader decides"),
+                                    "goto": string("Id of the paragraph this choice leads to"),
                                 },
                                 "required": ["label", "goto"],
                                 "additionalProperties": false,
@@ -413,7 +407,7 @@ async fn make_plan<G: StoryGenerator, O: Observer>(
             }
             errors
         }
-        Err(err) => vec![format!("ta réponse n'est pas un JSON valide ({err})")],
+        Err(err) => vec![format!("your answer is not valid JSON ({err})")],
     };
 
     observer.step(Step::PlanRejected(&errors));
@@ -424,12 +418,12 @@ async fn make_plan<G: StoryGenerator, O: Observer>(
     tally.add(&second);
     let plan: GamePlan = match parse_json(&second.text) {
         Ok(plan) => plan,
-        Err(err) => return Ok(Err(format!("plan corrigé illisible ({err})"))),
+        Err(err) => return Ok(Err(format!("unreadable fixed plan ({err})"))),
     };
     let graph = validate_graph(&plan);
     if !graph.is_empty() {
         // A broken graph can't be repaired by dropping references.
-        return Ok(Err(format!("choix incohérents ({})", graph.join(" ; "))));
+        return Ok(Err(format!("inconsistent choices ({})", graph.join("; "))));
     }
     let errors = check(&plan);
     if errors.is_empty() {
@@ -615,13 +609,13 @@ pub(crate) mod tests {
     fn node(id: &str, choices: &[&str]) -> Node {
         Node {
             id: id.into(),
-            event: format!("Paragraphe {id}"),
-            characters: vec!["Léon".into()],
+            event: format!("Paragraph {id}"),
+            characters: vec!["Leon".into()],
             objects: vec![],
             choices: choices
                 .iter()
                 .map(|g| Choice {
-                    label: format!("Aller en {g}"),
+                    label: format!("Go to {g}"),
                     goto: (*g).into(),
                 })
                 .collect(),
@@ -661,10 +655,10 @@ pub(crate) mod tests {
         plan.paragraphs.push(node("p6", &[])); // unreachable
         let errors = validate_graph(&plan);
         for expected in [
-            "qu'un choix",
-            "« p9 », qui n'existe pas",
-            "boucle qui repasse par « p1 »",
-            "aucun choix ne mène au paragraphe « p6 »",
+            "only one choice",
+            "\"p9\", which does not exist",
+            "loop through \"p1\"",
+            "no choice leads to the paragraph \"p6\"",
         ] {
             assert!(
                 errors.iter().any(|e| e.contains(expected)),
@@ -676,8 +670,8 @@ pub(crate) mod tests {
         flat.paragraphs.truncate(2);
         flat.paragraphs[0].choices.clear();
         let errors = validate_graph(&flat);
-        assert!(errors.iter().any(|e| e.contains("au moins 4 paragraphes")));
-        assert!(errors.iter().any(|e| e.contains("premier paragraphe")));
+        assert!(errors.iter().any(|e| e.contains("at least 4 paragraphs")));
+        assert!(errors.iter().any(|e| e.contains("first paragraph")));
     }
 
     #[test]
@@ -687,7 +681,7 @@ pub(crate) mod tests {
         assert_eq!(ids, ["p1", "p3", "p2", "p5", "p4"]);
         assert_eq!(
             paragraphs[0].choices,
-            [("Aller en p3".to_owned(), 2), ("Aller en p2".to_owned(), 3)]
+            [("Go to p3".to_owned(), 2), ("Go to p2".to_owned(), 3)]
         );
         assert!(paragraphs[4].choices.is_empty());
         // p5 is first reached from p3 (2nd paragraph), p4 too.

@@ -57,17 +57,17 @@ pub(crate) fn plan_schema() -> Value {
     json!({
         "type": "object",
         "properties": {
-            "title": string("Titre de l'histoire"),
-            "premise": string("Prémisse, en une ou deux phrases"),
-            "setting": string("Décor, construit avec les pièces de la boîte"),
+            "title": string("Title of the story"),
+            "premise": string("Premise, in one or two sentences"),
+            "setting": string("Setting, built with the pieces in the box"),
             "characters": {
                 "type": "array",
                 "items": {
                     "type": "object",
                     "properties": {
-                        "name": string("Prénom ou surnom"),
-                        "figure": string("Référence [réf. …] de la figurine dans <personnages>"),
-                        "portrait": string("Caractère et apparence, fidèle à la figurine"),
+                        "name": string("First name or nickname"),
+                        "figure": string("Reference [ref. …] of the figure in <characters>"),
+                        "portrait": string("Personality and looks, true to the figure"),
                     },
                     "required": ["name", "figure", "portrait"],
                     "additionalProperties": false,
@@ -78,9 +78,9 @@ pub(crate) fn plan_schema() -> Value {
                 "items": {
                     "type": "object",
                     "properties": {
-                        "event": string("Ce qui se passe dans cette étape"),
-                        "characters": strings("Noms des personnages présents"),
-                        "objects": strings("Références [réf. …] des pièces utilisées"),
+                        "event": string("What happens in this step"),
+                        "characters": strings("Names of the characters present"),
+                        "objects": strings("References [ref. …] of the pieces used"),
                     },
                     "required": ["event", "characters", "objects"],
                     "additionalProperties": false,
@@ -101,9 +101,9 @@ pub(crate) fn review_schema() -> Value {
                 "items": {
                     "type": "object",
                     "properties": {
-                        "excerpt": {"type": "string", "description": "Passage concerné, cité"},
-                        "problem": {"type": "string", "description": "Ce qui n'est pas fidèle à la boîte"},
-                        "fix": {"type": "string", "description": "Correction proposée, avec ce qui est dans la boîte"},
+                        "excerpt": {"type": "string", "description": "The passage concerned, quoted"},
+                        "problem": {"type": "string", "description": "What is not true to the box"},
+                        "fix": {"type": "string", "description": "Suggested fix, using what is in the box"},
                     },
                     "required": ["excerpt", "problem", "fix"],
                     "additionalProperties": false,
@@ -115,7 +115,7 @@ pub(crate) fn review_schema() -> Value {
     })
 }
 
-/// Every box holding a reference (spacing and any `réf.` prefix ignored),
+/// Every box holding a reference (spacing and any `ref.` prefix ignored),
 /// with the matching part.
 pub fn holdings<'a>(
     collection: &'a Collection,
@@ -152,16 +152,16 @@ fn key(name: &str) -> String {
 /// on when asked to fix its plan. Empty = valid.
 pub fn validate(plan: &StoryPlan, collection: &Collection) -> Vec<String> {
     let boxes = if collection.is_single() {
-        "la boîte"
+        "the box"
     } else {
-        "les boîtes"
+        "the boxes"
     };
     let mut errors = Vec::new();
     if plan.outline.is_empty() {
-        errors.push("le plan ne contient aucune étape".to_owned());
+        errors.push("the plan has no steps".to_owned());
     }
     if plan.characters.is_empty() && collection.figures().next().is_some() {
-        errors.push("aucun personnage : choisis-les parmi les figurines de <personnages>".into());
+        errors.push("no characters: choose them among the figures in <characters>".into());
     }
 
     let mut names = HashSet::new();
@@ -169,17 +169,17 @@ pub fn validate(plan: &StoryPlan, collection: &Collection) -> Vec<String> {
     for character in &plan.characters {
         if !names.insert(key(&character.name)) {
             errors.push(format!(
-                "le nom « {} » est donné à deux personnages",
+                "the name \"{}\" is given to two characters",
                 character.name
             ));
         }
         match find_part(collection, &character.figure) {
             None => errors.push(format!(
-                "personnage « {} » : la référence « {} » n'existe pas dans {boxes}",
+                "character \"{}\": the reference \"{}\" does not exist in {boxes}",
                 character.name, character.figure
             )),
             Some(part) if !part.is_figure() => errors.push(format!(
-                "personnage « {} » : « {} » ({}) n'est pas une figurine",
+                "character \"{}\": \"{}\" ({}) is not a figure",
                 character.name, character.figure, part.name
             )),
             Some(part) => {
@@ -188,8 +188,8 @@ pub fn validate(plan: &StoryPlan, collection: &Collection) -> Vec<String> {
                 let available = total_quantity(collection, &part.number);
                 if available.is_some_and(|q| *count == q + 1) {
                     errors.push(format!(
-                        "la figurine {} ({}) n'existe qu'en {} exemplaire(s) mais sert à \
-                         plusieurs personnages",
+                        "the figure {} ({}) only exists in {} copy(ies) but plays \
+                         several characters",
                         part.number,
                         part.name,
                         available.unwrap_or_default()
@@ -203,7 +203,7 @@ pub fn validate(plan: &StoryPlan, collection: &Collection) -> Vec<String> {
         for name in &step.characters {
             if !names.contains(&key(name)) {
                 errors.push(format!(
-                    "étape {} : « {name} » ne fait pas partie des personnages",
+                    "step {}: \"{name}\" is not one of the characters",
                     i + 1
                 ));
             }
@@ -211,7 +211,7 @@ pub fn validate(plan: &StoryPlan, collection: &Collection) -> Vec<String> {
         for reference in &step.objects {
             if find_part(collection, reference).is_none() {
                 errors.push(format!(
-                    "étape {} : la référence d'objet « {reference} » n'existe pas dans {boxes}",
+                    "step {}: the object reference \"{reference}\" does not exist in {boxes}",
                     i + 1
                 ));
             }
@@ -287,13 +287,13 @@ pub fn validate_stars(plan: &StoryPlan, collection: &Collection, stars: &[String
         let label = format!("{} ({})", part.number, part_label(part));
         if part.is_figure() && names.is_empty() {
             errors.push(format!(
-                "la figurine préférée de l'enfant, {label}, doit jouer le personnage principal"
+                "the child's favorite figure, {label}, must play the main character"
             ));
             continue;
         }
         if part.is_figure() && !features(&plan.outline[0], part, &names) {
             errors.push(format!(
-                "la figurine préférée de l'enfant, {label}, doit être présente dès l'étape 1"
+                "the child's favorite figure, {label}, must be present from step 1"
             ));
         }
         let count = plan
@@ -303,14 +303,10 @@ pub fn validate_stars(plan: &StoryPlan, collection: &Collection, stars: &[String
             .count();
         let minimum = star_minimum(part, steps);
         if count < minimum {
-            let what = if part.is_figure() {
-                "la figurine"
-            } else {
-                "l'objet"
-            };
+            let what = if part.is_figure() { "figure" } else { "object" };
             errors.push(format!(
-                "{what} préféré(e) de l'enfant, {label}, doit être au cœur de l'histoire : \
-                 présent(e) dans au moins {minimum} étapes sur {steps}, et non {count}"
+                "the child's favorite {what}, {label}, must be at the heart of the story: \
+                 present in at least {minimum} steps out of {steps}, not {count}"
             ));
         }
     }
@@ -372,7 +368,7 @@ pub fn part_label(part: &Part) -> String {
 /// The label, followed by the citation when the story cites its parts.
 pub fn cited_label(part: &Part, citations: bool) -> String {
     if citations {
-        format!("{} [réf. {}]", part_label(part), part.number)
+        format!("{} [ref. {}]", part_label(part), part.number)
     } else {
         part_label(part)
     }
@@ -385,20 +381,20 @@ fn reference_label(collection: &Collection, reference: &str) -> String {
 /// The plan as text, for the drafting prompts.
 pub fn render_plan(plan: &StoryPlan, collection: &Collection) -> String {
     let mut out = String::new();
-    let _ = writeln!(out, "Titre : {}", plan.title);
-    let _ = writeln!(out, "Prémisse : {}", plan.premise);
-    let _ = writeln!(out, "Décor : {}", plan.setting);
-    out.push_str("Personnages :\n");
+    let _ = writeln!(out, "Title: {}", plan.title);
+    let _ = writeln!(out, "Premise: {}", plan.premise);
+    let _ = writeln!(out, "Setting: {}", plan.setting);
+    out.push_str("Characters:\n");
     for c in &plan.characters {
         let _ = writeln!(
             out,
-            "- {} (figurine : {}) : {}",
+            "- {} (figure: {}): {}",
             c.name,
             reference_label(collection, &c.figure),
             c.portrait
         );
     }
-    out.push_str("Étapes :\n");
+    out.push_str("Steps:\n");
     for (i, step) in plan.outline.iter().enumerate() {
         let _ = writeln!(out, "{}. {}", i + 1, step.event);
     }
@@ -487,7 +483,7 @@ pub fn scene_setup<'a>(
 }
 
 /// The scene setup as a Markdown quote, before the part it sets up:
-/// `> 🧱 **Mise en place** : Léon (Castle Trumpeter) ; Horse, Halberd`.
+/// `> 🧱 **Set the scene**: Leon (Castle Trumpeter); Horse, Halberd`.
 pub fn scene_setup_markdown(setup: &SceneSetup<'_>, options: &StoryOptions) -> String {
     let label = |part: &Part| cited_label(part, options.citations);
     let characters: Vec<String> = setup
@@ -511,9 +507,9 @@ pub fn scene_setup_markdown(setup: &SceneSetup<'_>, options: &StoryOptions) -> S
         .filter(|s| !s.is_empty())
         .collect();
     format!(
-        "> 🧱 **{}** : {}",
+        "> 🧱 **{}**: {}",
         Labels::new(options).scene_setup,
-        items.join(" ; ")
+        items.join("; ")
     )
 }
 
@@ -557,12 +553,12 @@ pub struct Labels {
     pub characters: &'static str,
     pub objects: &'static str,
     pub scene_setup: &'static str,
-    /// `boîte`, as in `(boîte 3666)`.
+    /// `box`, as in `(box 3666)`.
     pub a_box: &'static str,
     /// How to read an interactive story.
     pub interactive: &'static str,
     pub choose: &'static str,
-    /// `va au`, as in `va au 3`.
+    /// `go to`, as in `go to 3`.
     pub go_to: &'static str,
     pub the_end: &'static str,
 }
@@ -680,9 +676,9 @@ pub(crate) mod tests {
     use super::*;
     use crate::model::SetNumber;
 
-    fn english() -> StoryOptions {
+    fn french() -> StoryOptions {
         StoryOptions {
-            language: "English".into(),
+            language: "français".into(),
             ..StoryOptions::default()
         }
     }
@@ -697,9 +693,9 @@ pub(crate) mod tests {
             ..StoryOptions::default()
         };
         let section = in_your_box(&plan, &boxes, &cited);
-        assert!(section.contains("- Léon — Castle Trumpeter [réf. "));
-        assert!(section.contains("4× Halberd [réf. 30 07 640]\n"));
-        assert!(!in_your_box(&plan, &boxes, &StoryOptions::default()).contains("[réf."));
+        assert!(section.contains("- Leon — Castle Trumpeter [ref. "));
+        assert!(section.contains("4× Halberd [ref. 30 07 640]\n"));
+        assert!(!in_your_box(&plan, &boxes, &StoryOptions::default()).contains("[ref."));
     }
 
     pub(crate) fn part(number: &str, name: &str, category: &str, quantity: Option<u32>) -> Part {
@@ -733,30 +729,30 @@ pub(crate) mod tests {
 
     pub(crate) fn valid_plan() -> StoryPlan {
         StoryPlan {
-            title: "Le cheval perdu".into(),
-            premise: "Le cheval du château a disparu.".into(),
-            setting: "Le grand château.".into(),
+            title: "The lost horse".into(),
+            premise: "The castle horse has disappeared.".into(),
+            setting: "The great castle.".into(),
             characters: vec![
                 PlannedCharacter {
-                    name: "Léon".into(),
+                    name: "Leon".into(),
                     figure: "30 00 496".into(),
-                    portrait: "trompettiste joyeux".into(),
+                    portrait: "cheerful trumpeter".into(),
                 },
                 PlannedCharacter {
                     name: "Rose".into(),
-                    figure: "réf. 30 14 044".into(),
-                    portrait: "dame en robe rouge".into(),
+                    figure: "ref. 30 14 044".into(),
+                    portrait: "lady in a red dress".into(),
                 },
             ],
             outline: vec![
                 PlotPoint {
-                    event: "Léon sonne l'alerte.".into(),
-                    characters: vec!["Léon".into()],
+                    event: "Leon sounds the alarm.".into(),
+                    characters: vec!["Leon".into()],
                     objects: vec![],
                 },
                 PlotPoint {
-                    event: "Rose retrouve le cheval.".into(),
-                    characters: vec!["Rose".into(), "léon".into()],
+                    event: "Rose finds the horse.".into(),
+                    characters: vec!["Rose".into(), "leon".into()],
                     objects: vec!["30 65 622".into(), "30 07 640".into()],
                 },
             ],
@@ -768,15 +764,13 @@ pub(crate) mod tests {
         let boxes: Collection = inventory().into();
         let stars = |refs: &[&str]| refs.iter().map(|r| (*r).to_owned()).collect::<Vec<_>>();
         let plan = valid_plan();
-        // Léon is in both steps; an unknown reference is checked elsewhere.
+        // Leon is in both steps; an unknown reference is checked elsewhere.
         assert!(validate_stars(&plan, &boxes, &stars(&["3000496", "99 99 999"])).is_empty());
 
         let errors = validate_stars(&plan, &boxes, &stars(&["30 14 044", "30 65 622"]));
         assert_eq!(errors.len(), 2, "{errors:?}");
-        assert!(
-            errors[0].contains("30 14 044 (Lady in red dress), doit être présente dès l'étape 1")
-        );
-        assert!(errors[1].contains("au moins 2 étapes sur 2, et non 1"));
+        assert!(errors[0].contains("30 14 044 (Lady in red dress), must be present from step 1"));
+        assert!(errors[1].contains("at least 2 steps out of 2, not 1"));
 
         let mut unplayed = valid_plan();
         unplayed.characters.pop();
@@ -785,7 +779,7 @@ pub(crate) mod tests {
         }
         let errors = validate_stars(&unplayed, &boxes, &stars(&["30 14 044"]));
         assert_eq!(errors.len(), 1);
-        assert!(errors[0].contains("doit jouer le personnage principal"));
+        assert!(errors[0].contains("must play the main character"));
     }
 
     #[test]
@@ -793,7 +787,7 @@ pub(crate) mod tests {
         let boxes: Collection = inventory().into();
         let stars = vec!["30 14 044".to_owned(), "30 65 622".to_owned()];
         let plan = feature_stars(valid_plan(), &boxes, &stars);
-        assert_eq!(plan.outline[0].characters, ["Léon", "Rose"]);
+        assert_eq!(plan.outline[0].characters, ["Leon", "Rose"]);
         assert_eq!(plan.outline[0].objects, ["30 65 622"]);
         assert_eq!(plan.outline[1], valid_plan().outline[1]);
         assert!(validate_stars(&plan, &boxes, &stars).is_empty());
@@ -818,7 +812,7 @@ pub(crate) mod tests {
             portrait: "".into(),
         });
         plan.characters.push(PlannedCharacter {
-            name: "Cheval".into(),
+            name: "Horse".into(),
             figure: "30 65 622".into(), // an animal, not a figure
             portrait: "".into(),
         });
@@ -827,9 +821,9 @@ pub(crate) mod tests {
 
         let errors = validate(&plan, &inventory().into());
         assert_eq!(errors.len(), 5, "{errors:#?}");
-        assert!(errors.iter().any(|e| e.contains("qu'en 1 exemplaire")));
+        assert!(errors.iter().any(|e| e.contains("only exists in 1 copy")));
         assert!(errors.iter().any(|e| e.contains("99 99 999")));
-        assert!(errors.iter().any(|e| e.contains("n'est pas une figurine")));
+        assert!(errors.iter().any(|e| e.contains("is not a figure")));
         assert!(errors.iter().any(|e| e.contains("Merlin")));
         assert!(errors.iter().any(|e| e.contains("12 34 567")));
     }
@@ -892,11 +886,11 @@ pub(crate) mod tests {
         plan.outline[0].objects.push("30 07 640".into());
         let boxes: Collection = inventory().into();
         let section = in_your_box(&plan, &boxes, &StoryOptions::default());
-        assert!(section.starts_with("## Dans ta boîte"));
-        assert!(section.contains("- Léon — Castle Trumpeter\n"));
+        assert!(section.starts_with("## In your box"));
+        assert!(section.contains("- Leon — Castle Trumpeter\n"));
         assert_eq!(section.matches("4× Halberd").count(), 1);
         assert!(section.contains("1× Horse (old-style)\n"));
-        assert!(in_your_box(&plan, &boxes, &english()).starts_with("## In your box"));
+        assert!(in_your_box(&plan, &boxes, &french()).starts_with("## Dans ta boîte"));
     }
 
     /// A second box: a pirate figure and two more halberds.
@@ -926,25 +920,25 @@ pub(crate) mod tests {
         let boxes: Collection = inventory.into();
         let mut plan = valid_plan();
         plan.outline[1].objects.push("30 06 198".into());
-        plan.outline[1].characters.push("Fantôme".into());
+        plan.outline[1].characters.push("Ghost".into());
 
         let setup = scene_setup(&plan.outline[1], &plan, &boxes);
         let names: Vec<&str> = setup.characters.iter().map(|(n, _)| *n).collect();
-        assert_eq!(names, ["Rose", "Léon"], "unknown names left out");
+        assert_eq!(names, ["Rose", "Leon"], "unknown names left out");
         assert_eq!(setup.objects.len(), 3);
         assert_eq!(
             scene_setup_markdown(&setup, &StoryOptions::default()),
-            "> 🧱 **Mise en place** : Rose (Lady in red dress), Léon (Castle Trumpeter) ; \
+            "> 🧱 **Set the scene**: Rose (Lady in red dress), Leon (Castle Trumpeter); \
              Horse (old-style), Halberd, Parrot body + Parrot wings"
         );
         let cited = StoryOptions {
             citations: true,
-            ..english()
+            ..StoryOptions::default()
         };
         let first = scene_setup(&plan.outline[0], &plan, &boxes);
         assert_eq!(
             scene_setup_markdown(&first, &cited),
-            "> 🧱 **Set the scene** : Léon (Castle Trumpeter [réf. 30 00 496])"
+            "> 🧱 **Set the scene**: Leon (Castle Trumpeter [ref. 30 00 496])"
         );
         let empty = PlotPoint {
             event: "".into(),
@@ -986,21 +980,21 @@ pub(crate) mod tests {
         let boxes = two_boxes();
         let mut plan = valid_plan();
         plan.characters.push(PlannedCharacter {
-            name: "Barbe-Jaune".into(),
+            name: "Yellowbeard".into(),
             figure: "30 00 961".into(),
             portrait: "pirate".into(),
         });
-        plan.outline[1].characters.push("Barbe-Jaune".into());
+        plan.outline[1].characters.push("Yellowbeard".into());
         assert!(validate(&plan, &boxes).is_empty());
         // The same pirate can't play two characters: one copy in all boxes.
         plan.characters.push(PlannedCharacter {
-            name: "Jumeau".into(),
+            name: "Twin".into(),
             figure: "30 00 961".into(),
             portrait: "".into(),
         });
         let errors = validate(&plan, &boxes);
         assert_eq!(errors.len(), 1, "{errors:#?}");
-        assert!(errors[0].contains("qu'en 1 exemplaire"));
+        assert!(errors[0].contains("only exists in 1 copy"));
     }
 
     #[test]
@@ -1008,16 +1002,14 @@ pub(crate) mod tests {
         let boxes = two_boxes();
         let mut plan = valid_plan();
         plan.characters.push(PlannedCharacter {
-            name: "Barbe-Jaune".into(),
+            name: "Yellowbeard".into(),
             figure: "30 00 961".into(),
             portrait: "pirate".into(),
         });
         let section = in_your_box(&plan, &boxes, &StoryOptions::default());
-        assert!(section.contains("- Léon — Castle Trumpeter (boîte 3666)\n"));
-        assert!(
-            section.contains("- Barbe-Jaune — Pirate, bald with yellow headband (boîte 5135)\n")
-        );
+        assert!(section.contains("- Leon — Castle Trumpeter (box 3666)\n"));
+        assert!(section.contains("- Yellowbeard — Pirate, bald with yellow headband (box 5135)\n"));
         // Halberds are in both boxes: one line per box.
-        assert!(section.contains("- 4× Halberd (boîte 3666)\n- 2× Halberd (boîte 5135)\n"));
+        assert!(section.contains("- 4× Halberd (box 3666)\n- 2× Halberd (box 5135)\n"));
     }
 }

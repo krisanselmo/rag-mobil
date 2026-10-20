@@ -185,7 +185,7 @@ mod tests {
     async fn corrupted_entry_is_fetched_again() {
         let dir = temp_dir("corrupt");
         std::fs::create_dir_all(&dir).unwrap();
-        std::fs::write(dir.join("3799.json"), "{ pas du json").unwrap();
+        std::fs::write(dir.join("3799.json"), "{ not json").unwrap();
         let cache = Cached::new(Counting::default(), &dir);
         assert_eq!(cache.fetch(&set("3799")).await.unwrap().name, "fetch #1");
         assert!(cache.cached(&set("3799")).is_some(), "entry rewritten");

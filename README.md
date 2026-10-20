@@ -1,19 +1,21 @@
 # rag-mobil 🏰
 
+English · [Français](README.fr.md)
+
 [![CI](https://github.com/krisanselmo/rag-mobil/actions/workflows/ci.yml/badge.svg)](https://github.com/krisanselmo/rag-mobil/actions/workflows/ci.yml)
 
-Générateur d'histoires Playmobil basé sur du **RAG** (Retrieval-Augmented Generation) :
-à partir d'un ou plusieurs numéros de set, `rag-mobil` récupère l'inventaire exact des boîtes sur
-[PlaymoDB](https://playmodb.org) (ou dans [une autre base](#sources-dinventaire)) puis demande à un LLM (Claude par défaut, ou OpenAI,
-Gemini, Groq, un modèle local via Ollama…) d'écrire une histoire qu'un enfant
-peut rejouer **avec ce qu'il a vraiment dans sa boîte** : mêmes figurines, mêmes objets,
-mêmes quantités.
+A Playmobil story generator built on **RAG** (Retrieval-Augmented Generation): given one or
+more set numbers, `rag-mobil` fetches the exact inventory of the boxes from
+[PlaymoDB](https://playmodb.org) (or from [another database](#inventory-sources)), then asks
+an LLM (Claude by default, or OpenAI, Gemini, Groq, a local model through Ollama…) to write a
+story a child can play out **with what is really in their box**: the same figures, the same
+objects, the same quantities.
 
 ```
-numéro de set ──► Retrieve ──► Augment ──► Rédaction ─────────────────► histoire
-                  PlaymoDB     contexte    Plan → Rédaction → Relecture
-                  ou autre     + prompt    (Re3/DOC), via un LLM (genai)
-                  source
+set number ──► Retrieve ──► Augment ──► Writing ───────────────────► story
+               PlaymoDB     context     Plan → Draft → Edit
+               or another   + prompt    (Re3/DOC), through an LLM (genai)
+               source
 ```
 
 ## Installation
@@ -22,253 +24,245 @@ numéro de set ──► Retrieve ──► Augment ──► Rédaction ──�
 cargo build --release
 ```
 
-Puis, selon le fournisseur choisi :
+Then, depending on the provider:
 
-| Modèle (`-m`) | Fournisseur | Prérequis |
+| Model (`-m`) | Provider | Requirements |
 |---|---|---|
-| `claude-opus-5-5` (défaut), `claude-…` | Anthropic | `ANTHROPIC_API_KEY` |
+| `claude-opus-5-5` (default), `claude-…` | Anthropic | `ANTHROPIC_API_KEY` |
 | `gpt-…` | OpenAI | `OPENAI_API_KEY` |
 | `gemini-…` | Google Gemini | `GEMINI_API_KEY` |
-| `ollama::<modèle>` (ex. `ollama::llama3.2`) | [Ollama](https://ollama.com), local et gratuit | `ollama pull <modèle>`, pas de clé |
-| `openai::<modèle>` + `RAG_MOBIL_OPENAI_BASE_URL` | un serveur compatible OpenAI, local ou non (llama.cpp, vLLM, LM Studio…) | l'adresse du serveur ; pas de clé si `OPENAI_API_KEY` est absente |
+| `ollama::<model>` (e.g. `ollama::llama3.2`) | [Ollama](https://ollama.com), local and free | `ollama pull <model>`, no key |
+| `openai::<model>` + `RAG_MOBIL_OPENAI_BASE_URL` | any OpenAI-compatible server, local or remote (llama.cpp, vLLM, LM Studio…) | the server's URL; no key if `OPENAI_API_KEY` is unset |
 
-D'autres fournisseurs sont pris en charge (Groq, DeepSeek, xAI, Cohere, OpenRouter, Bedrock…) :
-voir la [liste de genai](https://github.com/jeremychone/rust-genai).
+More providers are supported (Groq, DeepSeek, xAI, Cohere, OpenRouter, Bedrock…):
+see [genai's list](https://github.com/jeremychone/rust-genai).
 
-## Utilisation
+## Usage
 
 ```bash
-# Histoire en français pour un enfant de 7 ans (par défaut)
+# A story in English for a 7-year-old (the default)
 rag-mobil 3666
 
-# Plusieurs boîtes : une seule histoire qui mélange leur contenu
+# Several boxes: one story mixing their contents
 rag-mobil 3799 70145
 
-# Personnalisée
-rag-mobil 5135 --age 5 --words 400 --theme "une tempête et un trésor perdu"
-rag-mobil 3666 --language English --effort high
+# Customized
+rag-mobil 5135 --age 5 --words 400 --theme "a storm and a lost treasure"
+rag-mobil 3666 --language français --effort high
 
-# Rédaction en un seul appel, affichée au fil de l'écriture (plus rapide)
+# Written in a single call, streamed as it is written (faster)
 rag-mobil 3666 --method direct
 
-# Livret illustré, avec la mise en place de chaque scène : HTML, ou PDF à imprimer
-rag-mobil 3799 --scene-setup --format html > livret.html
-rag-mobil 3799 --scene-setup --format pdf > livret.pdf
-rag-mobil 3799 --scene-setup --format pdf --layout compact > livret.pdf   # 2 pages au lieu de 7
+# Illustrated booklet, with how to set up each scene: HTML, or PDF to print
+rag-mobil 3799 --scene-setup --format html > booklet.html
+rag-mobil 3799 --scene-setup --format pdf > booklet.pdf
+rag-mobil 3799 --scene-setup --format pdf --layout compact > booklet.pdf   # 2 pages instead of 7
 
-# Histoire dont tu es le héros : paragraphes numérotés, choix, plusieurs fins
-rag-mobil 3799 --interactive --format pdf > aventure.pdf
+# Choose-your-own-adventure: numbered paragraphs, choices, several endings
+rag-mobil 3799 --interactive --format pdf > adventure.pdf
 
-# Une saga : chaque histoire est la suite de la précédente, mêmes personnages
-rag-mobil 3799 --saga pirates.json      # épisode 1
-rag-mobil 3799 70145 --saga pirates.json  # épisode 2, avec une nouvelle boîte
+# A saga: each story follows on from the previous one, with the same characters
+rag-mobil 3799 --saga pirates.json        # episode 1
+rag-mobil 3799 70145 --saga pirates.json  # episode 2, with a new box
 
-# Le perroquet est la pièce préférée : il est au cœur de l'histoire
+# The parrot is the favorite piece: it is at the heart of the story
 rag-mobil 3799 --star "30 06 368"
 
-# La boîte réelle : le perroquet est perdu, 2 hallebardes sur 4 aussi
+# The real box: the parrot is lost, and so are 2 of the 4 halberds
 rag-mobil 3666 --missing "30 06 368" --missing "30 07 640:2"
 
-# Autres fournisseurs
+# Other providers
 rag-mobil 3666 -m gpt-5.4-mini
-rag-mobil 3666 -m ollama::llama3.2        # local, sans clé API
+rag-mobil 3666 -m ollama::llama3.2        # local, no API key
 RAG_MOBIL_OPENAI_BASE_URL=http://localhost:8080/v1 rag-mobil 3666 -m openai::ministral-3-3b  # llama.cpp, vLLM…
 
-# Sans appel au LLM (pas besoin de clé API)
-rag-mobil 3666 --inventory-json   # inventaire récupéré, en JSON
-rag-mobil 3666 --dry-run          # premier prompt envoyé au LLM
+# No LLM call (no API key needed)
+rag-mobil 3666 --inventory-json   # the fetched inventory, as JSON
+rag-mobil 3666 --dry-run          # the first prompt sent to the LLM
 ```
 
-L'histoire s'affiche sur `stdout` (en Markdown) ; les étapes et messages de progression
-vont sur `stderr` (`rag-mobil 3666 > histoire.md` fonctionne).
+The story is printed on `stdout` (as Markdown); steps and progress messages go to `stderr`
+(`rag-mobil 3666 > story.md` works).
 
-| Option | Défaut | Rôle |
+| Option | Default | Purpose |
 |---|---|---|
-| `-l, --language` / `RAG_MOBIL_LANGUAGE` | `français` | Langue de l'histoire |
-| `-a, --age` / `RAG_MOBIL_AGE` | `7` | Âge du lecteur |
-| `-w, --words` / `RAG_MOBIL_WORDS` | `600` | Longueur visée |
-| `-t, --theme` | — | Souhait libre |
-| `--citations` / `RAG_MOBIL_CITATIONS` | off | Cite chaque pièce nommée par sa référence (voir ci-dessous) |
-| `--method` | `planned` | `planned` (plan, rédaction, relecture), `direct` (un appel) ou `interactive` |
-| `--interactive` | off | Histoire dont tu es le héros (raccourci de `--method interactive`, voir ci-dessous) |
-| `--saga` / `RAG_MOBIL_SAGA` | — | Fichier JSON des épisodes : l'histoire en est la suite, puis s'y ajoute (voir ci-dessous) |
-| `--scene-setup` / `RAG_MOBIL_SCENE_SETUP` | off | Méthode `planned` : « Mise en place » avant chaque partie (voir ci-dessous) |
-| `-f, --format` / `RAG_MOBIL_FORMAT` | `markdown` | `markdown`, `html` ou `pdf` (livret illustré, voir ci-dessous) |
-| `--livret FICHIER` | — | Écrit aussi le livret (HTML, ou PDF si `.pdf`) : l'histoire reste en Markdown sur `stdout`, en un seul passage du LLM |
-| `--layout` / `RAG_MOBIL_LAYOUT` | `booklet` | `--format html` ou `pdf` : `booklet` (livret) ou `compact` (économe en papier) |
-| `--browser-arg` | — | `--format pdf` : argument passé au navigateur (ex. `--no-sandbox`) ; répétable |
-| `--star REF` | — | Pièce préférée de l'enfant, au cœur de l'histoire ; répétable (voir ci-dessous) |
-| `--missing REF[:N]` | — | Pièce absente de la boîte : toutes les copies, ou N ; répétable |
-| `--missing-file` / `RAG_MOBIL_MISSING_FILE` | — | Pièces absentes, une par ligne (voir ci-dessous) |
-| `--no-review` | off | Méthode `planned` : saute la relecture de fidélité |
-| `--include-all` | off | Garde aussi les notices papier dans le contexte |
-| `-m, --model` / `RAG_MOBIL_MODEL` | `claude-opus-5-5` | Modèle ; le fournisseur est déduit du nom |
-| `--effort` | `medium` pour Claude, défaut du fournisseur sinon | `low`, `medium`, `high`, `xhigh`, `max` |
-| `--fallback-model` | `claude-opus-4-8` | Modèle relancé une fois si Claude décline la requête |
-| `--no-fallback` | off | Désactive cette nouvelle tentative |
-| `--playmodb-url` / `PLAYMODB_BASE_URL` | `https://playmodb.org/cgi-bin` | Miroir PlaymoDB |
-| `--cache-dir` / `RAG_MOBIL_CACHE_DIR` | `~/.cache/rag-mobil/playmodb` | Dossier du cache des inventaires |
-| `--refresh` | off | Interroge PlaymoDB même si le cache est à jour |
-| `--no-cache` | off | N'utilise pas le cache |
-| `--inventory-file` | — | Inventaires lus dans un fichier JSON (sortie de `--inventory-json`) |
-| `--inventory-url` / `RAG_MOBIL_INVENTORY_URL` | — | Source HTTP d'inventaires (`{set}` = numéro du set), PlaymoDB en repli |
-| `--no-playmodb` | off | Avec `--inventory-url` : pas de repli sur PlaymoDB |
-| `--replay` | — | Contourne le LLM : prompts et réponses dans des fichiers (voir Développement) |
+| `-l, --language` / `RAG_MOBIL_LANGUAGE` | `English` | Language of the story (e.g. `français`) |
+| `-a, --age` / `RAG_MOBIL_AGE` | `7` | Reader's age |
+| `-w, --words` / `RAG_MOBIL_WORDS` | `600` | Target length |
+| `-t, --theme` | — | Free-form wish |
+| `--citations` / `RAG_MOBIL_CITATIONS` | off | Cite each named piece by its reference (see below) |
+| `--method` | `planned` | `planned` (plan, draft, edit), `direct` (one call) or `interactive` |
+| `--interactive` | off | Choose-your-own-adventure story (shorthand for `--method interactive`, see below) |
+| `--saga` / `RAG_MOBIL_SAGA` | — | JSON file of episodes: the story follows on from them, then is added to it (see below) |
+| `--scene-setup` / `RAG_MOBIL_SCENE_SETUP` | off | `planned` method: "Set the scene" before each part (see below) |
+| `-f, --format` / `RAG_MOBIL_FORMAT` | `markdown` | `markdown`, `html` or `pdf` (illustrated booklet, see below) |
+| `--booklet FILE` (alias `--livret`) | — | Also writes the booklet (HTML, or PDF for `.pdf`): the story stays Markdown on `stdout`, with a single LLM run |
+| `--layout` / `RAG_MOBIL_LAYOUT` | `booklet` | `--format html` or `pdf`: `booklet` or `compact` (saves paper) |
+| `--browser-arg` | — | `--format pdf`: argument passed to the browser (e.g. `--no-sandbox`); repeatable |
+| `--star REF` | — | The child's favorite piece, at the heart of the story; repeatable (see below) |
+| `--missing REF[:N]` | — | A piece missing from the box: every copy, or N; repeatable |
+| `--missing-file` / `RAG_MOBIL_MISSING_FILE` | — | Missing pieces, one per line (see below) |
+| `--no-review` | off | `planned` method: skip the faithfulness review |
+| `--include-all` | off | Also keep paper instructions in the context |
+| `-m, --model` / `RAG_MOBIL_MODEL` | `claude-opus-5-5` | Model; the provider is inferred from the name |
+| `--effort` | `medium` for Claude, provider default otherwise | `low`, `medium`, `high`, `xhigh`, `max` |
+| `--fallback-model` | `claude-opus-4-8` | Model retried once if Claude declines the request |
+| `--no-fallback` | off | Disables that retry |
+| `--playmodb-url` / `PLAYMODB_BASE_URL` | `https://playmodb.org/cgi-bin` | PlaymoDB mirror |
+| `--cache-dir` / `RAG_MOBIL_CACHE_DIR` | `~/.cache/rag-mobil/playmodb` | Inventory cache directory |
+| `--refresh` | off | Query PlaymoDB even if the cache is fresh |
+| `--no-cache` | off | Don't use the cache |
+| `--inventory-file` | — | Read inventories from a JSON file (output of `--inventory-json`) |
+| `--inventory-url` / `RAG_MOBIL_INVENTORY_URL` | — | HTTP inventory source (`{set}` = set number), PlaymoDB as fallback |
+| `--no-playmodb` | off | With `--inventory-url`: no fallback to PlaymoDB |
+| `--replay` | — | Bypass the LLM: prompts and answers in files (see Development) |
 
-Les variables d'environnement fixent les défauts d'un déploiement ; une option tapée l'emporte.
+Environment variables set a deployment's defaults; an option typed on the command line wins.
 
-### Citations des pièces
+### Piece citations
 
-Avec `--citations`, chaque figurine ou pièce nommée est suivie de sa référence d'inventaire,
-dans l'histoire comme dans « Dans ta boîte » : `[réf. 30 06 368]`, ou
-`[réf. 30 06 198, 30 06 199]` pour un objet en plusieurs pièces. Le format est stable : un
-affichage les retire (`\s*\[réf\.[^\]]*\]`) ou fait de chaque référence un lien vers la pièce.
-Dans la méthode `planned`, la section « Dans ta boîte » est écrite par le code, donc ses
-citations sont toujours exactes ; dans le texte, c'est le LLM qui les recopie.
+With `--citations`, each named figure or piece is followed by its inventory reference, both in
+the story and in "In your box": `[ref. 30 06 368]`, or `[ref. 30 06 198, 30 06 199]` for an
+object made of several pieces. The format is stable: a front end can strip them
+(`\s*\[ref\.[^\]]*\]`) or turn each reference into a link to the piece. With the `planned`
+method, the "In your box" section is written by code, so its citations are always exact; in
+the story text, the LLM copies them.
 
-### Histoire dont tu es le héros
+### Choose-your-own-adventure
 
-Avec `--interactive`, le plan n'est plus une suite d'étapes mais un graphe : 6 à 9
-paragraphes, chacun terminé par 2 ou 3 choix qui renvoient à un autre paragraphe, et 2 à
-4 fins. Comme pour le plan linéaire, chaque personnage et chaque objet est une
-référence vérifiée contre la boîte ; le code vérifie aussi le graphe : chaque choix mène
-à un paragraphe qui existe, aucun paragraphe n'est inatteignable, pas de boucle, au
-moins 2 fins. En cas d'écart, le plan est redemandé une fois avec la liste des
-erreurs ; un graphe encore cassé fait écrire l'histoire en un seul appel (non
-interactive).
+With `--interactive`, the plan is no longer a sequence of steps but a graph: 6 to 9
+paragraphs, each ending with 2 or 3 choices that lead to another paragraph, and 2 to 4
+endings. As with the linear plan, every character and object is a reference checked against
+the box; code also checks the graph: every choice leads to an existing paragraph, no
+paragraph is unreachable, there are no loops, and there are at least 2 endings. If anything is
+off, the plan is requested once more with the list of errors; a graph that is still broken
+makes the story be written in a single call (not interactive).
 
-Les paragraphes sont numérotés dans l'ordre de lecture (en largeur depuis le début), et
-chacun est rédigé avec, comme contexte, les paragraphes qui y mènent. La relecture voit
-tous les paragraphes ; seuls ceux dont elle cite un passage sont réécrits.
+Paragraphs are numbered in reading order (breadth-first from the start), and each one is
+written with the paragraphs leading to it as context. The review sees every paragraph; only
+those it quotes are rewritten.
 
 ```markdown
 ## 1
 
-Coco le perroquet se posa sur le hamac de Tom…
+Coco the parrot landed on Tom's hammock…
 
-**Que choisis-tu ?**
+**What do you choose?**
 
-- Pépin propose de faire le tour de l'île en barque → **va au 2**
-- Robinson veut d'abord fouiller la grotte → **va au 3**
+- Pip suggests rowing around the island → **go to 2**
+- Robinson wants to search the cave first → **go to 3**
 ```
 
-En HTML et en PDF, les choix sont des liens vers les paragraphes, et un paragraphe
-imprimé ne se coupe pas entre deux pages. `--scene-setup` ajoute la mise en place de
-chaque paragraphe.
+In HTML and PDF, choices are links to the paragraphs, and a printed paragraph is never split
+across two pages. `--scene-setup` adds the scene setup of each paragraph.
 
 ### Sagas
 
-`--saga pirates.json` enchaîne les histoires : le fichier (créé s'il n'existe pas)
-garde chaque épisode raconté — boîtes, titre, prémisse, personnages (nom, figurine,
-portrait) et étapes — et le plan de l'épisode suivant les reçoit dans
-`<episodes_precedents>`, avec la consigne de ne pas répéter l'intrigue. Les personnages
-déjà connus dont la figurine est dans la boîte sont proposés avec leur nom et leur
-caractère ; les autres ne peuvent qu'être évoqués.
+`--saga pirates.json` chains stories together: the file (created if it doesn't exist) keeps
+every episode told — boxes, title, premise, characters (name, figure, portrait) and steps — and
+the plan of the next episode receives them in `<previous_episodes>`, with the instruction not to
+repeat the plot. Known characters whose figure is in the box are offered with their name and
+personality; the others can only be mentioned.
 
-Le code vérifie la continuité, figurine par figurine : une figurine déjà connue garde son
-nom (« la figurine 30 13 020 s'appelait « Pépin » : garde ce nom »), et un nom déjà
-donné ne passe pas à une autre figurine. Le plan est redemandé une fois ; s'il reste des
-écarts, les noms d'origine sont remis. On peut changer de boîte d'un épisode à l'autre :
-seules les figurines présentes reviennent. L'épisode est ajouté au fichier une fois
-l'histoire écrite, sauf si le plan a échoué (rédaction en un seul appel). `--saga`
-demande la méthode `planned` ou `interactive` ; une histoire interactive est gardée
-sans ses étapes, puisque son déroulé dépend du lecteur.
+Code checks continuity, figure by figure: a known figure keeps its name ("figure 30 13 020 was
+called "Pip": keep that name"), and a name already given doesn't move to another figure. The
+plan is requested once more; if discrepancies remain, the original names are restored. Boxes
+can change from one episode to the next: only the figures present come back. The episode is
+added to the file once the story is written, unless the plan failed (single-call writing).
+`--saga` requires the `planned` or `interactive` method; an interactive story is saved without
+its steps, since how it unfolds depends on the reader.
 
-### Pièce préférée
+### Favorite piece
 
-`--star REF` met la pièce préférée de l'enfant au cœur de l'histoire : une figurine
-devient le personnage principal, un objet joue un rôle central. La référence s'écrit
-avec ou sans espaces, comme pour `--missing` ; elle doit être dans la boîte (après
-retrait des pièces absentes), sinon le programme s'arrête avant tout appel au LLM.
-L'option est répétable.
+`--star REF` puts the child's favorite piece at the heart of the story: a figure becomes the
+main character, an object plays a central role. The reference can be written with or without
+spaces, as with `--missing`; it must be in the box (after missing pieces are removed),
+otherwise the program stops before any LLM call. The option is repeatable.
 
-Avec les méthodes `planned` et `interactive`, le code vérifie le plan : une figurine
-préférée doit jouer un personnage, présent dès la première étape et dans au moins la
-moitié des étapes ; un objet préféré doit servir dans au moins 2 étapes. En cas
-d'écart, le plan est redemandé une fois avec ces erreurs ; s'il en reste, le code
-ajoute la pièce aux premières étapes qui ne l'ont pas. Une figurine qui ne joue aucun
-personnage ne peut pas être ajoutée, faute de nom : l'histoire est écrite sans elle
-au premier plan. Avec `--method direct`, seule la consigne est donnée au LLM.
+With the `planned` and `interactive` methods, code checks the plan: a favorite figure must play
+a character, present from the first step and in at least half of the steps; a favorite object
+must be used in at least 2 steps. If anything is off, the plan is requested once more with
+those errors; if some remain, code adds the piece to the first steps that lack it. A figure
+that plays no character can't be added, for want of a name: the story is written without it
+in the spotlight. With `--method direct`, the LLM only gets the instruction.
 
 ```bash
-rag-mobil 3666 --star "30 00 496"                        # le trompettiste en héros
+rag-mobil 3666 --star "30 00 496"                        # the trumpeter as the hero
 rag-mobil 3799 --star 3006368 --star "30 13 020" --interactive
 ```
 
-### Pièces perdues ou cassées
+### Lost or broken pieces
 
-L'inventaire décrit la boîte neuve ; la vraie boîte a souvent perdu des pièces. `--missing`
-les retire de l'inventaire avant tout le reste : le plan ne peut plus les choisir, la
-relecture les signale, « Dans ta boîte » ne les cite pas.
+The inventory describes the box as new; the real box has often lost some pieces. `--missing`
+removes them from the inventory before anything else: the plan can no longer pick them, the
+review flags them, and "In your box" doesn't list them.
 
 ```bash
-rag-mobil 3666 --missing "30 06 368"          # toutes les copies
-rag-mobil 3666 --missing "30 07 640:2"        # 2 hallebardes perdues sur 4
-rag-mobil 3666 --missing-file ma-boite.txt    # la liste, gardée dans un fichier
+rag-mobil 3666 --missing "30 06 368"          # every copy
+rag-mobil 3666 --missing "30 07 640:2"        # 2 of the 4 halberds lost
+rag-mobil 3666 --missing-file my-box.txt      # the list, kept in a file
 ```
 
 ```text
-# ma-boite.txt : une pièce par ligne, au format de --missing
-30 06 368        # le perroquet
+# my-box.txt: one piece per line, in the --missing format
+30 06 368        # the parrot
 30 07 640:2
 ```
 
-La référence s'écrit avec ou sans espaces (`3007640`, `réf. 30 07 640`). Avec plusieurs
-boîtes, les copies sont retirées de la première boîte qui les contient, puis des
-suivantes. Une pièce dont la quantité est inconnue (`?`) n'est retirée que sans `:N`.
-Chaque pièce est rapportée sur `stderr` (`retirée`, `1 restant(s)`, `absente des
-boîtes, ignorée`). `--inventory-json` montre l'inventaire après retrait.
+The reference can be written with or without spaces (`3007640`, `ref. 30 07 640`). With
+several boxes, copies are removed from the first box that holds them, then from the next ones.
+A piece whose quantity is unknown (`?`) is only removed without `:N`. Each piece is reported on
+`stderr` (removed, how many remain, or not in the boxes and ignored). `--inventory-json` shows
+the inventory after removal.
 
-### Mise en place des scènes
+### Setting the scene
 
-Avec `--scene-setup` (méthode `planned`), chaque partie de l'histoire commence par ce
-qu'il faut installer pour la jouer, tiré du plan validé et écrit **par le code**, donc
-sans pièce inventée :
+With `--scene-setup` (`planned` method), each part of the story starts with what to lay out to
+play it, taken from the validated plan and written **by code**, so no piece is ever made up:
 
 ```markdown
-> 🧱 **Mise en place** : Pépin (Pirate, red vest and ponytail) ; Rowboat, one-seater (dark brown) + Rowboat gear: seat, oarlocks, paddles (light brown), Lantern (silver/yellow)
+> 🧱 **Set the scene**: Pip (Pirate, red vest and ponytail); Rowboat, one-seater (dark brown) + Rowboat gear: seat, oarlocks, paddles (light brown), Lantern (silver/yellow)
 ```
 
-Pour que chaque mise en place reste devant la bonne partie, la réécriture qui suit la
-relecture reçoit les parties séparées par des lignes `* * *` et doit les garder. Si elle
-les fusionne, l'histoire corrigée est gardée, sans mise en place (message sur `stderr`).
+To keep each scene setup in front of the right part, the rewrite that follows the review
+receives the parts separated by `* * *` lines and must keep them. If it merges them, the
+revised story is kept, without scene setups (with a message on `stderr`).
 
-### Livret HTML et PDF
+### HTML and PDF booklet
 
-`--format html` écrit une page HTML autonome (styles inclus, thème clair ou sombre)
-au lieu du Markdown :
+`--format html` writes a self-contained HTML page (styles included, light or dark theme)
+instead of Markdown:
 
-- une couverture : titre, portraits des personnages, prémisse, boîtes utilisées ;
-- une vignette de chaque pièce (champ `image` de l'inventaire, images de PlaymoDB) ;
-- la mise en place de chaque scène en cartes illustrées, avec `--scene-setup` ;
-- « Dans ta boîte » en cartes à cocher : personnages, objets, quantités, référence, boîte ;
-- avec `--citations`, chaque `[réf. …]` du texte devient la vignette de la pièce.
+- a cover: title, character portraits, premise, boxes used;
+- a thumbnail of each piece (the inventory's `image` field, PlaymoDB images);
+- each scene's setup as illustrated cards, with `--scene-setup`;
+- "In your box" as checklist cards: characters, objects, quantities, reference, box;
+- with `--citations`, each `[ref. …]` in the text becomes the piece's thumbnail.
 
-Le HTML que contiendrait le texte du LLM est affiché comme du texte, et seules les
-images en `http(s)` sont reprises. Les images sont chargées depuis PlaymoDB à
-l'ouverture de la page. Avec `--format html` ou `pdf`, l'histoire s'affiche à la fin,
-même avec `--method direct`.
+Any HTML the LLM might put in the text is shown as text, and only `http(s)` images are kept.
+Images are loaded from PlaymoDB when the page is opened. With `--format html` or `pdf`, the
+story is shown at the end, even with `--method direct`.
 
-Imprimée (ou enregistrée en PDF depuis le navigateur), la page devient un livret A4 :
-couverture encadrée sur la première page, une page par scène avec une mise en place
-compacte, texte en 14 pt justifié avec césure, « Dans ta boîte » sur une nouvelle page
-avec une case à cocher par pièce pour rassembler les pièces avant de jouer, numéros de
-page (sauf sur la couverture).
+Printed (or saved as PDF from the browser), the page becomes an A4 booklet: a framed cover on
+the first page, one page per scene with a compact scene setup, 14 pt justified hyphenated text,
+"In your box" on a new page with a checkbox per piece to gather the pieces before playing,
+and page numbers (except on the cover).
 
-`--layout compact` garde le même contenu mais économise le papier : un en-tête court
-au lieu de la couverture, l'histoire sur deux colonnes sans saut de page, des mises en
-place et un « Dans ta boîte » en petites vignettes, juste après l'histoire. Pour le set
-3799 avec `--scene-setup`, 2 pages au lieu de 7 (3 au lieu de 8 en interactif).
+`--layout compact` keeps the same content but saves paper: a short header instead of the
+cover, the story in two columns without page breaks, and scene setups and "In your box" with
+small thumbnails, right after the story. For set 3799 with `--scene-setup`, that's 2 pages
+instead of 7 (3 instead of 8 when interactive).
 
-`--livret livret.pdf` (ou `.html`) écrit le livret dans un fichier en plus de la sortie choisie par
-`--format` : un service garde ainsi l'histoire en Markdown et son livret, pour un seul passage du LLM. Un
-livret qui ne s'écrit pas (navigateur absent) est signalé sur `stderr` sans perdre l'histoire.
+`--booklet booklet.pdf` (or `.html`) writes the booklet to a file on top of the output chosen
+with `--format`: a service can thus keep both the Markdown story and its booklet from a single
+LLM run. A booklet that can't be written (no browser) is reported on `stderr` without losing
+the story.
 
-`--format pdf` fait cette impression directement : le livret est imprimé par un Chrome,
-Chromium ou Edge sans interface, déjà installé (cherché dans le `PATH` et aux
-emplacements habituels, ou indiqué par `RAG_MOBIL_BROWSER`). Le PDF s'écrit sur
-`stdout`, à rediriger vers un fichier. Le navigateur est cherché avant tout appel au
-LLM. Dans un conteneur lancé en root, Chromium demande `--browser-arg --no-sandbox`.
+`--format pdf` does the printing itself: the booklet is printed by a headless Chrome, Chromium
+or Edge already installed (looked up in `PATH` and the usual locations, or given by
+`RAG_MOBIL_BROWSER`). The PDF is written to `stdout`, to be redirected to a file. The browser
+is looked up before any LLM call. In a container running as root, Chromium needs
+`--browser-arg --no-sandbox`.
 
 ## Architecture
 
@@ -276,210 +270,199 @@ LLM. Dans un conteneur lancé en root, Chromium demande `--browser-arg --no-sand
 src/
 ├── main.rs              CLI (clap)
 ├── lib.rs
-├── error.rs             RagError (thiserror), un variant par étape
-├── model.rs             SetNumber, Part, SetInventory, pièces absentes
+├── error.rs             RagError (thiserror), one variant per step
+├── model.rs             SetNumber, Part, SetInventory, missing pieces
 ├── pipeline.rs          RagPipeline<S: InventorySource, G: StoryGenerator>
-├── saga.rs              --saga : épisodes précédents, continuité des personnages
-├── html.rs              --format html : livret illustré (pulldown-cmark)
-├── pdf.rs               --format pdf : le livret imprimé par Chrome sans interface
-├── retriever/           R — récupération
-│   ├── mod.rs           trait InventorySource
-│   ├── playmodb.rs      client HTTP (2 pages en parallèle)
-│   ├── parser.rs        parsing HTML pur, testé sur fixtures
-│   ├── cache.rs         cache disque, un fichier JSON par set
+├── saga.rs              --saga: previous episodes, character continuity
+├── html.rs              --format html: illustrated booklet (pulldown-cmark)
+├── pdf.rs               --format pdf: the booklet printed by headless Chrome
+├── retriever/           R — retrieval
+│   ├── mod.rs           InventorySource trait
+│   ├── playmodb.rs      HTTP client (2 pages in parallel)
+│   ├── parser.rs        pure HTML parsing, tested on fixtures
+│   ├── cache.rs         disk cache, one JSON file per set
 │   ├── json_file.rs     --inventory-file
-│   ├── http_json.rs     source HTTP au format v1 (--inventory-url)
-│   └── fallback.rs      une source, puis une autre pour les sets inconnus
+│   ├── http_json.rs     HTTP source in format v1 (--inventory-url)
+│   └── fallback.rs      one source, then another for unknown sets
 ├── augment/             A — augmentation
-│   ├── context.rs       inventaire → contexte structuré (<set>, <personnages>, <pieces>)
-│   └── prompt.rs        prompt système (règles de fidélité) + message utilisateur
-├── generator/           G — génération
-│   ├── mod.rs           trait StoryGenerator (texte en streaming, JSON structuré)
-│   └── llm.rs           générateur multi-fournisseurs (genai) + repli en cas de refus
-└── writer/              rédaction
-    ├── mod.rs           méthodes direct / planned, Observer (progression)
-    ├── plan.rs          plan, vérification contre l'inventaire, mise en place, « Dans ta boîte »
-    ├── interactive.rs   histoire dont tu es le héros : graphe de paragraphes, vérifié
-    ├── prompts.rs       prompts plan / rédaction / relecture / correction
-    └── planned.rs       Plan → Rédaction → Relecture (adapté de Re3/DOC)
+│   ├── context.rs       inventory → structured context (<set>, <characters>, <pieces>)
+│   └── prompt.rs        system prompt (faithfulness rules) + user message
+├── generator/           G — generation
+│   ├── mod.rs           StoryGenerator trait (streamed text, structured JSON)
+│   └── llm.rs           multi-provider generator (genai) + fallback on refusal
+└── writer/              writing
+    ├── mod.rs           direct / planned methods, Observer (progress)
+    ├── plan.rs          plan, check against the inventory, scene setup, "In your box"
+    ├── interactive.rs   choose-your-own-adventure: graph of paragraphs, checked
+    ├── prompts.rs       plan / draft / review / revision prompts
+    └── planned.rs       Plan → Draft → Edit (adapted from Re3/DOC)
 ```
 
-### Sources d'inventaire
+### Inventory sources
 
-Par défaut, les inventaires viennent de PlaymoDB (voir ci-dessous). Toute autre base peut
-les fournir, au [format d'inventaire v1](docs/format-inventaire.md) (schéma JSON :
-[`schema/inventory-v1.schema.json`](schema/inventory-v1.schema.json)), le même que
-celui de `--inventory-json` et du cache :
+By default, inventories come from PlaymoDB (see below). Any other database can provide them,
+in [inventory format v1](docs/inventory-format.md) (JSON schema:
+[`schema/inventory-v1.schema.json`](schema/inventory-v1.schema.json)), the same format as
+`--inventory-json` and the cache:
 
 ```bash
-# Un service qui répond GET /api/inventories/<set> ; PlaymoDB pour les sets qu'il ne connaît pas
+# A service answering GET /api/inventories/<set>; PlaymoDB for the sets it doesn't know
 rag-mobil 3666 70145 --inventory-url 'http://localhost:8096/api/inventories/{set}'
 
-# Ce service seulement
+# That service only
 rag-mobil 3666 --inventory-url 'http://localhost:8096/api/inventories/{set}' --no-playmodb
 
-# Un fichier
-rag-mobil 3666 --inventory-file mes-boites.json
+# A file
+rag-mobil 3666 --inventory-file my-boxes.json
 ```
 
-| Source | Quand | Repli |
+| Source | When | Fallback |
 |---|---|---|
-| `--inventory-file` | un fichier, un set ou un tableau | aucun |
-| `--inventory-url` / `RAG_MOBIL_INVENTORY_URL` | service HTTP, `{set}` remplacé par le numéro | PlaymoDB (avec cache) si le service répond `404`, sauf `--no-playmodb` |
-| (rien) | PlaymoDB, avec cache sauf `--no-cache` | aucun |
+| `--inventory-file` | a file, one set or an array | none |
+| `--inventory-url` / `RAG_MOBIL_INVENTORY_URL` | HTTP service, `{set}` replaced by the number | PlaymoDB (with cache) if the service answers `404`, unless `--no-playmodb` |
+| (nothing) | PlaymoDB, cached unless `--no-cache` | none |
 
-Avec `--inventory-url`, seule une réponse `404` passe la main à PlaymoDB ; une autre
-erreur (service en panne, JSON invalide, autre set que celui demandé, inventaire vide)
-arrête le programme. `--cache-dir`, `--refresh` et `--no-cache` s'appliquent au repli
-PlaymoDB. `--inventory-file` donné sur la ligne de commande l'emporte sur
-`RAG_MOBIL_INVENTORY_URL`. La ligne `[rag-mobil] inventaires : 3666 (localhost:8096),
-70145 (cache)` indique d'où vient chaque set.
+With `--inventory-url`, only a `404` answer hands over to PlaymoDB; any other error (service
+down, invalid JSON, a set other than the one requested, empty inventory) stops the program.
+`--cache-dir`, `--refresh` and `--no-cache` apply to the PlaymoDB fallback. `--inventory-file`
+given on the command line wins over `RAG_MOBIL_INVENTORY_URL`. A `[rag-mobil]` line on `stderr`
+tells where each set came from (e.g. `3666 (localhost:8096), 70145 (cache)`).
 
-Dans un inventaire, la catégorie `Klicky` (PlaymoDB) ou `figure` désigne une figurine,
-c'est-à-dire un personnage possible ; les autres pièces sont regroupées par catégorie.
+In an inventory, the `Klicky` (PlaymoDB) or `figure` category marks a figure, that is a
+possible character; the other pieces are grouped by category.
 
 ### Retrieve — PlaymoDB
 
-Deux pages sont récupérées en parallèle puis fusionnées :
+Two pages are fetched in parallel, then merged:
 
-- `showinv.pl?setnum=N&pics=on` : nom, thème, date de sortie, **catégorie** et **image**
-  de chaque pièce (`Klicky` = figurines, `Animal`, `Furniture`, `Vehicle`…). Les deux mises
-  en page de PlaymoDB sont gérées (liste de liens, blocs `lineup` avec photos). L'image
-  (champ `image`, adresse absolue) ne sert pas au prompt : elle est pour qui affiche l'inventaire.
-- `listinv.pl?setnum=N` : tableau texte avec les **quantités** et les sous-éléments
-  (perruque, chapeau… rattachés à une figurine).
+- `showinv.pl?setnum=N&pics=on`: name, theme, release date, **category** and **image** of
+  each piece (`Klicky` = figures, `Animal`, `Furniture`, `Vehicle`…). Both PlaymoDB layouts are
+  handled (list of links, `lineup` blocks with pictures). The image (the `image` field, an
+  absolute URL) isn't used in the prompt: it's for whoever displays the inventory.
+- `listinv.pl?setnum=N`: a text table with the **quantities** and sub-items (wig, hat…
+  attached to a figure).
 
-Les pièces de la section « Extra parts not included in inventory » (numéros alternatifs
-ou pièces de rechange) sont écartées pour que le modèle ne compte pas deux fois le même
-objet. Pour les sets que PlaymoDB n'a pas encore dénombrés, la quantité est inconnue (`?`).
+Pieces from the "Extra parts not included in inventory" section (alternative numbers or spare
+parts) are dropped so the model doesn't count the same object twice. For sets PlaymoDB hasn't
+counted yet, the quantity is unknown (`?`).
 
-Le scraper s'identifie avec un User-Agent explicite et ne fait que deux requêtes par
-set ; en cas d'erreur passagère (PlaymoDB répond souvent 508, limite de ressources de
-son hébergement), il retente jusqu'à 3 fois, après 1, 3 puis 6 secondes. PlaymoDB est
-un site maintenu bénévolement par des fans : merci de ne pas l'utiliser pour du scraping
-massif.
+The scraper identifies itself with an explicit User-Agent and makes only two requests per set;
+on a transient error (PlaymoDB often answers 508, its host's resource limit), it retries up to
+3 times, after 1, 3 and then 6 seconds. PlaymoDB is a site run by volunteer fans: please don't
+use it for mass scraping.
 
-**Cache** : chaque inventaire récupéré est enregistré sur le disque
-(`~/.cache/rag-mobil/playmodb/<set>.json` sous Linux, `~/Library/Caches` sous macOS,
-`%LOCALAPPDATA%` sous Windows) et réutilisé pendant 30 jours sans rappeler PlaymoDB.
-`--refresh` force une nouvelle récupération, `--no-cache` désactive le cache. Une entrée
-illisible est simplement récupérée à nouveau.
+**Cache**: each fetched inventory is saved to disk (`~/.cache/rag-mobil/playmodb/<set>.json`
+on Linux, `~/Library/Caches` on macOS, `%LOCALAPPDATA%` on Windows) and reused for 30 days
+without calling PlaymoDB again. `--refresh` forces a new fetch, `--no-cache` disables the
+cache. An unreadable entry is simply fetched again.
 
-**Plusieurs sets** : `rag-mobil 3799 70145` récupère les inventaires l'un après l'autre
-(doublons ignorés), sans limite de nombre. Le contexte contient un bloc `<set>` par
-boîte, et le prompt précise que tout se rencontre dans la même histoire. Les personnages
-peuvent venir de n'importe quelle boîte, et une référence présente dans plusieurs boîtes
-cumule leurs exemplaires. « Dans ta boîte » indique pour chaque ligne dans quelle boîte
-chercher (`(boîte 70145)`). Avec beaucoup de grosses boîtes, le prompt s'allonge :
-c'est sans conséquence pour Claude, mais un petit modèle local peut saturer.
+**Several sets**: `rag-mobil 3799 70145` fetches the inventories one after the other
+(duplicates ignored), with no limit on their number. The context holds one `<set>` block per
+box, and the prompt says everything meets in the same story. Characters can come from any box,
+and a reference present in several boxes adds up their copies. "In your box" tells, for each
+line, which box to look in (`(box 70145)`). With many large boxes, the prompt grows: no problem
+for Claude, but a small local model may choke.
 
-### Augment — contexte et prompt
+### Augment — context and prompt
 
-L'inventaire devient un bloc pseudo-XML : les figurines d'abord (ce sont les
-personnages), puis les pièces par catégorie, avec quantités et couleurs. Le prompt
-système fixe les règles de fidélité : personnages issus de la boîte uniquement, objets
-présents dans l'inventaire, quantités respectées, pièces techniques utilisées seulement
-pour décrire le décor. L'histoire se termine par une section « Dans ta boîte » listant
-les éléments utilisés.
+The inventory becomes a pseudo-XML block: figures first (they are the characters), then pieces
+by category, with quantities and colors. The system prompt sets the faithfulness rules:
+characters only from the box, objects present in the inventory, quantities respected,
+technical pieces only used to describe the setting. The story ends with an "In your box"
+section listing the items used.
 
-### Generate — LLM via genai
+### Generate — LLM through genai
 
-La génération s'appuie sur la bibliothèque open source
-[`genai`](https://github.com/jeremychone/rust-genai) (MIT/Apache-2.0), qui fournit un
-client unique pour une vingtaine de fournisseurs, en streaming. `generator/llm.rs` y
-ajoute ce qui est propre au projet :
+Generation relies on the open-source library [`genai`](https://github.com/jeremychone/rust-genai)
+(MIT/Apache-2.0), which provides a single streaming client for some twenty providers.
+`generator/llm.rs` adds what is specific to this project:
 
-- **Claude** : `max_tokens` à 64 000 et effort `medium` par défaut, que genai traduit en
-  `thinking: {type: "adaptive"}` + `output_config.effort` ;
-- **refus** : si le modèle décline la requête (`stop_reason: "refusal"` chez Claude, filtre
-  de contenu ailleurs), le texte partiel est abandonné ; pour Claude, une seule nouvelle
-  tentative est faite sur `--fallback-model` ;
-- **troncature** : un arrêt sur `max_tokens` est signalé.
+- **Claude**: `max_tokens` at 64,000 and `medium` effort by default, which genai translates to
+  `thinking: {type: "adaptive"}` + `output_config.effort`;
+- **refusals**: if the model declines the request (`stop_reason: "refusal"` for Claude, a
+  content filter elsewhere), the partial text is discarded; for Claude, a single retry is made
+  on `--fallback-model`;
+- **truncation**: stopping on `max_tokens` is reported.
 
-Les autres fournisseurs gardent leurs réglages par défaut (beaucoup de modèles locaux
-refusent les paramètres de raisonnement) ; `--effort` permet de les forcer.
+Other providers keep their default settings (many local models reject reasoning parameters);
+`--effort` forces them.
 
-### Rédaction — méthode Re3/DOC
+### Writing — the Re3/DOC method
 
-Par défaut, l'histoire n'est pas écrite d'un seul jet : la rédaction reprend la méthode
-de deux générateurs d'histoires open source issus de la recherche (licence MIT),
-[Re3](https://github.com/yangkevin2/emnlp22-re3-story-generation) (*Recursive
-Reprompting and Revision*, EMNLP 2022) et
-[DOC](https://github.com/yangkevin2/doc-story-generation) (*Detailed Outline
-Control*, ACL 2023), adaptée à la contrainte d'inventaire :
+By default, the story isn't written in one go: the writing follows the method of two
+open-source research story generators (MIT license),
+[Re3](https://github.com/yangkevin2/emnlp22-re3-story-generation) (*Recursive Reprompting and
+Revision*, EMNLP 2022) and [DOC](https://github.com/yangkevin2/doc-story-generation)
+(*Detailed Outline Control*, ACL 2023), adapted to the inventory constraint:
 
-1. **Plan** (module *Plan* de Re3) : le LLM produit en JSON structuré une prémisse, un
-   décor, les personnages et 3 à 5 étapes. Chaque personnage désigne **la référence d'une
-   figurine** de la boîte, chaque étape **les références des objets** utilisés.
-2. **Vérification du plan, par le code** : chaque référence doit exister dans
-   l'inventaire, un personnage doit être une figurine, une figurine ne joue pas plus de
-   rôles que d'exemplaires dans la boîte. En cas d'écart, le plan est redemandé une fois
-   avec la liste des erreurs ; s'il reste des écarts, les références invalides sont
-   retirées. Cette étape remplace les modèles de classement entraînés de Re3. Si le
-   plan reste inutilisable (JSON cassé, fréquent avec les petits modèles locaux),
-   l'histoire est écrite en un seul appel, comme avec `--method direct`.
-3. **Rédaction** (contrôle par plan détaillé de DOC) : une partie par étape, guidée par
-   le plan, les personnages et objets de l'étape et le texte déjà écrit.
-4. **Relecture** (module *Edit* de Re3) : un relecteur liste en JSON les écarts avec la
-   boîte (objet absent, quantité dépassée, apparence contredite) ; s'il y en a, une
-   seule réécriture les corrige.
-5. **« Dans ta boîte »** : la liste finale des personnages et objets est générée **par
-   le code** à partir du plan validé, elle ne cite donc que des pièces de la boîte. Les
-   objets que PlaymoDB découpe en plusieurs lignes (corps et ailes du perroquet, coffre
-   et serrure, barque et rames…) y sont regroupés.
+1. **Plan** (Re3's *Plan* module): the LLM produces, as structured JSON, a premise, a setting,
+   the characters and 3 to 5 steps. Each character names **the reference of a figure** from the
+   box, each step **the references of the objects** used.
+2. **Plan check, by code**: each reference must exist in the inventory, a character must be a
+   figure, and a figure doesn't play more roles than there are copies in the box. If anything
+   is off, the plan is requested once more with the list of errors; if discrepancies remain,
+   the invalid references are removed. This step replaces Re3's trained ranking models. If the
+   plan is still unusable (broken JSON, common with small local models), the story is written
+   in a single call, as with `--method direct`.
+3. **Draft** (DOC's detailed outline control): one part per step, guided by the plan, the
+   step's characters and objects, and the text written so far.
+4. **Edit** (Re3's *Edit* module): a reviewer lists, as JSON, the discrepancies with the box
+   (missing object, quantity exceeded, contradicted appearance); if there are any, a single
+   rewrite fixes them.
+5. **"In your box"**: the final list of characters and objects is generated **by code** from
+   the validated plan, so it only names pieces from the box. Objects PlaymoDB splits into
+   several lines (the parrot's body and wings, chest and lock, rowboat and oars…) are grouped
+   together.
 
-Cela représente 5 à 9 appels au LLM au lieu d'un : l'histoire s'affiche à la fin, les
-étapes sur `stderr`. `--method direct` revient à un seul appel en streaming.
+That's 5 to 9 LLM calls instead of one: the story is shown at the end, the steps on `stderr`.
+`--method direct` goes back to a single streamed call.
 
-Un autre LLM peut être branché en implémentant le trait `StoryGenerator`, une autre
-source de données via `InventorySource` (ou sans code, avec `--inventory-url`), et le
-déroulé suivi via le trait `Observer`.
+Another LLM can be plugged in by implementing the `StoryGenerator` trait, another data source
+through `InventorySource` (or with no code, through `--inventory-url`), and the run can be
+followed through the `Observer` trait.
 
-## Développement
+## Development
 
 ```bash
-cargo test     # hors-ligne : fixtures HTML, faux serveur Claude, LLM scripté, bout en bout
+cargo test     # offline: HTML fixtures, fake Claude server, scripted LLM, end-to-end
 cargo clippy --all-targets
 cargo fmt
 ```
 
-### Contourner le LLM (tests de bout en bout)
+### Bypassing the LLM (end-to-end tests)
 
-`--replay DOSSIER` remplace le LLM par des fichiers : chaque appel écrit son prompt
-dans `DOSSIER/NN-text.prompt.txt` (ou `NN-json`) et lit la réponse dans
-`DOSSIER/NN-text.answer.txt`. S'il manque une réponse, le programme s'arrête en
-indiquant quel fichier écrire ; on relance et les réponses déjà écrites sont rejouées.
-Tout le reste du pipeline tourne pour de vrai. Avec `--inventory-file`, aucun accès
-réseau n'est nécessaire :
+`--replay DIR` replaces the LLM with files: each call writes its prompt to
+`DIR/NN-text.prompt.txt` (or `NN-json`) and reads the answer from `DIR/NN-text.answer.txt`. If
+an answer is missing, the program stops and says which file to write; run it again and the
+answers already written are replayed. The rest of the pipeline runs for real. With
+`--inventory-file`, no network access is needed:
 
 ```bash
-rag-mobil 3799 --inventory-json > 3799.json          # une fois
+rag-mobil 3799 --inventory-json > 3799.json          # once
 rag-mobil 3799 --inventory-file 3799.json --replay session/
-# … écrire session/01-json.answer.txt (le plan), relancer, et ainsi de suite
+# … write session/01-json.answer.txt (the plan), run again, and so on
 ```
 
-Une session complète devient un test de bout en bout dans `tests/e2e/<sets>/`
-(`inventory.json`, `answers/`, et les sorties attendues dans `expected/` : histoire
-finale et chaque prompt). Deux exemples, aux réponses écrites par Claude :
+A complete session becomes an end-to-end test in `tests/e2e/<sets>/` (`inventory.json`,
+`answers/`, and the expected outputs in `expected/`: final story and every prompt). Two
+examples, with answers written by Claude:
 
-- `tests/e2e/3799/` : « Pirates Secret Island », dont la relecture repère une clé
-  absente de la boîte ;
-- `tests/e2e/3799+70145/` : la même île et le « Diving Scooter » réunis, dont la
-  relecture repère une canne à pêche et une lampe de plongée absentes des deux boîtes.
+- `tests/e2e/3799/`: "Pirates Secret Island", whose review spots a key that isn't in the box;
+- `tests/e2e/3799+70145/`: the same island together with the "Diving Scooter", whose review
+  spots a fishing rod and a diving lamp missing from both boxes.
 
-Après un changement voulu des prompts ou de la sortie :
+After an intended change of prompts or output:
 
 ```bash
 UPDATE_GOLDEN=1 cargo test --test e2e_replay
 ```
 
-## Avertissement
+## Disclaimer
 
-Projet non officiel, sans lien avec geobra Brandstätter Stiftung & Co. KG.
-PLAYMOBIL® est une marque déposée de geobra Brandstätter Stiftung & Co. KG.
-Par défaut, les données d'inventaire proviennent de [PlaymoDB](https://playmodb.org).
+Unofficial project, not affiliated with geobra Brandstätter Stiftung & Co. KG.
+PLAYMOBIL® is a registered trademark of geobra Brandstätter Stiftung & Co. KG.
+By default, inventory data comes from [PlaymoDB](https://playmodb.org).
 
-## Licence
+## License
 
-[MIT](LICENSE). Les données d'inventaire et les images de PlaymoDB ne sont pas couvertes
-par cette licence.
+[MIT](LICENSE). PlaymoDB's inventory data and images are not covered by this license.

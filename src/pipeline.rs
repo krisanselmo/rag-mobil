@@ -182,13 +182,13 @@ mod tests {
 
     fn plan_json(figure: &str) -> String {
         json!({
-            "title": "Le trésor de Barbe-Rousse",
-            "premise": "Un capitaine cherche son coffre.",
-            "setting": "Le pont du navire.",
-            "characters": [{"name": "Barbe-Rousse", "figure": figure, "portrait": "capitaine"}],
+            "title": "Redbeard's treasure",
+            "premise": "A captain looks for his chest.",
+            "setting": "The deck of the ship.",
+            "characters": [{"name": "Redbeard", "figure": figure, "portrait": "captain"}],
             "outline": [
-                {"event": "Le coffre a disparu.", "characters": ["Barbe-Rousse"], "objects": []},
-                {"event": "Il le retrouve.", "characters": ["Barbe-Rousse"], "objects": ["30 00 002"]},
+                {"event": "The chest has disappeared.", "characters": ["Redbeard"], "objects": []},
+                {"event": "He finds it again.", "characters": ["Redbeard"], "objects": ["30 00 002"]},
             ],
         })
         .to_string()
@@ -223,8 +223,8 @@ mod tests {
         let (story, recorder) = run(&generator, writer).await;
 
         let text = &story.written.generation.text;
-        assert!(text.contains("1× Pirate captain [réf. 30 00 001]"));
-        assert!(text.contains("set Playmobil 5135 « Pirate Ship »"));
+        assert!(text.contains("1× Pirate captain [ref. 30 00 001]"));
+        assert!(text.contains("Playmobil set 5135 \"Pirate Ship\""));
         assert_eq!(recorder.text, *text);
         assert_eq!(story.written.calls, 1);
         assert!(recorder.steps.is_empty());
@@ -234,8 +234,8 @@ mod tests {
     async fn planned_method_plans_drafts_and_reviews() {
         let generator = ScriptedGenerator::new(&[
             plan_json("30 00 001"),
-            "Barbe-Rousse cherche partout.".into(),
-            "Il ouvre enfin le coffre.".into(),
+            "Redbeard searches everywhere.".into(),
+            "At last he opens the chest.".into(),
             r#"{"issues": []}"#.into(),
         ]);
         let (story, recorder) = run(&generator, WriterOptions::default()).await;
@@ -245,10 +245,10 @@ mod tests {
             ["plan", "plan-ready", "draft 1/2", "draft 2/2", "review"]
         );
         let text = &story.written.generation.text;
-        assert!(text.starts_with("# Le trésor de Barbe-Rousse\n\n"));
-        assert!(text.contains("Barbe-Rousse cherche partout.\n\nIl ouvre enfin le coffre."));
-        assert!(text.contains("## Dans ta boîte"));
-        assert!(text.contains("- Barbe-Rousse — Pirate captain"));
+        assert!(text.starts_with("# Redbeard's treasure\n\n"));
+        assert!(text.contains("Redbeard searches everywhere.\n\nAt last he opens the chest."));
+        assert!(text.contains("## In your box"));
+        assert!(text.contains("- Redbeard — Pirate captain"));
         assert!(text.contains("- 1× Treasure chest"));
         assert_eq!(
             recorder.text, *text,
@@ -261,9 +261,9 @@ mod tests {
         let prompts = generator.prompts.lock().unwrap();
         let draft2 = &prompts[2].1.user;
         assert!(draft2.contains("<plan>"));
-        assert!(draft2.contains("Barbe-Rousse cherche partout."));
-        assert!(draft2.contains("Objets de la boîte à utiliser : Treasure chest"));
-        assert!(draft2.contains("conclus l'histoire"));
+        assert!(draft2.contains("Redbeard searches everywhere."));
+        assert!(draft2.contains("Objects from the box to use: Treasure chest"));
+        assert!(draft2.contains("bring the story to a close"));
     }
 
     fn staged() -> WriterOptions {
@@ -277,26 +277,26 @@ mod tests {
     async fn scene_setup_precedes_each_part() {
         let generator = ScriptedGenerator::new(&[
             plan_json("30 00 001"),
-            "Barbe-Rousse cherche partout.".into(),
-            "Il ouvre enfin le coffre.".into(),
+            "Redbeard searches everywhere.".into(),
+            "At last he opens the chest.".into(),
             r#"{"issues": []}"#.into(),
         ]);
         let (story, _) = run(&generator, staged()).await;
 
         let text = &story.written.generation.text;
         assert!(text.contains(
-            "# Le trésor de Barbe-Rousse\n\n\
-             > 🧱 **Mise en place** : Barbe-Rousse (Pirate captain)\n\n\
-             Barbe-Rousse cherche partout.\n\n\
-             > 🧱 **Mise en place** : Barbe-Rousse (Pirate captain) ; Treasure chest\n\n\
-             Il ouvre enfin le coffre.\n\n## Dans ta boîte"
+            "# Redbeard's treasure\n\n\
+             > 🧱 **Set the scene**: Redbeard (Pirate captain)\n\n\
+             Redbeard searches everywhere.\n\n\
+             > 🧱 **Set the scene**: Redbeard (Pirate captain); Treasure chest\n\n\
+             At last he opens the chest.\n\n## In your box"
         ));
         assert!(story.written.staged);
         assert_eq!(story.written.scenes.len(), 2);
     }
 
     fn one_issue() -> String {
-        json!({"issues": [{"excerpt": "un cheval", "problem": "pas de cheval", "fix": "à pied"}]})
+        json!({"issues": [{"excerpt": "a horse", "problem": "no horse", "fix": "on foot"}]})
             .to_string()
     }
 
@@ -304,59 +304,59 @@ mod tests {
     async fn revision_keeps_the_scenes_apart() {
         let generator = ScriptedGenerator::new(&[
             plan_json("30 00 001"),
-            "Il part avec un cheval.".into(),
-            "Il trouve le coffre.".into(),
+            "He leaves on a horse.".into(),
+            "He finds the chest.".into(),
             one_issue(),
-            "Il part à pied.\n\n* * *\n\nIl trouve le coffre.".into(),
+            "He leaves on foot.\n\n* * *\n\nHe finds the chest.".into(),
         ]);
         let (story, recorder) = run(&generator, staged()).await;
 
         assert_eq!(recorder.steps.last().unwrap(), "revise");
         assert_eq!(
             story.written.scenes,
-            ["Il part à pied.", "Il trouve le coffre."]
+            ["He leaves on foot.", "He finds the chest."]
         );
         let text = &story.written.generation.text;
         assert!(!text.contains("* * *"));
-        assert_eq!(text.matches("Mise en place").count(), 2);
+        assert_eq!(text.matches("Set the scene").count(), 2);
         let prompts = generator.prompts.lock().unwrap();
         let revise = &prompts[4].1.user;
-        assert!(revise.contains("Il part avec un cheval.\n\n* * *\n\nIl trouve le coffre."));
-        assert!(revise.contains("en 2 parties séparées par des lignes « * * * »"));
+        assert!(revise.contains("He leaves on a horse.\n\n* * *\n\nHe finds the chest."));
+        assert!(revise.contains("in 2 parts separated by \"* * *\" lines"));
     }
 
     #[tokio::test]
     async fn revision_that_merges_the_scenes_drops_the_setups() {
         let generator = ScriptedGenerator::new(&[
             plan_json("30 00 001"),
-            "Il part avec un cheval.".into(),
-            "Il trouve le coffre.".into(),
+            "He leaves on a horse.".into(),
+            "He finds the chest.".into(),
             one_issue(),
-            "Il part à pied.\n\nIl trouve le coffre.".into(),
+            "He leaves on foot.\n\nHe finds the chest.".into(),
         ]);
         let (story, recorder) = run(&generator, staged()).await;
 
         assert_eq!(recorder.steps.last().unwrap(), "setup-dropped");
         assert!(!story.written.staged);
         let text = &story.written.generation.text;
-        assert!(!text.contains("Mise en place"));
-        assert!(text.contains("Il part à pied.\n\nIl trouve le coffre."));
+        assert!(!text.contains("Set the scene"));
+        assert!(text.contains("He leaves on foot.\n\nHe finds the chest."));
     }
 
     /// p1 → (p2, p3); p2 → (p4, p3); p3, p4 endings.
     fn game_json(figure: &str, goto: &str) -> String {
         json!({
-            "title": "Le coffre perdu",
-            "premise": "Un capitaine cherche son coffre.",
-            "setting": "Le pont du navire.",
-            "characters": [{"name": "Barbe-Rousse", "figure": figure, "portrait": "capitaine"}],
+            "title": "The lost chest",
+            "premise": "A captain looks for his chest.",
+            "setting": "The deck of the ship.",
+            "characters": [{"name": "Redbeard", "figure": figure, "portrait": "captain"}],
             "paragraphs": [
-                {"id": "p1", "event": "Le coffre a disparu.", "characters": ["Barbe-Rousse"], "objects": [],
-                 "choices": [{"label": "Chercher sur le pont", "goto": "p2"}, {"label": "Fouiller la cale", "goto": goto}]},
-                {"id": "p2", "event": "Rien sur le pont.", "characters": ["Barbe-Rousse"], "objects": [],
-                 "choices": [{"label": "Monter au mât", "goto": "p4"}, {"label": "Descendre", "goto": "p3"}]},
-                {"id": "p3", "event": "Le coffre est dans la cale.", "characters": ["Barbe-Rousse"], "objects": ["30 00 002"], "choices": []},
-                {"id": "p4", "event": "Il voit le coffre de là-haut.", "characters": ["Barbe-Rousse"], "objects": ["30 00 002"], "choices": []},
+                {"id": "p1", "event": "The chest has disappeared.", "characters": ["Redbeard"], "objects": [],
+                 "choices": [{"label": "Search the deck", "goto": "p2"}, {"label": "Search the hold", "goto": goto}]},
+                {"id": "p2", "event": "Nothing on the deck.", "characters": ["Redbeard"], "objects": [],
+                 "choices": [{"label": "Climb the mast", "goto": "p4"}, {"label": "Go down", "goto": "p3"}]},
+                {"id": "p3", "event": "The chest is in the hold.", "characters": ["Redbeard"], "objects": ["30 00 002"], "choices": []},
+                {"id": "p4", "event": "He sees the chest from up there.", "characters": ["Redbeard"], "objects": ["30 00 002"], "choices": []},
             ],
         })
         .to_string()
@@ -373,10 +373,10 @@ mod tests {
     async fn interactive_story_is_a_gamebook() {
         let generator = ScriptedGenerator::new(&[
             game_json("30 00 001", "p3"),
-            "Le coffre a disparu !".into(),
-            "Le pont est vide.".into(),
-            "Le coffre était dans la cale.".into(),
-            "Du haut du mât, il le voit.".into(),
+            "The chest is gone!".into(),
+            "The deck is empty.".into(),
+            "The chest was in the hold.".into(),
+            "From the top of the mast, he sees it.".into(),
             r#"{"issues": []}"#.into(),
         ]);
         let (story, recorder) = run(&generator, interactive()).await;
@@ -399,58 +399,53 @@ mod tests {
         assert_eq!(
             written.paragraphs[0].choices,
             [
-                ("Chercher sur le pont".to_owned(), 2),
-                ("Fouiller la cale".to_owned(), 3)
+                ("Search the deck".to_owned(), 2),
+                ("Search the hold".to_owned(), 3)
             ]
         );
         assert_eq!(
             written.paragraphs[1].choices[0],
-            ("Monter au mât".to_owned(), 4)
+            ("Climb the mast".to_owned(), 4)
         );
         let text = &written.generation.text;
-        assert!(text.starts_with("# Le coffre perdu\n\n> 🎲 C'est toi qui choisis"));
+        assert!(text.starts_with("# The lost chest\n\n> 🎲 You choose"));
         assert!(text.contains(
-            "## 1\n\nLe coffre a disparu !\n\n**Que choisis-tu ?**\n\n\
-             - Chercher sur le pont → **va au 2**\n- Fouiller la cale → **va au 3**\n"
+            "## 1\n\nThe chest is gone!\n\n**What do you choose?**\n\n\
+             - Search the deck → **go to 2**\n- Search the hold → **go to 3**\n"
         ));
-        assert!(text.contains("## 3\n\nLe coffre était dans la cale.\n\n**— Fin —**\n"));
-        assert!(text.contains("## Dans ta boîte"));
+        assert!(text.contains("## 3\n\nThe chest was in the hold.\n\n**— The End —**\n"));
+        assert!(text.contains("## In your box"));
 
         let prompts = generator.prompts.lock().unwrap();
         assert!(
             prompts[0]
                 .1
                 .user
-                .contains("histoire interactive en 6 à 9 paragraphes")
+                .contains("interactive story in 6 to 9 paragraphs")
         );
         // p4 is reached through p1 then p2: both are in its context.
         let p4 = &prompts[4].1.user;
-        assert!(p4.contains("<histoire_jusqu_ici>\nLe coffre a disparu !\n\nLe pont est vide.\n"));
-        assert!(p4.contains("une des fins de l'histoire"));
+        assert!(p4.contains("<story_so_far>\nThe chest is gone!\n\nThe deck is empty.\n"));
+        assert!(p4.contains("one of the endings of the story"));
         let p1 = &prompts[1].1.user;
-        assert!(p1.contains("choisir entre : Chercher sur le pont ; Fouiller la cale"));
+        assert!(p1.contains("choose between: Search the deck; Search the hold"));
         // The review sees numbered paragraphs.
-        assert!(
-            prompts[5]
-                .1
-                .user
-                .contains("§1\nLe coffre a disparu !\n\n§2\n")
-        );
+        assert!(prompts[5].1.user.contains("§1\nThe chest is gone!\n\n§2\n"));
     }
 
     #[tokio::test]
     async fn interactive_review_rewrites_only_the_quoted_paragraph() {
         let issues = json!({"issues": [{
-            "excerpt": "avec   sa CLÉ", "problem": "pas de clé", "fix": "sans clé",
+            "excerpt": "with   his KEY", "problem": "no key", "fix": "without a key",
         }]});
         let generator = ScriptedGenerator::new(&[
             game_json("30 00 001", "p3"),
-            "Le coffre a disparu !".into(),
-            "Le pont est vide.".into(),
-            "Il ouvre le coffre avec sa clé.".into(),
-            "Du haut du mât, il le voit.".into(),
+            "The chest is gone!".into(),
+            "The deck is empty.".into(),
+            "He opens the chest with his key.".into(),
+            "From the top of the mast, he sees it.".into(),
             issues.to_string(),
-            "Il ouvre le coffre en tirant fort.".into(),
+            "He opens the chest by pulling hard.".into(),
         ]);
         let (story, recorder) = run(&generator, interactive()).await;
 
@@ -458,9 +453,9 @@ mod tests {
         assert_eq!(story.written.calls, 7);
         assert_eq!(
             story.written.scenes[2],
-            "Il ouvre le coffre en tirant fort."
+            "He opens the chest by pulling hard."
         );
-        assert_eq!(story.written.scenes[1], "Le pont est vide.");
+        assert_eq!(story.written.scenes[1], "The deck is empty.");
     }
 
     #[tokio::test]
@@ -468,13 +463,13 @@ mod tests {
         let generator = ScriptedGenerator::new(&[
             game_json("30 00 001", "p9"),
             game_json("30 00 001", "p1"), // a loop
-            "# Une histoire\n\nIl était une fois…".into(),
+            "# A story\n\nOnce upon a time…".into(),
         ]);
         let (story, recorder) = run(&generator, interactive()).await;
 
         assert_eq!(recorder.steps, ["plan", "plan-rejected", "plan-abandoned"]);
         let prompts = generator.prompts.lock().unwrap();
-        assert!(prompts[1].1.user.contains("« p9 », qui n'existe pas"));
+        assert!(prompts[1].1.user.contains("\"p9\", which does not exist"));
         assert!(story.written.paragraphs.is_empty());
         assert!(story.written.plan.is_none());
     }
@@ -496,12 +491,12 @@ mod tests {
             ..StoryOptions::default()
         };
         // The captain renamed: rejected, then named back.
-        let renamed = plan_json("30 00 001").replace("Barbe-Rousse", "Capitaine Crochet");
+        let renamed = plan_json("30 00 001").replace("Redbeard", "Captain Hook");
         let generator = ScriptedGenerator::new(&[
             renamed.clone(),
             renamed,
-            "Partie 1.".into(),
-            "Partie 2.".into(),
+            "Part 1.".into(),
+            "Part 2.".into(),
             r#"{"issues": []}"#.into(),
         ]);
         let pipeline = RagPipeline::new(FakeSource::default(), &generator);
@@ -521,16 +516,16 @@ mod tests {
             ["plan", "plan-rejected", "plan-repaired", "plan-ready"]
         );
         let plan = story.written.plan.unwrap();
-        assert_eq!(plan.characters[0].name, "Barbe-Rousse");
-        assert_eq!(plan.outline[0].characters, ["Barbe-Rousse"]);
+        assert_eq!(plan.characters[0].name, "Redbeard");
+        assert_eq!(plan.outline[0].characters, ["Redbeard"]);
         let prompts = generator.prompts.lock().unwrap();
         let plan_prompt = &prompts[0].1.user;
         assert!(plan_prompt.contains(
-            "<episodes_precedents>\nÉpisode 1 « Le trésor de Barbe-Rousse » : Un capitaine \
-             cherche son coffre.\n- Le coffre a disparu.\n- Il le retrouve.\n"
+            "<previous_episodes>\nEpisode 1 \"Redbeard's treasure\": A captain \
+             looks for his chest.\n- The chest has disappeared.\n- He finds it again.\n"
         ));
-        assert!(plan_prompt.contains("l'épisode 2 d'une saga"));
-        assert!(prompts[1].1.user.contains("s'appelait « Barbe-Rousse »"));
+        assert!(plan_prompt.contains("episode 2 of a saga"));
+        assert!(prompts[1].1.user.contains("was called \"Redbeard\""));
     }
 
     #[tokio::test]
@@ -544,8 +539,8 @@ mod tests {
         let generator = ScriptedGenerator::new(&[
             plan_json("30 00 001"),
             plan_json("30 00 001"),
-            "Partie 1.".into(),
-            "Partie 2.".into(),
+            "Part 1.".into(),
+            "Part 2.".into(),
             r#"{"issues": []}"#.into(),
         ]);
         let pipeline = RagPipeline::new(FakeSource::default(), &generator);
@@ -568,20 +563,20 @@ mod tests {
         assert_eq!(plan.outline[0].objects, ["30 00 002"]);
         let prompts = generator.prompts.lock().unwrap();
         assert!(prompts[0].1.user.contains(
-            "Pièce préférée de l'enfant : Treasure chest [réf. 30 00 002] ; donne-lui un \
-             rôle central"
+            "The child's favorite piece: Treasure chest [ref. 30 00 002]; give it a \
+             central role"
         ));
         assert!(
             prompts[1]
                 .1
                 .user
-                .contains("au moins 2 étapes sur 2, et non 1")
+                .contains("at least 2 steps out of 2, not 1")
         );
         assert!(
             prompts[2]
                 .1
                 .user
-                .contains("Objets de la boîte à utiliser : Treasure chest")
+                .contains("Objects from the box to use: Treasure chest")
         );
     }
 
@@ -590,8 +585,8 @@ mod tests {
         let generator = ScriptedGenerator::new(&[
             plan_json("99 99 999"),
             plan_json("30 00 001"),
-            "Partie 1.".into(),
-            "Partie 2.".into(),
+            "Part 1.".into(),
+            "Part 2.".into(),
             r#"{"issues": []}"#.into(),
         ]);
         let (story, recorder) = run(&generator, WriterOptions::default()).await;
@@ -602,7 +597,7 @@ mod tests {
             prompts[1]
                 .1
                 .user
-                .contains("« 99 99 999 » n'existe pas dans la boîte")
+                .contains("\"99 99 999\" does not exist in the box")
         );
         assert_eq!(story.written.calls, 5);
     }
@@ -610,22 +605,22 @@ mod tests {
     #[tokio::test]
     async fn several_sets_make_one_story() {
         let plan = json!({
-            "title": "Le chevalier et le pirate",
-            "premise": "Un chevalier rencontre un pirate.",
-            "setting": "Le château au bord de la mer.",
+            "title": "The knight and the pirate",
+            "premise": "A knight meets a pirate.",
+            "setting": "The castle by the sea.",
             "characters": [
-                {"name": "Arthur", "figure": "30 00 003", "portrait": "chevalier"},
-                {"name": "Barbe-Rousse", "figure": "30 00 001", "portrait": "pirate"},
+                {"name": "Arthur", "figure": "30 00 003", "portrait": "knight"},
+                {"name": "Redbeard", "figure": "30 00 001", "portrait": "pirate"},
             ],
             "outline": [
-                {"event": "Ils se rencontrent.", "characters": ["Arthur", "Barbe-Rousse"], "objects": ["30 00 004"]},
-                {"event": "Ils partagent le coffre.", "characters": ["Arthur", "Barbe-Rousse"], "objects": ["30 00 002"]},
+                {"event": "They meet.", "characters": ["Arthur", "Redbeard"], "objects": ["30 00 004"]},
+                {"event": "They share the chest.", "characters": ["Arthur", "Redbeard"], "objects": ["30 00 002"]},
             ],
         });
         let generator = ScriptedGenerator::new(&[
             plan.to_string(),
-            "Partie 1.".into(),
-            "Partie 2.".into(),
+            "Part 1.".into(),
+            "Part 2.".into(),
             r#"{"issues": []}"#.into(),
         ]);
         let pipeline = RagPipeline::new(FakeSource::default(), &generator);
@@ -654,16 +649,16 @@ mod tests {
 
         let prompts = generator.prompts.lock().unwrap();
         let plan_prompt = &prompts[0].1.user;
-        assert_eq!(plan_prompt.matches("<set numero=").count(), 2);
+        assert_eq!(plan_prompt.matches("<set number=").count(), 2);
         assert!(plan_prompt.contains(
-            "les 2 sets Playmobil décrits ci-dessus, réunis : 3666 « Kings Large Castle », \
-             5135 « Pirate Ship »"
+            "the 2 Playmobil sets described above, together: 3666 \"Kings Large Castle\", \
+             5135 \"Pirate Ship\""
         ));
 
         let text = &story.written.generation.text;
-        assert!(text.contains("- Arthur — Knight (boîte 3666)\n"));
-        assert!(text.contains("- Barbe-Rousse — Pirate captain (boîte 5135)\n"));
-        assert!(text.contains("- 1× Horse (boîte 3666)\n- 1× Treasure chest (boîte 5135)\n"));
+        assert!(text.contains("- Arthur — Knight (box 3666)\n"));
+        assert!(text.contains("- Redbeard — Pirate captain (box 5135)\n"));
+        assert!(text.contains("- 1× Horse (box 3666)\n- 1× Treasure chest (box 5135)\n"));
     }
 
     #[tokio::test]
@@ -673,73 +668,64 @@ mod tests {
         let generator = ScriptedGenerator::new(&[
             plan_json("99 99 999"),
             r#"{"characters": [], "outline": []}"#.into(),
-            "# Une histoire\n\nIl était une fois…".into(),
+            "# A story\n\nOnce upon a time…".into(),
         ]);
         let (story, recorder) = run(&generator, WriterOptions::default()).await;
 
         assert_eq!(recorder.steps, ["plan", "plan-rejected", "plan-abandoned"]);
         assert_eq!(
             story.written.generation.text,
-            "# Une histoire\n\nIl était une fois…"
+            "# A story\n\nOnce upon a time…"
         );
         assert_eq!(recorder.text, story.written.generation.text);
         assert!(story.written.plan.is_none());
         assert_eq!(story.written.calls, 3);
         let prompts = generator.prompts.lock().unwrap();
-        assert!(
-            prompts[2].1.system.contains("Dans ta boîte"),
-            "direct prompt"
-        );
+        assert!(prompts[2].1.system.contains("In your box"), "direct prompt");
     }
 
     #[tokio::test]
     async fn unreadable_review_keeps_the_draft() {
         let generator = ScriptedGenerator::new(&[
             plan_json("30 00 001"),
-            "Partie 1.".into(),
-            "Partie 2.".into(),
-            "Tout est fidèle, bravo !".into(),
+            "Part 1.".into(),
+            "Part 2.".into(),
+            "Everything is faithful, well done!".into(),
         ]);
         let (story, recorder) = run(&generator, WriterOptions::default()).await;
 
         assert_eq!(recorder.steps.last().unwrap(), "review-unreadable");
-        assert!(
-            story
-                .written
-                .generation
-                .text
-                .contains("Partie 1.\n\nPartie 2.")
-        );
+        assert!(story.written.generation.text.contains("Part 1.\n\nPart 2."));
         assert!(story.written.issues.is_empty());
     }
 
     #[tokio::test]
     async fn review_issues_trigger_one_revision() {
         let issues = json!({"issues": [{
-            "excerpt": "trois chevaux",
-            "problem": "la boîte ne contient pas de cheval",
-            "fix": "retirer les chevaux",
+            "excerpt": "three horses",
+            "problem": "the box holds no horse",
+            "fix": "remove the horses",
         }]});
         let generator = ScriptedGenerator::new(&[
             plan_json("30 00 001"),
-            "Il part avec trois chevaux.".into(),
-            "Il trouve le coffre.".into(),
+            "He leaves with three horses.".into(),
+            "He finds the chest.".into(),
             issues.to_string(),
-            "Il part à pied.\n\nIl trouve le coffre.".into(),
+            "He leaves on foot.\n\nHe finds the chest.".into(),
         ]);
         let (story, recorder) = run(&generator, WriterOptions::default()).await;
 
         assert_eq!(recorder.steps.last().unwrap(), "revise");
         assert_eq!(story.written.issues.len(), 1);
         let text = &story.written.generation.text;
-        assert!(text.contains("Il part à pied."));
-        assert!(!text.contains("chevaux"));
+        assert!(text.contains("He leaves on foot."));
+        assert!(!text.contains("horses"));
         let prompts = generator.prompts.lock().unwrap();
         assert!(
             prompts[4]
                 .1
                 .user
-                .contains("« trois chevaux » : la boîte ne contient pas de cheval")
+                .contains("\"three horses\": the box holds no horse")
         );
     }
 }

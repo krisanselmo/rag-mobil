@@ -1,7 +1,7 @@
 //! The story as a standalone HTML page, to read on screen or print: the
 //! Markdown story, with the pictures of the parts (the `image` field of the
 //! inventory) in the scene setups, in "In your box", and in place of each
-//! `[réf. …]` citation.
+//! `[ref. …]` citation.
 //!
 //! Printed (or saved as PDF), it is a booklet: a cover with the cast, one
 //! page per scene, and "In your box" as a checklist, with page numbers.
@@ -154,7 +154,7 @@ fn page(title: &str, body: &str, collection: &Collection, texts: &Texts, layout:
 /// Markdown to HTML; citations become pictures, raw HTML becomes text, and
 /// a line break is kept (dialogue lines).
 fn markdown(text: &str, collection: &Collection) -> String {
-    // Merge consecutive texts: the parser splits `[réf. …]` at the brackets.
+    // Merge consecutive texts: the parser splits `[ref. …]` at the brackets.
     let mut events: Vec<Event<'_>> = Vec::new();
     for event in Parser::new(text) {
         let event = match event {
@@ -178,14 +178,23 @@ fn markdown(text: &str, collection: &Collection) -> String {
     html
 }
 
-const CITATION: &str = "[réf.";
+/// `[réf.` is the marker of stories written before the English prompts.
+const CITATIONS: [&str; 2] = ["[ref.", "[réf."];
 
-/// Splits a text around its `[réf. …]` citations, each reference becoming a
+/// The first citation marker in `text`: its position and length.
+fn find_citation(text: &str) -> Option<(usize, usize)> {
+    CITATIONS
+        .iter()
+        .filter_map(|marker| text.find(marker).map(|at| (at, marker.len())))
+        .min()
+}
+
+/// Splits a text around its `[ref. …]` citations, each reference becoming a
 /// thumbnail (or a label when the part has no picture).
 fn citations<'a>(text: &str, collection: &Collection) -> Vec<Event<'a>> {
     let mut events = Vec::new();
     let mut rest = text;
-    while let Some(start) = rest.find(CITATION) {
+    while let Some((start, marker)) = find_citation(rest) {
         let Some(len) = rest[start..].find(']') else {
             break;
         };
@@ -193,14 +202,14 @@ fn citations<'a>(text: &str, collection: &Collection) -> Vec<Event<'a>> {
         if !before.is_empty() {
             events.push(Event::Text(CowStr::from(before.to_owned())));
         }
-        let references = &rest[start + CITATION.len()..start + len];
+        let references = &rest[start + marker..start + len];
         let html: String = references
             .split(',')
             .map(str::trim)
             .filter(|r| !r.is_empty())
             .map(|reference| match find_part(collection, reference) {
                 Some(part) => thumbnail(part),
-                None => format!("<span class=\"ref\">réf. {}</span>", escape(reference)),
+                None => format!("<span class=\"ref\">ref. {}</span>", escape(reference)),
             })
             .collect();
         events.push(Event::InlineHtml(CowStr::from(html)));
@@ -214,14 +223,14 @@ fn citations<'a>(text: &str, collection: &Collection) -> Vec<Event<'a>> {
 
 /// A small inline picture of a part, with its name and reference on hover.
 fn thumbnail(part: &Part) -> String {
-    let tip = escape(&format!("{} — réf. {}", part_label(part), part.number));
+    let tip = escape(&format!("{} — ref. {}", part_label(part), part.number));
     match image(part) {
         Some(src) => format!(
             "<img class=\"ref\" src=\"{src}\" alt=\"{alt}\" title=\"{tip}\" loading=\"lazy\">",
             alt = escape(&part_label(part)),
         ),
         None => format!(
-            "<span class=\"ref\" title=\"{tip}\">réf. {}</span>",
+            "<span class=\"ref\" title=\"{tip}\">ref. {}</span>",
             escape(&part.number)
         ),
     }
@@ -291,7 +300,7 @@ fn card(pieces: &[&Part], caption: &str, check: Option<&str>) -> String {
     let references: Vec<&str> = pieces.iter().map(|p| p.number.as_str()).collect();
     let _ = write!(
         out,
-        "<figcaption>{caption}<small>réf. {}</small></figcaption></figure></li>",
+        "<figcaption>{caption}<small>ref. {}</small></figcaption></figure></li>",
         escape(&references.join(", "))
     );
     out
@@ -627,6 +636,13 @@ mod tests {
     use crate::writer::Written;
     use crate::writer::plan::tests::{inventory, valid_plan};
 
+    fn options(language: &str) -> StoryOptions {
+        StoryOptions {
+            language: language.into(),
+            ..StoryOptions::default()
+        }
+    }
+
     fn story(text: &str, plan: bool, scenes: &[&str], staged: bool) -> Story {
         let mut inventory = inventory();
         inventory.parts[0].image = Some("https://playmodb.org/pics/30004960.jpg".into());
@@ -656,31 +672,31 @@ mod tests {
             "",
             true,
             &[
-                "Léon sonne <b>fort</b>.\n— Debout !",
-                "Rose trouve le cheval.",
+                "Leon blows <b>hard</b>.\n— Wake up!",
+                "Rose finds the horse.",
             ],
             true,
         );
-        let html = render(&story, &StoryOptions::default(), Layout::Booklet);
-        assert!(html.starts_with("<!doctype html>\n<html lang=\"fr\">"));
-        assert!(html.contains("<title>Le cheval perdu</title>"));
+        let html = render(&story, &options("English"), Layout::Booklet);
+        assert!(html.starts_with("<!doctype html>\n<html lang=\"en\">"));
+        assert!(html.contains("<title>The lost horse</title>"));
         // The cover: title, cast, premise, boxes.
         assert!(html.contains(
-            "<header class=\"cover\">\n<p class=\"kicker\">Une histoire à rejouer avec ta \
-             boîte Playmobil</p>\n<h1>Le cheval perdu</h1>\n<ul class=\"cast\"><li><img \
-             src=\"https://playmodb.org/pics/30004960.jpg\" alt=\"\"><b>Léon</b></li><li>\
+            "<header class=\"cover\">\n<p class=\"kicker\">A story to play with your \
+             Playmobil box</p>\n<h1>The lost horse</h1>\n<ul class=\"cast\"><li><img \
+             src=\"https://playmodb.org/pics/30004960.jpg\" alt=\"\"><b>Leon</b></li><li>\
              <span class=\"no-image\" aria-hidden=\"true\">🧩</span><b>Rose</b></li></ul>\n\
-             <p class=\"premise\">Le cheval du château a disparu.</p>\n\
-             <p class=\"boxes\">3666 « Kings Large Castle »</p>\n</header>"
+             <p class=\"premise\">The castle horse has disappeared.</p>\n\
+             <p class=\"boxes\">3666 &quot;Kings Large Castle&quot;</p>\n</header>"
         ));
         assert_eq!(html.matches("<h1>").count(), 1);
         // One section per scene, its setup first.
         assert_eq!(html.matches("<section class=\"scene\">").count(), 2);
         assert!(html.contains("<section class=\"scene\">\n<aside class=\"setup\">"));
         // Raw HTML from the model is text.
-        assert!(html.contains("<p>Léon sonne &lt;b&gt;fort&lt;/b&gt;.<br />\n— Debout !</p>"));
+        assert!(html.contains("<p>Leon blows &lt;b&gt;hard&lt;/b&gt;.<br />\n— Wake up!</p>"));
         assert_eq!(html.matches("<aside class=\"setup\">").count(), 2);
-        assert!(html.contains("<h3>🧱 Mise en place</h3>"));
+        assert!(html.contains("<h3>🧱 Set the scene</h3>"));
         // The trumpeter's picture: on the cover, in both setups, in the box.
         assert_eq!(
             html.matches("<img src=\"https://playmodb.org/pics/30004960.jpg\"")
@@ -689,74 +705,74 @@ mod tests {
         );
         // Only http(s) pictures.
         assert!(!html.contains("javascript:"));
-        assert!(html.contains("<h2>Dans ta boîte</h2>"));
-        assert!(html.contains("<b>4×</b>Halberd<small>réf. 30 07 640</small>"));
+        assert!(html.contains("<h2>In your box</h2>"));
+        assert!(html.contains("<b>4×</b>Halberd<small>ref. 30 07 640</small>"));
         // "In your box" is a checklist; the setups aren't.
-        assert!(html.contains("<p class=\"tick\">Coche chaque pièce quand tu l'as trouvée.</p>"));
+        assert!(html.contains("<p class=\"tick\">Tick each piece once you have found it.</p>"));
         assert!(
-            html.contains("<li><figure><input type=\"checkbox\" aria-label=\"Halberd — trouvée\">")
+            html.contains("<li><figure><input type=\"checkbox\" aria-label=\"Halberd — found\">")
         );
         let box_start = html.find("<section class=\"box\">").unwrap();
         assert!(!html[..box_start].contains("checkbox"));
-        let setups = html.find("Mise en place").unwrap();
-        assert!(setups < html.find("Rose trouve").unwrap());
+        let setups = html.find("Set the scene").unwrap();
+        assert!(setups < html.find("Rose finds").unwrap());
     }
 
     #[test]
     fn unstaged_story_has_no_setup() {
-        let story = story("", true, &["Une seule partie."], false);
-        let html = render(&story, &StoryOptions::default(), Layout::Booklet);
+        let story = story("", true, &["A single part."], false);
+        let html = render(&story, &options("English"), Layout::Booklet);
         assert!(!html.contains("class=\"setup\""));
-        assert!(html.contains("<section class=\"scene\">\n<p>Une seule partie.</p>\n</section>"));
+        assert!(html.contains("<section class=\"scene\">\n<p>A single part.</p>\n</section>"));
     }
 
     #[test]
     fn citations_become_pictures() {
         let story = story(
-            "# Le trompettiste\n\nLéon [réf. 30 00 496] joue, la hallebarde \
-             [réf. 30 07 640, 99 99 999] à la main.",
+            "# The trumpeter\n\nLeon [ref. 30 00 496] plays, the halberd \
+             [réf. 30 07 640, 99 99 999] in hand.",
             false,
             &[],
             false,
         );
-        let html = render(&story, &StoryOptions::default(), Layout::Booklet);
-        assert!(html.contains("<title>Le trompettiste</title>"));
+        let html = render(&story, &options("English"), Layout::Booklet);
+        assert!(html.contains("<title>The trumpeter</title>"));
         assert_eq!(html.matches("<h1>").count(), 1, "the text's own title");
         assert!(html.contains(
-            "<p>Léon<img class=\"ref\" src=\"https://playmodb.org/pics/30004960.jpg\" \
-             alt=\"Castle Trumpeter\" title=\"Castle Trumpeter — réf. 30 00 496\" \
-             loading=\"lazy\"> joue, la hallebarde<span class=\"ref\" \
-             title=\"Halberd — réf. 30 07 640\">réf. 30 07 640</span>\
-             <span class=\"ref\">réf. 99 99 999</span> à la main.</p>"
+            "<p>Leon<img class=\"ref\" src=\"https://playmodb.org/pics/30004960.jpg\" \
+             alt=\"Castle Trumpeter\" title=\"Castle Trumpeter — ref. 30 00 496\" \
+             loading=\"lazy\"> plays, the halberd<span class=\"ref\" \
+             title=\"Halberd — ref. 30 07 640\">ref. 30 07 640</span>\
+             <span class=\"ref\">ref. 99 99 999</span> in hand.</p>"
         ));
     }
 
     #[test]
     fn interactive_story_links_its_paragraphs() {
         use crate::writer::Paragraph;
-        let mut story = story("", true, &["Début <i>!</i>", "Fin heureuse."], false);
+        let mut story = story("", true, &["Start <i>!</i>", "Happy ending."], false);
         story.written.paragraphs = vec![
             Paragraph {
-                choices: vec![("Suivre <le> cheval".into(), 2)],
+                choices: vec![("Follow <the> horse".into(), 2)],
             },
             Paragraph { choices: vec![] },
         ];
-        let html = render(&story, &StoryOptions::default(), Layout::Booklet);
-        assert!(html.contains("<p class=\"how\">🎲 C'est toi qui choisis la suite"));
+        let html = render(&story, &options("English"), Layout::Booklet);
+        assert!(html.contains("<p class=\"how\">🎲 You choose what happens"));
         assert!(
             html.contains("<section class=\"paragraph\" id=\"p1\">\n<h2 class=\"number\">1</h2>")
         );
         assert!(html.contains(
-            "<li><a href=\"#p2\">Suivre &lt;le&gt; cheval <span>→ va au <b>2</b></span></a></li>"
+            "<li><a href=\"#p2\">Follow &lt;the&gt; horse <span>→ go to <b>2</b></span></a></li>"
         ));
-        assert!(html.contains("<p class=\"end\">— Fin —</p>"));
+        assert!(html.contains("<p class=\"end\">— The End —</p>"));
         assert!(!html.contains("class=\"scene\""));
         assert!(!html.contains("class=\"setup\""), "not staged");
     }
 
     #[test]
     fn compact_layout_is_a_class() {
-        let story = story("", true, &["Une partie."], false);
+        let story = story("", true, &["One part."], false);
         let booklet = render(&story, &StoryOptions::default(), Layout::Booklet);
         let compact = render(&story, &StoryOptions::default(), Layout::Compact);
         assert!(booklet.contains("<body class=\"booklet\">"));
@@ -770,15 +786,15 @@ mod tests {
     }
 
     #[test]
-    fn english_labels() {
-        let story = story("", true, &["One.", "Two."], true);
-        let options = StoryOptions {
-            language: "English".into(),
-            ..StoryOptions::default()
-        };
-        let html = render(&story, &options, Layout::Booklet);
-        assert!(html.contains("<html lang=\"en\">"));
-        assert!(html.contains("Set the scene"));
-        assert!(html.contains("<h2>In your box</h2>"));
+    fn french_labels() {
+        let story = story("", true, &["Un.", "Deux."], true);
+        let html = render(&story, &options("français"), Layout::Booklet);
+        assert!(html.contains("<html lang=\"fr\">"));
+        assert!(
+            html.contains("<p class=\"kicker\">Une histoire à rejouer avec ta boîte Playmobil</p>")
+        );
+        assert!(html.contains("Mise en place"));
+        assert!(html.contains("<h2>Dans ta boîte</h2>"));
+        assert!(html.contains("<p class=\"tick\">Coche chaque pièce quand tu l'as trouvée.</p>"));
     }
 }

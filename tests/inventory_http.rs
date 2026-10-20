@@ -132,7 +132,7 @@ async fn malformed_json_is_an_error() {
         (
             "/api/inventories/1",
             200,
-            "<html>pas du JSON</html>".to_owned(),
+            "<html>not JSON</html>".to_owned(),
         ),
         // Valid JSON, but a required field (`parts`) is missing.
         (
@@ -164,7 +164,7 @@ async fn another_set_in_the_body_is_an_error() {
     let RagError::InvalidInventory { reason, .. } = &err else {
         panic!("{err:?}");
     };
-    assert_eq!(reason, "set 3666 demandé, set 3799 reçu");
+    assert_eq!(reason, "set 3666 requested, set 3799 received");
 }
 
 #[tokio::test]
@@ -181,7 +181,7 @@ async fn empty_inventory_is_an_error() {
 fn template_without_placeholder_is_rejected() {
     for bad in [
         "http://127.0.0.1:8096/api/inventories/",
-        "pas une adresse {set}",
+        "not an address {set}",
     ] {
         assert!(matches!(
             HttpJson::new(bad),

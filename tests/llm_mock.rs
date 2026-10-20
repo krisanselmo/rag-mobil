@@ -136,8 +136,8 @@ fn generator(url: String, fallback: Option<&str>) -> LlmGenerator {
 
 fn prompt() -> Prompt {
     Prompt {
-        system: "Tu es un conteur.".into(),
-        user: "<set numero=\"3666\"></set>\nÉcris une histoire.".into(),
+        system: "You are a storyteller.".into(),
+        user: "<set number=\"3666\"></set>\nWrite a story.".into(),
     }
 }
 
@@ -145,7 +145,7 @@ fn prompt() -> Prompt {
 async fn streams_story_and_sends_claude_settings() {
     let (url, recorded) = mock_server(vec![claude_stream(
         "claude-opus-5-5",
-        &["Il était ", "une fois…"],
+        &["Once upon ", "a time…"],
         "end_turn",
     )])
     .await;
@@ -156,7 +156,7 @@ async fn streams_story_and_sends_claude_settings() {
         .await
         .unwrap();
 
-    assert_eq!(generation.text, "Il était une fois…");
+    assert_eq!(generation.text, "Once upon a time…");
     assert_eq!(streamed, generation.text);
     assert_eq!(generation.model, "claude-opus-5-5");
     // genai adds message_start's output_tokens (1) to message_delta's
@@ -175,16 +175,20 @@ async fn streams_story_and_sends_claude_settings() {
     assert_eq!(body["max_tokens"], 64_000);
     assert_eq!(body["thinking"], json!({"type": "adaptive"}));
     assert_eq!(body["output_config"]["effort"], "medium");
-    assert!(body["system"].to_string().contains("Tu es un conteur."));
+    assert!(
+        body["system"]
+            .to_string()
+            .contains("You are a storyteller.")
+    );
     assert_eq!(body["messages"][0]["role"], "user");
-    assert!(body["messages"][0].to_string().contains("numero"));
+    assert!(body["messages"][0].to_string().contains("number"));
 }
 
 #[tokio::test]
 async fn retries_once_on_fallback_model_after_refusal() {
     let (url, recorded) = mock_server(vec![
         claude_stream("claude-opus-5-5", &["Partiel"], "refusal"),
-        claude_stream("claude-opus-4-8", &["Histoire complète."], "end_turn"),
+        claude_stream("claude-opus-4-8", &["Complete story."], "end_turn"),
     ])
     .await;
 
@@ -193,7 +197,7 @@ async fn retries_once_on_fallback_model_after_refusal() {
         .await
         .unwrap();
 
-    assert_eq!(generation.text, "Histoire complète.");
+    assert_eq!(generation.text, "Complete story.");
     assert_eq!(generation.model, "claude-opus-4-8");
     let requests = recorded.lock().unwrap();
     assert_eq!(requests.len(), 2);
@@ -220,7 +224,7 @@ async fn refusal_without_fallback_is_an_error() {
 async fn max_tokens_marks_story_truncated() {
     let (url, _) = mock_server(vec![claude_stream(
         "claude-opus-5-5",
-        &["Il était"],
+        &["Once upon"],
         "max_tokens",
     )])
     .await;
@@ -296,7 +300,7 @@ fn local_generator(url: &str) -> LlmGenerator {
 async fn openai_compatible_server_gets_the_story_request() {
     let (url, recorded) = mock_server(vec![openai_stream(
         "ministral-3-3b",
-        &["Il était ", "une fois…"],
+        &["Once upon ", "a time…"],
     )])
     .await;
 
@@ -304,7 +308,7 @@ async fn openai_compatible_server_gets_the_story_request() {
         .generate(&prompt(), |_| {})
         .await
         .unwrap();
-    assert_eq!(generation.text, "Il était une fois…");
+    assert_eq!(generation.text, "Once upon a time…");
 
     let requests = recorded.lock().unwrap();
     let request = &requests[0];
@@ -315,7 +319,7 @@ async fn openai_compatible_server_gets_the_story_request() {
     assert!(
         request.body["messages"]
             .to_string()
-            .contains("Tu es un conteur.")
+            .contains("You are a storyteller.")
     );
 }
 

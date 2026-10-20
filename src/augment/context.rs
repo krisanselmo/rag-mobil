@@ -28,9 +28,9 @@ fn render_part(out: &mut String, part: &Part) {
     if let Some(color) = &part.color {
         let _ = write!(out, " ({color})");
     }
-    let _ = write!(out, " [réf. {}]", part.number);
+    let _ = write!(out, " [ref. {}]", part.number);
     if !part.components.is_empty() {
-        let _ = write!(out, " — avec : {}", part.components.join(" ; "));
+        let _ = write!(out, " — with: {}", part.components.join("; "));
     }
     out.push('\n');
 }
@@ -64,7 +64,7 @@ fn set_context(inventory: &SetInventory, options: &ContextOptions) -> String {
     let mut out = String::new();
     let _ = write!(
         out,
-        "<set numero=\"{}\" nom=\"{}\"",
+        "<set number=\"{}\" name=\"{}\"",
         inventory.set_number,
         attr(&inventory.name)
     );
@@ -72,22 +72,22 @@ fn set_context(inventory: &SetInventory, options: &ContextOptions) -> String {
         let _ = write!(out, " theme=\"{}\"", attr(theme));
     }
     if let Some(focus) = &inventory.focus {
-        let _ = write!(out, " sous_theme=\"{}\"", attr(focus));
+        let _ = write!(out, " subtheme=\"{}\"", attr(focus));
     }
     if let Some(date) = &inventory.release_date {
-        let _ = write!(out, " sortie=\"{}\"", attr(date));
+        let _ = write!(out, " released=\"{}\"", attr(date));
     }
     let _ = writeln!(out, " source=\"{}\">", attr(&inventory.source_url));
 
-    out.push_str("<personnages>\n");
+    out.push_str("<characters>\n");
     let mut figures = inventory.figures().filter(keep).peekable();
     if figures.peek().is_none() {
-        out.push_str("(aucune figurine listée dans l'inventaire)\n");
+        out.push_str("(no figure listed in the inventory)\n");
     }
     for part in figures {
         render_part(&mut out, part);
     }
-    out.push_str("</personnages>\n");
+    out.push_str("</characters>\n");
 
     // BTreeMap: stable, alphabetical category order => deterministic prompt.
     let mut by_category: BTreeMap<&str, Vec<&Part>> = BTreeMap::new();
@@ -100,7 +100,7 @@ fn set_context(inventory: &SetInventory, options: &ContextOptions) -> String {
         by_category.entry(&part.category).or_default().push(part);
     }
     for (category, parts) in by_category {
-        let _ = writeln!(out, "<pieces categorie=\"{}\">", attr(category));
+        let _ = writeln!(out, "<pieces category=\"{}\">", attr(category));
         for part in parts {
             render_part(&mut out, part);
         }
@@ -147,11 +147,11 @@ mod tests {
     #[test]
     fn figures_come_first_and_paper_is_dropped() {
         let ctx = build_context(&inventory().into(), &ContextOptions::default());
-        let figures = ctx.find("<personnages>").unwrap();
+        let figures = ctx.find("<characters>").unwrap();
         let trumpeter = ctx.find("Castle Trumpeter").unwrap();
         let halberd = ctx.find("Halberd").unwrap();
         assert!(figures < trumpeter && trumpeter < halberd);
-        assert!(ctx.contains("4× Halberd (red) [réf. 30 00 000]"));
+        assert!(ctx.contains("4× Halberd (red) [ref. 30 00 000]"));
         assert!(ctx.contains("?× Throne"));
         assert!(!ctx.contains("Instructions"));
     }
@@ -171,7 +171,7 @@ mod tests {
             &Collection::new(vec![inventory(), other]),
             &ContextOptions::default(),
         );
-        assert_eq!(ctx.matches("<set numero=").count(), 2);
-        assert!(ctx.contains("</set>\n<set numero=\"5135\" nom=\"Pirates Ship\""));
+        assert_eq!(ctx.matches("<set number=").count(), 2);
+        assert!(ctx.contains("</set>\n<set number=\"5135\" name=\"Pirates Ship\""));
     }
 }

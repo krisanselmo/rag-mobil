@@ -30,16 +30,12 @@ fn golden(path: &Path, actual: &str) {
         std::fs::write(path, actual).unwrap();
         return;
     }
-    let expected = std::fs::read_to_string(path).unwrap_or_else(|_| {
-        panic!(
-            "{} manquant (UPDATE_GOLDEN=1 pour le créer)",
-            path.display()
-        )
-    });
+    let expected = std::fs::read_to_string(path)
+        .unwrap_or_else(|_| panic!("{} missing (UPDATE_GOLDEN=1 to create it)", path.display()));
     assert!(
         expected == actual,
-        "{} diffère de la sortie actuelle (UPDATE_GOLDEN=1 si le changement est voulu)\n\
-         --- attendu ---\n{expected}\n--- obtenu ---\n{actual}",
+        "{} differs from the current output (UPDATE_GOLDEN=1 if the change is intended)\n\
+         --- expected ---\n{expected}\n--- actual ---\n{actual}",
         path.display()
     );
 }
@@ -88,7 +84,7 @@ async fn replay(sets: &[&str]) -> Story {
     let expected_count = std::fs::read_dir(dir.join("expected/prompts"))
         .unwrap()
         .count();
-    assert_eq!(names.len(), expected_count, "nombre d'appels au LLM");
+    assert_eq!(names.len(), expected_count, "number of LLM calls");
     let _ = std::fs::remove_dir_all(&prompts);
     story
 }
@@ -106,9 +102,9 @@ async fn set_3799_pirates_secret_island() {
 
     // The review caught the key that isn't in the box; the revision fixed it.
     assert_eq!(written.issues.len(), 1);
-    assert!(written.issues[0].excerpt.contains("tourna la clé"));
-    assert!(!text.contains("tourna la clé"));
-    assert!(text.contains("fit glisser le loquet de la serrure"));
+    assert!(written.issues[0].excerpt.contains("turned the key"));
+    assert!(!text.contains("turned the key"));
+    assert!(text.contains("slid the latch of the lock"));
 
     // "In your box" completes objects split in several pieces.
     assert!(text.contains("- 1× Parrot body (light blue)\n- 1× Parrot wings (yellow)\n"));
@@ -131,15 +127,15 @@ async fn sets_3799_and_70145_mixed() {
     // Characters from both boxes, accepted by the plan validation.
     let plan = written.plan.as_ref().unwrap();
     assert_eq!(plan.characters.len(), 4);
-    assert!(text.contains("- Pépin — Pirate, red vest and ponytail (boîte 3799)\n"));
-    assert!(text.contains("- Marine — (no name) (boîte 70145)\n"));
+    assert!(text.contains("- Pépin — Pirate, red vest and ponytail (box 3799)\n"));
+    assert!(text.contains("- Marine — (no name) (box 70145)\n"));
 
     // The review caught a fishing float and a diving lamp, in neither box.
     assert_eq!(written.issues.len(), 2);
-    assert!(!text.contains("bouchon"));
-    assert!(!text.contains("en éclairant"));
+    assert!(!text.contains("float"));
+    assert!(!text.contains("lighting up"));
 
     // Each object says which box to look in.
-    assert!(text.contains("- 2× Sea turtle (brown/tan) (boîte 3799)\n"));
-    assert!(text.contains("- Diver's scuba airtank (grey) (boîte 70145)\n"));
+    assert!(text.contains("- 2× Sea turtle (brown/tan) (box 3799)\n"));
+    assert!(text.contains("- Diver's scuba airtank (grey) (box 70145)\n"));
 }

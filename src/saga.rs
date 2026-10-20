@@ -116,11 +116,11 @@ impl Saga {
         if self.is_empty() {
             return String::new();
         }
-        let mut out = String::from("<episodes_precedents>\n");
+        let mut out = String::from("<previous_episodes>\n");
         for (i, episode) in self.episodes.iter().enumerate() {
             let _ = writeln!(
                 out,
-                "Épisode {} « {} » : {}",
+                "Episode {} \"{}\": {}",
                 i + 1,
                 episode.title,
                 episode.premise
@@ -134,12 +134,12 @@ impl Saga {
             .into_iter()
             .partition(|c| find_part(collection, &c.figure).is_some());
         if !present.is_empty() {
-            out.push_str("Personnages déjà connus, dont la figurine est dans la boîte :\n");
+            out.push_str("Characters already known, whose figure is in the box:\n");
             for c in present {
                 let figure = find_part(collection, &c.figure).expect("partitioned");
                 let _ = writeln!(
                     out,
-                    "- {} : figurine {} [réf. {}] ; {}",
+                    "- {}: figure {} [ref. {}]; {}",
                     c.name.trim(),
                     part_label(figure),
                     figure.number,
@@ -151,12 +151,12 @@ impl Saga {
             let names: Vec<&str> = absent.iter().map(|c| c.name.trim()).collect();
             let _ = writeln!(
                 out,
-                "Personnages déjà connus dont la figurine n'est pas dans la boîte (ils ne \
-                 peuvent être qu'évoqués) : {}",
+                "Characters already known whose figure is not in the box (they can only \
+                 be mentioned): {}",
                 names.join(", ")
             );
         }
-        out.push_str("</episodes_precedents>");
+        out.push_str("</previous_episodes>");
         out
     }
 
@@ -166,10 +166,10 @@ impl Saga {
             return String::new();
         }
         format!(
-            "Cette histoire est l'épisode {} d'une saga : elle fait suite aux épisodes \
-             décrits dans <episodes_precedents>, sans en répéter l'intrigue. Un personnage \
-             déjà connu garde son nom et son caractère, et reste joué par la même \
-             figurine ; une autre figurine reçoit un nouveau nom.",
+            "This story is episode {} of a saga: it follows on from the episodes \
+             described in <previous_episodes>, without repeating their plot. A character \
+             already known keeps their name and personality, and is still played by the \
+             same figure; another figure gets a new name.",
             self.next_number()
         )
     }
@@ -193,8 +193,8 @@ impl Saga {
                 && *former != figure
             {
                 errors.push(format!(
-                    "« {} » était joué par une autre figurine dans les épisodes précédents : \
-                     donne un autre nom à la figurine {} ({})",
+                    "\"{}\" was played by another figure in the previous episodes: give \
+                     another name to figure {} ({})",
                     c.name, part.number, part.name
                 ));
             }
@@ -218,8 +218,8 @@ impl Saga {
                 .zip(unused)
             {
                 errors.push(format!(
-                    "la figurine {} s'appelait « {name} » dans les épisodes précédents : \
-                     garde ce nom au lieu de « {} »",
+                    "figure {} was called \"{name}\" in the previous episodes: keep that \
+                     name instead of \"{}\"",
                     c.figure, c.name
                 ));
             }
@@ -295,14 +295,16 @@ mod tests {
         let saga = saga();
         let context = saga.context(&boxes.into());
         assert!(context.starts_with(
-            "<episodes_precedents>\nÉpisode 1 « Le cheval perdu » : Le cheval du château a \
-             disparu.\n- Léon sonne l'alerte.\n"
+            "<previous_episodes>\nEpisode 1 \"The lost horse\": The castle horse has \
+             disappeared.\n- Leon sounds the alarm.\n"
         ));
-        assert!(context.contains(
-            "- Gaspard : figurine Castle Trumpeter [réf. 30 00 496] ; trompettiste joyeux\n"
-        ));
-        assert!(context.contains("ne peuvent être qu'évoqués) : Rose\n"));
-        assert!(saga.request().contains("l'épisode 2 d'une saga"));
+        assert!(
+            context.contains(
+                "- Gaspard: figure Castle Trumpeter [ref. 30 00 496]; cheerful trumpeter\n"
+            )
+        );
+        assert!(context.contains("can only be mentioned): Rose\n"));
+        assert!(saga.request().contains("episode 2 of a saga"));
         assert!(Saga::default().context(&inventory().into()).is_empty());
     }
 
@@ -310,15 +312,15 @@ mod tests {
     fn recurring_figures_keep_their_names() {
         let boxes: Collection = inventory().into();
         let saga = saga();
-        let mut plan = valid_plan(); // the trumpeter is "Léon" again
+        let mut plan = valid_plan(); // the trumpeter is "Leon" again
         let errors = saga.validate(&plan, &boxes);
         assert_eq!(errors.len(), 1, "{errors:#?}");
-        assert!(errors[0].contains("s'appelait « Gaspard »"));
+        assert!(errors[0].contains("was called \"Gaspard\""));
 
         plan.characters[0].name = "Gaspard".into();
         for step in &mut plan.outline {
             for name in &mut step.characters {
-                if name.eq_ignore_ascii_case("léon") {
+                if name.eq_ignore_ascii_case("leon") {
                     *name = "Gaspard".into();
                 }
             }
@@ -329,7 +331,7 @@ mod tests {
         plan.characters[0].name = "Rose".into();
         plan.characters[1].name = "Lili".into();
         let errors = saga.validate(&plan, &boxes);
-        assert!(errors.iter().any(|e| e.contains("« Rose » était joué")));
+        assert!(errors.iter().any(|e| e.contains("\"Rose\" was played")));
     }
 
     #[test]

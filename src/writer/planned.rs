@@ -80,7 +80,7 @@ async fn make_plan<G: StoryGenerator, O: Observer>(
             }
             errors
         }
-        Err(err) => vec![format!("ta réponse n'est pas un JSON valide ({err})")],
+        Err(err) => vec![format!("your answer is not valid JSON ({err})")],
     };
 
     // One retry with the errors spelled out (Re3 also retries its planner).
@@ -92,7 +92,7 @@ async fn make_plan<G: StoryGenerator, O: Observer>(
     tally.add(&second);
     let plan: StoryPlan = match parse_json(&second.text) {
         Ok(plan) => plan,
-        Err(err) => return Ok(Err(format!("plan corrigé illisible ({err})"))),
+        Err(err) => return Ok(Err(format!("unreadable corrected outline ({err})"))),
     };
     let errors = check(&plan);
     if errors.is_empty() {
@@ -102,10 +102,7 @@ async fn make_plan<G: StoryGenerator, O: Observer>(
     let plan = options.saga.restore_names(sanitize(plan, boxes), boxes);
     let plan = feature_stars(plan, boxes, &options.stars);
     if plan.outline.is_empty() {
-        return Ok(Err(format!(
-            "plus aucune étape valide ({})",
-            errors.join(" ; ")
-        )));
+        return Ok(Err(format!("no valid step left ({})", errors.join("; "))));
     }
     Ok(Ok(plan))
 }
@@ -298,6 +295,6 @@ mod tests {
     fn parses_json_wrapped_in_fences() {
         let review: Review = parse_json("Voici :\n```json\n{\"issues\": []}\n```").unwrap();
         assert!(review.issues.is_empty());
-        assert!(parse_json::<Review>("pas de json").is_err());
+        assert!(parse_json::<Review>("no json").is_err());
     }
 }

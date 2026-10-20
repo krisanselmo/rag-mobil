@@ -36,7 +36,7 @@ impl InventorySource for JsonFile {
             .find(|i| &i.set_number == set)
             .ok_or_else(|| {
                 RagError::SetNotFound(format!(
-                    "{set} (le fichier {} contient : {})",
+                    "{set} (the file {} contains: {})",
                     self.0.display(),
                     available.join(", ")
                 ))

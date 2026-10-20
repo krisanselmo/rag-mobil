@@ -40,7 +40,7 @@ impl<A: InventorySource + Sync, B: InventorySource + Sync> Fallback<A, B> {
             Err(RagError::SetNotFound(first)) => match self.second.fetch(set).await {
                 Ok(inventory) => Ok((inventory, Answered::Second)),
                 Err(RagError::SetNotFound(second)) => {
-                    Err(RagError::SetNotFound(format!("{first} ; {second}")))
+                    Err(RagError::SetNotFound(format!("{first}; {second}")))
                 }
                 Err(err) => Err(err),
             },
@@ -101,7 +101,7 @@ mod tests {
     }
 
     fn not_found(set: &SetNumber) -> RagError {
-        RagError::SetNotFound(format!("{set} (absent de fake)"))
+        RagError::SetNotFound(format!("{set} (not in fake)"))
     }
 
     fn unavailable(set: &SetNumber) -> RagError {
@@ -152,7 +152,7 @@ mod tests {
         assert!(matches!(err, RagError::SetNotFound(_)));
         assert_eq!(
             err.to_string(),
-            "set introuvable : 2 (absent de fake) ; 2 (absent de fake)"
+            "set not found: 2 (not in fake); 2 (not in fake)"
         );
     }
 }

@@ -19,15 +19,15 @@ use rag_mobil::writer::plan::{find_part, part_label};
 use rag_mobil::writer::{Observer, Step, WriterOptions, WritingMethod, first_prompt};
 use rag_mobil::{RagError, RagPipeline, SetInventory, SetNumber, html, pdf};
 
-/// Méthode de rédaction.
+/// Writing method.
 #[derive(Debug, Clone, Copy, ValueEnum)]
 enum Method {
-    /// Plan, rédaction étape par étape, relecture (méthode Re3/DOC).
+    /// Plan, step-by-step drafting, review (Re3/DOC method).
     Planned,
-    /// Un seul appel, l'histoire s'affiche au fil de l'écriture.
+    /// A single call, the story is shown as it is written.
     Direct,
-    /// Histoire dont le lecteur choisit la suite : paragraphes numérotés et
-    /// choix (comme --interactive).
+    /// Story where the reader chooses what happens: numbered paragraphs and
+    /// choices (same as --interactive).
     Interactive,
 }
 
@@ -41,23 +41,23 @@ impl From<Method> for WritingMethod {
     }
 }
 
-/// Format de l'histoire sur la sortie standard.
+/// Format of the story on standard output.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 enum Format {
-    /// Markdown, affiché au fil de l'écriture avec --method direct.
+    /// Markdown, shown as it is written with --method direct.
     Markdown,
-    /// Page HTML autonome, avec les images des pièces (à lire ou imprimer).
+    /// Standalone HTML page, with pictures of the pieces (to read or print).
     Html,
-    /// Le livret HTML imprimé en PDF (A4) par Chrome, Chromium ou Edge.
+    /// The HTML booklet printed to PDF (A4) by Chrome, Chromium or Edge.
     Pdf,
 }
 
-/// Mise en page du livret imprimé (HTML et PDF).
+/// Layout of the printed booklet (HTML and PDF).
 #[derive(Debug, Clone, Copy, ValueEnum)]
 enum Layout {
-    /// Livret : couverture pleine page, une page par scène.
+    /// Booklet: full-page cover, one page per scene.
     Booklet,
-    /// Compacte : en-tête court, texte sur deux colonnes, petites images.
+    /// Compact: short header, two-column text, small pictures.
     Compact,
 }
 
@@ -91,170 +91,170 @@ impl From<Effort> for ReasoningEffort {
     }
 }
 
-/// Génère une histoire Playmobil fidèle au contenu d'une boîte (inventaire + LLM).
+/// Writes a Playmobil story faithful to what's in the box (inventory + LLM).
 #[derive(Debug, Parser)]
 #[command(version, about)]
 struct Cli {
-    /// Numéros des sets Playmobil (ex. 3666). Avec plusieurs sets, une seule
-    /// histoire mélange le contenu de toutes les boîtes.
+    /// Playmobil set numbers (e.g. 3666). With several sets, a single story
+    /// mixes the contents of all the boxes.
     #[arg(required = true, value_name = "SET")]
     set_numbers: Vec<String>,
 
-    /// Langue de l'histoire.
-    #[arg(short, long, env = "RAG_MOBIL_LANGUAGE", default_value = "français")]
+    /// Language of the story.
+    #[arg(short, long, env = "RAG_MOBIL_LANGUAGE", default_value = "English")]
     language: String,
 
-    /// Âge du lecteur.
+    /// Age of the reader.
     #[arg(short, long, env = "RAG_MOBIL_AGE", default_value_t = 7)]
     age: u8,
 
-    /// Longueur visée, en mots.
+    /// Target length, in words.
     #[arg(short, long, env = "RAG_MOBIL_WORDS", default_value_t = 600)]
     words: u32,
 
-    /// Souhait libre (ex. "une histoire de fantômes").
+    /// Free-form wish (e.g. "a ghost story").
     #[arg(short, long)]
     theme: Option<String>,
 
-    /// Cite chaque pièce nommée par sa référence, juste après son nom :
-    /// [réf. 30 06 368], ou [réf. 30 06 198, 30 06 199] pour un objet en
-    /// plusieurs pièces. Pour un affichage qui les retire ou en fait des liens.
+    /// Cites each named piece by its reference, right after its name:
+    /// [ref. 30 06 368], or [ref. 30 06 198, 30 06 199] for an object made of
+    /// several pieces. For a display that strips them or turns them into links.
     #[arg(long, env = "RAG_MOBIL_CITATIONS", value_parser = BoolishValueParser::new())]
     citations: bool,
 
-    /// Méthode de rédaction.
+    /// Writing method.
     #[arg(long, value_enum, default_value_t = Method::Planned)]
     method: Method,
 
-    /// Histoire dont tu es le héros : des paragraphes numérotés, chacun
-    /// terminé par des choix qui renvoient à la suite, et plusieurs fins
-    /// (raccourci de --method interactive).
+    /// Choose-your-own-adventure story: numbered paragraphs, each ending
+    /// with choices that lead to what comes next, and several endings
+    /// (shorthand for --method interactive).
     #[arg(long, conflicts_with = "method")]
     interactive: bool,
 
-    /// Saga : fichier JSON des épisodes déjà racontés (créé s'il n'existe
-    /// pas). L'histoire en est la suite, avec les mêmes noms pour les mêmes
-    /// figurines, et s'y ajoute comme nouvel épisode.
-    #[arg(long, env = "RAG_MOBIL_SAGA", value_name = "FICHIER")]
+    /// Saga: JSON file of the episodes already told (created if missing).
+    /// The story continues them, with the same names for the same figures,
+    /// and is added to it as a new episode.
+    #[arg(long, env = "RAG_MOBIL_SAGA", value_name = "FILE")]
     saga: Option<PathBuf>,
 
-    /// Méthode planned : avant chaque partie, une « Mise en place » liste les
-    /// personnages et objets à installer, d'après le plan validé.
+    /// Planned method: before each part, a "Set the scene" section lists the
+    /// characters and objects to lay out, from the validated plan.
     #[arg(long, env = "RAG_MOBIL_SCENE_SETUP", value_parser = BoolishValueParser::new())]
     scene_setup: bool,
 
-    /// Format de sortie ; pdf s'écrit dans un fichier (> livret.pdf).
+    /// Output format; pdf is written to a file (> booklet.pdf).
     #[arg(short, long, value_enum, env = "RAG_MOBIL_FORMAT", default_value_t = Format::Markdown)]
     format: Format,
 
-    /// --format html ou pdf : mise en page à l'impression.
+    /// --format html or pdf: print layout.
     #[arg(long, value_enum, env = "RAG_MOBIL_LAYOUT", default_value_t = Layout::Booklet)]
     layout: Layout,
 
-    /// Écrit aussi le livret dans FICHIER : en PDF si son nom finit par .pdf
-    /// (même navigateur que --format pdf), en HTML sinon. La sortie standard
-    /// reste celle de --format : l'histoire en Markdown et son livret, en un
-    /// seul passage du LLM.
-    #[arg(long, value_name = "FICHIER")]
-    livret: Option<PathBuf>,
+    /// Also writes the booklet to FILE: as PDF if its name ends in .pdf
+    /// (same browser as --format pdf), as HTML otherwise. Standard output
+    /// stays that of --format: the story in Markdown and its booklet, from a
+    /// single LLM run.
+    #[arg(long, value_name = "FILE", alias = "livret")]
+    booklet: Option<PathBuf>,
 
-    /// --format pdf ou --livret … .pdf : argument passé au navigateur (ex. --no-sandbox dans un
-    /// conteneur lancé en root). Répétable. Le navigateur se choisit avec
-    /// RAG_MOBIL_BROWSER.
+    /// --format pdf or --booklet … .pdf: argument passed to the browser (e.g.
+    /// --no-sandbox in a container running as root). Repeatable. The browser
+    /// is chosen with RAG_MOBIL_BROWSER.
     #[arg(long, value_name = "ARG", allow_hyphen_values = true)]
     browser_arg: Vec<String>,
 
-    /// Pièce absente de la boîte (perdue, cassée), par sa référence : toutes
-    /// les copies (30 07 640) ou N d'entre elles (30 07 640:2). Répétable.
+    /// Piece missing from the box (lost, broken), by its reference: every
+    /// copy (30 07 640) or N of them (30 07 640:2). Repeatable.
     #[arg(long, value_name = "REF[:N]", value_parser = MissingPart::parse)]
     missing: Vec<MissingPart>,
 
-    /// Pièce préférée de l'enfant, par sa référence : une figurine devient le
-    /// personnage principal, un objet sert dans plusieurs étapes. Le plan est
-    /// vérifié en conséquence. Répétable.
+    /// The child's favorite piece, by its reference: a figure becomes the
+    /// main character, an object is used in several steps. The plan is
+    /// checked accordingly. Repeatable.
     #[arg(long, value_name = "REF")]
     star: Vec<String>,
 
-    /// Fichier des pièces absentes : une par ligne, au format de --missing ;
-    /// lignes vides et commentaires (#) ignorés.
-    #[arg(long, env = "RAG_MOBIL_MISSING_FILE", value_name = "FICHIER")]
+    /// File of missing pieces: one per line, in the --missing format; blank
+    /// lines and comments (#) are ignored.
+    #[arg(long, env = "RAG_MOBIL_MISSING_FILE", value_name = "FILE")]
     missing_file: Option<PathBuf>,
 
-    /// Méthode planned : pas de relecture de fidélité à la fin.
+    /// Planned method: no faithfulness review at the end.
     #[arg(long)]
     no_review: bool,
 
-    /// Garde toutes les catégories de pièces (y compris les notices papier).
+    /// Keeps every category of pieces (including paper instructions).
     #[arg(long)]
     include_all: bool,
 
-    /// Modèle LLM ; le fournisseur est déduit du nom : claude-… (Anthropic),
-    /// gpt-… (OpenAI), gemini-… (Gemini), ollama::<modèle> (local, gratuit)…
-    /// Avec RAG_MOBIL_OPENAI_BASE_URL, openai::<modèle> vise ce serveur compatible
-    /// OpenAI (llama.cpp, vLLM…) au lieu d'api.openai.com.
+    /// LLM model; the provider is inferred from the name: claude-… (Anthropic),
+    /// gpt-… (OpenAI), gemini-… (Gemini), ollama::<model> (local, free)…
+    /// With RAG_MOBIL_OPENAI_BASE_URL, openai::<model> targets that
+    /// OpenAI-compatible server (llama.cpp, vLLM…) instead of api.openai.com.
     #[arg(short, long, env = "RAG_MOBIL_MODEL", default_value = llm::DEFAULT_MODEL)]
     model: String,
 
-    /// Niveau d'effort / de réflexion (défaut : medium pour Claude, celui du
-    /// fournisseur sinon).
+    /// Effort / thinking level (default: medium for Claude, the provider's
+    /// otherwise).
     #[arg(long, value_enum)]
     effort: Option<Effort>,
 
-    /// Modèle relancé une fois si Claude décline la requête.
+    /// Model retried once if Claude declines the request.
     #[arg(long, default_value = llm::DEFAULT_FALLBACK_MODEL, conflicts_with = "no_fallback")]
     fallback_model: String,
 
-    /// Pas de nouvelle tentative en cas de refus.
+    /// No retry after a refusal.
     #[arg(long)]
     no_fallback: bool,
 
-    /// URL de base de PlaymoDB.
+    /// PlaymoDB base URL.
     #[arg(long, env = "PLAYMODB_BASE_URL", default_value = playmodb::DEFAULT_BASE_URL)]
     playmodb_url: String,
 
-    /// Affiche l'inventaire récupéré en JSON et s'arrête (pas d'appel LLM).
+    /// Prints the fetched inventory as JSON and stops (no LLM call).
     #[arg(long, conflicts_with = "dry_run")]
     inventory_json: bool,
 
-    /// Affiche le prompt augmenté et s'arrête (pas d'appel LLM).
+    /// Prints the augmented prompt and stops (no LLM call).
     #[arg(long)]
     dry_run: bool,
 
-    /// Lit les inventaires dans un fichier JSON (sortie de --inventory-json)
-    /// au lieu d'interroger PlaymoDB.
-    #[arg(long, value_name = "FICHIER")]
+    /// Reads the inventories from a JSON file (output of --inventory-json)
+    /// instead of querying PlaymoDB.
+    #[arg(long, value_name = "FILE")]
     inventory_file: Option<PathBuf>,
 
-    /// Source d'inventaires HTTP au format v1 (docs/format-inventaire.md) ;
-    /// {set} est remplacé par le numéro du set, ex.
-    /// http://localhost:8096/api/inventories/{set}. Un set qu'elle ne connaît
-    /// pas (HTTP 404) est demandé à PlaymoDB. Incompatible avec
-    /// --inventory-file, qui l'emporte sur la variable d'environnement.
-    #[arg(long, env = "RAG_MOBIL_INVENTORY_URL", value_name = "MODELE")]
+    /// HTTP inventory source in the v1 format (docs/inventory-format.md);
+    /// {set} is replaced by the set number, e.g.
+    /// http://localhost:8096/api/inventories/{set}. A set it doesn't know
+    /// (HTTP 404) is asked to PlaymoDB. Incompatible with --inventory-file,
+    /// which wins over the environment variable.
+    #[arg(long, env = "RAG_MOBIL_INVENTORY_URL", value_name = "TEMPLATE")]
     inventory_url: Option<String>,
 
-    /// Avec --inventory-url : pas de repli sur PlaymoDB, un set inconnu de la
-    /// source est une erreur.
+    /// With --inventory-url: no fallback to PlaymoDB, a set unknown to the
+    /// source is an error.
     #[arg(long)]
     no_playmodb: bool,
 
-    /// Dossier du cache des inventaires PlaymoDB [défaut :
-    /// ~/.cache/rag-mobil/playmodb, ou l'équivalent du système].
-    #[arg(long, env = "RAG_MOBIL_CACHE_DIR", value_name = "DOSSIER")]
+    /// Cache directory of the PlaymoDB inventories [default:
+    /// ~/.cache/rag-mobil/playmodb, or the system's equivalent].
+    #[arg(long, env = "RAG_MOBIL_CACHE_DIR", value_name = "DIR")]
     cache_dir: Option<PathBuf>,
 
-    /// N'utilise pas le cache : PlaymoDB est interrogé à chaque fois.
+    /// Doesn't use the cache: PlaymoDB is queried every time.
     #[arg(long, conflicts_with = "refresh")]
     no_cache: bool,
 
-    /// Interroge PlaymoDB même si le cache est à jour, et met le cache à jour.
+    /// Queries PlaymoDB even if the cache is fresh, and updates the cache.
     #[arg(long)]
     refresh: bool,
 
-    /// Contourne le LLM : chaque prompt est écrit dans DOSSIER/NN-*.prompt.txt
-    /// et la réponse lue dans DOSSIER/NN-*.answer.txt ; relancez après avoir
-    /// écrit la réponse manquante.
-    #[arg(long, value_name = "DOSSIER")]
+    /// Bypasses the LLM: each prompt is written to DIR/NN-*.prompt.txt and
+    /// the answer read from DIR/NN-*.answer.txt; run again after writing the
+    /// missing answer.
+    #[arg(long, value_name = "DIR")]
     replay: Option<PathBuf>,
 }
 
@@ -297,7 +297,7 @@ impl Source {
                 let origin = source.origin(set);
                 (source.fetch(set).await?, origin)
             }
-            Self::File(source) => (source.fetch(set).await?, "fichier".into()),
+            Self::File(source) => (source.fetch(set).await?, "file".into()),
             Self::Http(source) => (source.fetch(set).await?, source.host()),
             Self::HttpThenPlaymo(chain) => {
                 // Before fetching: afterwards the set is always in the cache.
@@ -344,9 +344,9 @@ async fn main() -> ExitCode {
     match run(parse_cli()).await {
         Ok(()) => ExitCode::SUCCESS,
         Err(err) => {
-            eprintln!("Erreur : {err:#}");
+            eprintln!("Error: {err:#}");
             if let Some(hint) = err.downcast_ref::<RagError>().and_then(hint) {
-                eprintln!("Astuce : {hint}");
+                eprintln!("Hint: {hint}");
             }
             ExitCode::FAILURE
         }
@@ -364,7 +364,7 @@ fn parse_cli() -> Cli {
             Cli::command()
                 .error(
                     clap::error::ErrorKind::ArgumentConflict,
-                    "--inventory-file et --inventory-url sont incompatibles",
+                    "--inventory-file and --inventory-url are incompatible",
                 )
                 .exit();
         }
@@ -379,8 +379,8 @@ fn hint(err: &RagError) -> Option<String> {
             resolver_error: genai::resolver::Error::ApiKeyEnvNotFound { env_name },
             ..
         }) => Some(format!(
-            "définissez {env_name}, choisissez un modèle local gratuit \
-             (ex. -m ollama::llama3.2) ou utilisez --dry-run"
+            "set {env_name}, pick a free local model \
+             (e.g. -m ollama::llama3.2) or use --dry-run"
         )),
         _ => None,
     }
@@ -397,7 +397,7 @@ fn read_missing_file(path: &PathBuf) -> anyhow::Result<Vec<MissingPart>> {
         let line = line.split('#').next().unwrap_or_default().trim();
         if !line.is_empty() {
             let part = MissingPart::parse(line)
-                .map_err(|err| anyhow::anyhow!("{}, ligne {} : {err}", path.display(), n + 1))?;
+                .map_err(|err| anyhow::anyhow!("{}, line {}: {err}", path.display(), n + 1))?;
             missing.push(part);
         }
     }
@@ -432,7 +432,7 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
             Source::HttpThenPlaymo(Fallback::new(HttpJson::new(template)?, playmo()?))
         }
         (None, None) if cli.no_playmodb => {
-            anyhow::bail!("--no-playmodb demande une autre source : --inventory-url")
+            anyhow::bail!("--no-playmodb needs another source: --inventory-url")
         }
         (None, None) => Source::Playmo(playmo()?),
     };
@@ -444,8 +444,8 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
     let saga = match &cli.saga {
         Some(path) if method == WritingMethod::Direct => {
             eprintln!(
-                "[rag-mobil] --saga ignoré : il demande la méthode planned ou interactive \
-                 ({} non lu)",
+                "[rag-mobil] --saga ignored: it needs the planned or interactive method \
+                 ({} not read)",
                 path.display()
             );
             Saga::default()
@@ -474,10 +474,10 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
     let (mut collection, origins) = source.fetch_all(&sets).await?;
     let offline = cli.inventory_json || cli.dry_run;
     if !offline {
-        eprintln!("[rag-mobil] inventaires : {origins}");
+        eprintln!("[rag-mobil] inventories: {origins}");
     }
     if !missing.is_empty() {
-        eprintln!("[rag-mobil] pièces absentes de la boîte :");
+        eprintln!("[rag-mobil] pieces missing from the box:");
         for line in collection.remove_missing(&missing) {
             eprintln!("  - {line}");
         }
@@ -487,16 +487,16 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
     for star in &options.stars {
         match find_part(&collection, star) {
             Some(part) => eprintln!(
-                "[rag-mobil] pièce préférée : {} ({})",
+                "[rag-mobil] favorite piece: {} ({})",
                 part_label(part),
                 part.number
             ),
             None => anyhow::bail!(
-                "--star {star} : cette pièce n'est pas dans {}",
+                "--star {star}: this piece is not in {}",
                 if collection.is_single() {
-                    "la boîte"
+                    "the box"
                 } else {
-                    "les boîtes"
+                    "the boxes"
                 }
             ),
         }
@@ -522,11 +522,11 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
     }
 
     if cli.scene_setup && method == WritingMethod::Direct {
-        eprintln!("[rag-mobil] --scene-setup ignoré : il demande la méthode planned");
+        eprintln!("[rag-mobil] --scene-setup ignored: it needs the planned method");
     }
     let saga = cli.saga.filter(|_| method != WritingMethod::Direct);
     if saga.is_some() {
-        eprintln!("[rag-mobil] saga : épisode {}", options.saga.next_number());
+        eprintln!("[rag-mobil] saga: episode {}", options.saga.next_number());
     }
     let writer = WriterOptions {
         method,
@@ -537,15 +537,15 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
     if cli.format == Format::Pdf {
         use std::io::IsTerminal;
         if std::io::stdout().is_terminal() {
-            anyhow::bail!("--format pdf écrit un fichier : redirigez la sortie (> livret.pdf)");
+            anyhow::bail!("--format pdf writes a file: redirect the output (> booklet.pdf)");
         }
     }
-    let livret_pdf = cli
-        .livret
+    let booklet_pdf = cli
+        .booklet
         .as_deref()
         .and_then(|p| p.extension())
         .is_some_and(|e| e.eq_ignore_ascii_case("pdf"));
-    let printer = if cli.format == Format::Pdf || livret_pdf {
+    let printer = if cli.format == Format::Pdf || booklet_pdf {
         Some((pdf::find_browser()?, cli.browser_arg))
     } else {
         None
@@ -558,7 +558,7 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
         format: cli.format,
         layout: cli.layout.into(),
         printer,
-        livret: cli.livret.map(|path| (path, livret_pdf)),
+        booklet: cli.booklet.map(|path| (path, booklet_pdf)),
         saga,
     };
     match cli.replay {
@@ -582,10 +582,10 @@ struct Telling<'a> {
     writer: WriterOptions,
     format: Format,
     layout: html::Layout,
-    /// `--format pdf` or a PDF `--livret`: the browser and its extra arguments.
+    /// `--format pdf` or a PDF `--booklet`: the browser and its extra arguments.
     printer: Option<(PathBuf, Vec<String>)>,
-    /// `--livret`: where to write the booklet, and whether as a PDF.
-    livret: Option<(PathBuf, bool)>,
+    /// `--booklet`: where to write the booklet, and whether as a PDF.
+    booklet: Option<(PathBuf, bool)>,
     /// `--saga`: where to add the new episode.
     saga: Option<PathBuf>,
 }
@@ -593,7 +593,7 @@ struct Telling<'a> {
 /// The booklet printed to PDF by the browser found before writing.
 fn print_pdf(printer: Option<&(PathBuf, Vec<String>)>, page: &str) -> anyhow::Result<Vec<u8>> {
     let (browser, args) = printer.expect("browser found before writing");
-    eprintln!("[rag-mobil] impression PDF ({})…", browser.display());
+    eprintln!("[rag-mobil] printing PDF ({})…", browser.display());
     Ok(pdf::print(page, browser, args)?)
 }
 
@@ -620,7 +620,7 @@ impl Telling<'_> {
             }
         }
         // The story is already out: a booklet that fails is a warning, not a lost story.
-        if let Some((path, as_pdf)) = &self.livret {
+        if let Some((path, as_pdf)) = &self.booklet {
             let page = html::render(&story, self.options, self.layout);
             let written = if *as_pdf {
                 print_pdf(self.printer.as_ref(), &page)
@@ -629,9 +629,9 @@ impl Telling<'_> {
             }
             .and_then(|bytes| std::fs::write(path, bytes).map_err(|e| anyhow::anyhow!("{}", e)));
             match written {
-                Ok(()) => eprintln!("[rag-mobil] livret : {}", path.display()),
+                Ok(()) => eprintln!("[rag-mobil] booklet: {}", path.display()),
                 Err(err) => eprintln!(
-                    "[rag-mobil] livret non écrit ({}) : {err:#}",
+                    "[rag-mobil] booklet not written ({}): {err:#}",
                     path.display()
                 ),
             }
@@ -646,14 +646,14 @@ impl Telling<'_> {
                         .push(Episode::new(&story.collection, plan, linear));
                     saga.save(path)?;
                     eprintln!(
-                        "[rag-mobil] épisode {} ajouté à {}",
+                        "[rag-mobil] episode {} added to {}",
                         saga.episodes.len(),
                         path.display()
                     );
                 }
                 None => eprintln!(
-                    "[rag-mobil] pas de plan (rédaction en un seul appel) : épisode non \
-                     ajouté à {}",
+                    "[rag-mobil] no plan (written in a single call): episode not \
+                     added to {}",
                     path.display()
                 ),
             }
@@ -665,18 +665,18 @@ impl Telling<'_> {
 fn summary(story: &rag_mobil::Story) {
     let g = &story.written.generation;
     eprintln!(
-        "[rag-mobil] {} — {} pièces distinctes, {} figurine(s) — modèle {}, {} appel(s){}",
+        "[rag-mobil] {} — {} distinct pieces, {} figure(s) — model {}, {} call(s){}",
         story.collection.label(),
         story.collection.part_count(),
         story.collection.figures().count(),
         g.model,
         story.written.calls,
         g.output_tokens
-            .map(|t| format!(", ~{t} tokens générés"))
+            .map(|t| format!(", ~{t} tokens generated"))
             .unwrap_or_default(),
     );
     if g.truncated {
-        eprintln!("[rag-mobil] attention : histoire tronquée (limite max_tokens atteinte)");
+        eprintln!("[rag-mobil] warning: story truncated (max_tokens limit reached)");
     }
 }
 
@@ -697,42 +697,42 @@ impl Observer for Terminal {
 
     fn step(&mut self, step: Step<'_>) {
         match step {
-            Step::Planning => eprintln!("[rag-mobil] plan de l'histoire…"),
+            Step::Planning => eprintln!("[rag-mobil] planning the story…"),
             Step::PlanRejected(errors) => eprintln!(
-                "[rag-mobil] plan pas fidèle à la boîte ({} écart(s)), nouvelle demande…",
+                "[rag-mobil] plan not faithful to the box ({} issue(s)), asking again…",
                 errors.len()
             ),
             Step::PlanRepaired(errors) => {
-                eprintln!("[rag-mobil] références invalides retirées du plan :");
+                eprintln!("[rag-mobil] invalid references removed from the plan:");
                 for error in errors {
                     eprintln!("  - {error}");
                 }
             }
             Step::PlanAbandoned(reason) => {
-                eprintln!("[rag-mobil] plan inutilisable ({reason}) : rédaction en un seul appel…")
+                eprintln!("[rag-mobil] unusable plan ({reason}): writing in a single call…")
             }
             Step::PlanReady(plan) => eprintln!(
-                "[rag-mobil] plan : « {} » — {} personnage(s), {} étape(s)",
+                "[rag-mobil] plan: \"{}\" — {} character(s), {} step(s)",
                 plan.title,
                 plan.characters.len(),
                 plan.outline.len()
             ),
             Step::Drafting { part, total } => {
-                eprintln!("[rag-mobil] rédaction {part}/{total}…");
+                eprintln!("[rag-mobil] drafting {part}/{total}…");
             }
-            Step::Reviewing => eprintln!("[rag-mobil] relecture de fidélité…"),
+            Step::Reviewing => eprintln!("[rag-mobil] faithfulness review…"),
             Step::ReviewUnreadable => {
-                eprintln!("[rag-mobil] relecture illisible, histoire gardée sans correction");
+                eprintln!("[rag-mobil] unreadable review, story kept uncorrected");
             }
             Step::Revising(issues) => {
-                eprintln!("[rag-mobil] {} écart(s) corrigé(s) :", issues.len());
+                eprintln!("[rag-mobil] {} issue(s) fixed:", issues.len());
                 for issue in issues {
                     eprintln!("  - {}", issue.problem);
                 }
             }
             Step::SceneSetupDropped => eprintln!(
-                "[rag-mobil] mise en place retirée : la correction n'a pas gardé les parties \
-                 séparées"
+                "[rag-mobil] scene setup dropped: the revision didn't keep the parts \
+                 separate"
             ),
         }
     }

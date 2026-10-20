@@ -3,47 +3,47 @@ use thiserror::Error;
 /// Every error the pipeline can surface, by stage.
 #[derive(Debug, Error)]
 pub enum RagError {
-    #[error("numéro de set invalide : « {0} » (attendu : chiffres uniquement, ex. 3666)")]
+    #[error("invalid set number: \"{0}\" (expected: digits only, e.g. 3666)")]
     InvalidSetNumber(String),
 
     #[error(
-        "pièce manquante invalide : « {0} » (attendu : une référence, éventuellement suivie \
-         de :N pour N exemplaires, ex. 30 07 640:2)"
+        "invalid missing piece: \"{0}\" (expected: a reference, optionally followed \
+         by :N for N copies, e.g. 30 07 640:2)"
     )]
     InvalidMissingPart(String),
 
     /// The payload says which set and which source(s) were asked.
-    #[error("set introuvable : {0}")]
+    #[error("set not found: {0}")]
     SetNotFound(String),
 
-    #[error("le set {0} est connu mais son inventaire est vide")]
+    #[error("set {0} is known but its inventory is empty")]
     EmptyInventory(String),
 
-    #[error("requête HTTP échouée : {0}")]
+    #[error("HTTP request failed: {0}")]
     Http(#[from] reqwest::Error),
 
-    #[error("réponse PlaymoDB inattendue ({url}) : HTTP {status}")]
+    #[error("unexpected PlaymoDB response ({url}): HTTP {status}")]
     ScraperStatus { url: String, status: u16 },
 
-    #[error("réponse inattendue de la source d'inventaire ({url}) : HTTP {status}")]
+    #[error("unexpected response from the inventory source ({url}): HTTP {status}")]
     SourceStatus { url: String, status: u16 },
 
-    #[error("inventaire invalide ({url}) : {reason}")]
+    #[error("invalid inventory ({url}): {reason}")]
     InvalidInventory { url: String, reason: String },
 
     #[error(
-        "adresse de source d'inventaire invalide : « {0} » (attendu : une adresse http(s) contenant {{set}})"
+        "invalid inventory source address: \"{0}\" (expected: an http(s) address containing {{set}})"
     )]
     InvalidInventoryUrl(String),
 
-    #[error("erreur du fournisseur LLM : {0}")]
+    #[error("LLM provider error: {0}")]
     Llm(#[from] genai::Error),
 
-    #[error("le modèle {model} a décliné la requête")]
+    #[error("model {model} declined the request")]
     LlmRefusal { model: String },
 
     #[error(
-        "réponse manquante : écrivez {} (le prompt est dans {}) puis relancez",
+        "missing answer: write {} (the prompt is in {}) then run again",
         answer.display(),
         prompt.display()
     )]
@@ -52,16 +52,16 @@ pub enum RagError {
         answer: std::path::PathBuf,
     },
 
-    #[error("fichier {} : {source}", path.display())]
+    #[error("file {}: {source}", path.display())]
     Io {
         path: std::path::PathBuf,
         source: std::io::Error,
     },
 
-    #[error("impression PDF impossible : {0}")]
+    #[error("PDF printing failed: {0}")]
     Pdf(String),
 
-    #[error("JSON invalide : {0}")]
+    #[error("invalid JSON: {0}")]
     Json(#[from] serde_json::Error),
 }
 

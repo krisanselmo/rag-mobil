@@ -8,7 +8,7 @@ use crate::model::{SetInventory, SetNumber};
 use crate::retriever::{InventorySource, USER_AGENT};
 
 /// Any HTTP service answering `GET <template with {set} replaced>` with one
-/// inventory in format v1 (`docs/format-inventaire.md`), and 404 for a set
+/// inventory in format v1 (`docs/inventory-format.md`), and 404 for a set
 /// it doesn't know.
 pub struct HttpJson {
     http: reqwest::Client,
@@ -65,7 +65,7 @@ impl InventorySource for HttpJson {
             .await?;
         let status = response.status();
         if status == StatusCode::NOT_FOUND {
-            return Err(RagError::SetNotFound(format!("{set} (absent de {url})")));
+            return Err(RagError::SetNotFound(format!("{set} (not in {url})")));
         }
         if !status.is_success() {
             return Err(RagError::SourceStatus {
@@ -77,12 +77,12 @@ impl InventorySource for HttpJson {
         let inventory: SetInventory =
             serde_json::from_str(&body).map_err(|err| RagError::InvalidInventory {
                 url: url.clone(),
-                reason: format!("JSON au format v1 attendu ({err})"),
+                reason: format!("expected JSON in the v1 format ({err})"),
             })?;
         if &inventory.set_number != set {
             return Err(RagError::InvalidInventory {
                 url,
-                reason: format!("set {set} demandé, set {} reçu", inventory.set_number),
+                reason: format!("set {set} requested, set {} received", inventory.set_number),
             });
         }
         if inventory.parts.is_empty() {
