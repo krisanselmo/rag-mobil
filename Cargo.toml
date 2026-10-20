@@ -6,6 +6,10 @@ description = "Générateur d'histoires Playmobil fidèles au contenu de la boî
 repository = "https://github.com/krisanselmo/rag-mobil"
 license = "MIT"
 rust-version = "1.88"
+license = "MIT"
+readme = "README.md"
+keywords = ["playmobil", "rag", "llm", "story", "children"]
+categories = ["command-line-utilities", "text-processing"]
 
 [dependencies]
 anyhow = "1.0.104"
