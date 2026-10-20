@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 description = "Générateur d'histoires Playmobil fidèles au contenu de la boîte (RAG : PlaymoDB + LLM)"
 repository = "https://github.com/krisanselmo/rag-mobil"
+license = "MIT"
 rust-version = "1.88"
 
 [dependencies]

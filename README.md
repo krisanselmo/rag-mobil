@@ -478,3 +478,8 @@ UPDATE_GOLDEN=1 cargo test --test e2e_replay
 Projet non officiel, sans lien avec geobra Brandstätter Stiftung & Co. KG.
 PLAYMOBIL® est une marque déposée de geobra Brandstätter Stiftung & Co. KG.
 Par défaut, les données d'inventaire proviennent de [PlaymoDB](https://playmodb.org).
+
+## Licence
+
+[MIT](LICENSE). Les données d'inventaire et les images de PlaymoDB ne sont pas couvertes
+par cette licence.
