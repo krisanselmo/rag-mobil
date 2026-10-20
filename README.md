@@ -94,6 +94,7 @@ vont sur `stderr` (`rag-mobil 3666 > histoire.md` fonctionne).
 | `--saga` / `RAG_MOBIL_SAGA` | — | Fichier JSON des épisodes : l'histoire en est la suite, puis s'y ajoute (voir ci-dessous) |
 | `--scene-setup` / `RAG_MOBIL_SCENE_SETUP` | off | Méthode `planned` : « Mise en place » avant chaque partie (voir ci-dessous) |
 | `-f, --format` / `RAG_MOBIL_FORMAT` | `markdown` | `markdown`, `html` ou `pdf` (livret illustré, voir ci-dessous) |
+| `--livret FICHIER` | — | Écrit aussi le livret (HTML, ou PDF si `.pdf`) : l'histoire reste en Markdown sur `stdout`, en un seul passage du LLM |
 | `--layout` / `RAG_MOBIL_LAYOUT` | `booklet` | `--format html` ou `pdf` : `booklet` (livret) ou `compact` (économe en papier) |
 | `--browser-arg` | — | `--format pdf` : argument passé au navigateur (ex. `--no-sandbox`) ; répétable |
 | `--star REF` | — | Pièce préférée de l'enfant, au cœur de l'histoire ; répétable (voir ci-dessous) |
@@ -258,6 +259,10 @@ page (sauf sur la couverture).
 au lieu de la couverture, l'histoire sur deux colonnes sans saut de page, des mises en
 place et un « Dans ta boîte » en petites vignettes, juste après l'histoire. Pour le set
 3799 avec `--scene-setup`, 2 pages au lieu de 7 (3 au lieu de 8 en interactif).
+
+`--livret livret.pdf` (ou `.html`) écrit le livret dans un fichier en plus de la sortie choisie par
+`--format` : un service garde ainsi l'histoire en Markdown et son livret, pour un seul passage du LLM. Un
+livret qui ne s'écrit pas (navigateur absent) est signalé sur `stderr` sans perdre l'histoire.
 
 `--format pdf` fait cette impression directement : le livret est imprimé par un Chrome,
 Chromium ou Edge sans interface, déjà installé (cherché dans le `PATH` et aux

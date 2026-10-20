@@ -151,7 +151,14 @@ struct Cli {
     #[arg(long, value_enum, env = "RAG_MOBIL_LAYOUT", default_value_t = Layout::Booklet)]
     layout: Layout,
 
-    /// --format pdf : argument passé au navigateur (ex. --no-sandbox dans un
+    /// Écrit aussi le livret dans FICHIER : en PDF si son nom finit par .pdf
+    /// (même navigateur que --format pdf), en HTML sinon. La sortie standard
+    /// reste celle de --format : l'histoire en Markdown et son livret, en un
+    /// seul passage du LLM.
+    #[arg(long, value_name = "FICHIER")]
+    livret: Option<PathBuf>,
+
+    /// --format pdf ou --livret … .pdf : argument passé au navigateur (ex. --no-sandbox dans un
     /// conteneur lancé en root). Répétable. Le navigateur se choisit avec
     /// RAG_MOBIL_BROWSER.
     #[arg(long, value_name = "ARG", allow_hyphen_values = true)]
@@ -527,15 +534,21 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
         scene_setup: cli.scene_setup,
     };
     // Before any LLM call: a PDF needs a browser and a file.
-    let printer = match cli.format {
-        Format::Pdf => {
-            use std::io::IsTerminal;
-            if std::io::stdout().is_terminal() {
-                anyhow::bail!("--format pdf écrit un fichier : redirigez la sortie (> livret.pdf)");
-            }
-            Some((pdf::find_browser()?, cli.browser_arg))
+    if cli.format == Format::Pdf {
+        use std::io::IsTerminal;
+        if std::io::stdout().is_terminal() {
+            anyhow::bail!("--format pdf écrit un fichier : redirigez la sortie (> livret.pdf)");
         }
-        _ => None,
+    }
+    let livret_pdf = cli
+        .livret
+        .as_deref()
+        .and_then(|p| p.extension())
+        .is_some_and(|e| e.eq_ignore_ascii_case("pdf"));
+    let printer = if cli.format == Format::Pdf || livret_pdf {
+        Some((pdf::find_browser()?, cli.browser_arg))
+    } else {
+        None
     };
     let telling = Telling {
         collection,
@@ -545,6 +558,7 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
         format: cli.format,
         layout: cli.layout.into(),
         printer,
+        livret: cli.livret.map(|path| (path, livret_pdf)),
         saga,
     };
     match cli.replay {
@@ -568,10 +582,19 @@ struct Telling<'a> {
     writer: WriterOptions,
     format: Format,
     layout: html::Layout,
-    /// `--format pdf`: the browser and its extra arguments.
+    /// `--format pdf` or a PDF `--livret`: the browser and its extra arguments.
     printer: Option<(PathBuf, Vec<String>)>,
+    /// `--livret`: where to write the booklet, and whether as a PDF.
+    livret: Option<(PathBuf, bool)>,
     /// `--saga`: where to add the new episode.
     saga: Option<PathBuf>,
+}
+
+/// The booklet printed to PDF by the browser found before writing.
+fn print_pdf(printer: Option<&(PathBuf, Vec<String>)>, page: &str) -> anyhow::Result<Vec<u8>> {
+    let (browser, args) = printer.expect("browser found before writing");
+    eprintln!("[rag-mobil] impression PDF ({})…", browser.display());
+    Ok(pdf::print(page, browser, args)?)
 }
 
 impl Telling<'_> {
@@ -587,13 +610,30 @@ impl Telling<'_> {
             Format::Markdown => println!(),
             Format::Html => print!("{}", html::render(&story, self.options, self.layout)),
             Format::Pdf => {
-                let (browser, args) = self.printer.expect("browser found before writing");
-                eprintln!("[rag-mobil] impression PDF ({})…", browser.display());
-                let page = html::render(&story, self.options, self.layout);
-                let bytes = pdf::print(&page, &browser, &args)?;
+                let bytes = print_pdf(
+                    self.printer.as_ref(),
+                    &html::render(&story, self.options, self.layout),
+                )?;
                 let mut stdout = std::io::stdout();
                 stdout.write_all(&bytes)?;
                 stdout.flush()?;
+            }
+        }
+        // The story is already out: a booklet that fails is a warning, not a lost story.
+        if let Some((path, as_pdf)) = &self.livret {
+            let page = html::render(&story, self.options, self.layout);
+            let written = if *as_pdf {
+                print_pdf(self.printer.as_ref(), &page)
+            } else {
+                Ok(page.into_bytes())
+            }
+            .and_then(|bytes| std::fs::write(path, bytes).map_err(|e| anyhow::anyhow!("{}", e)));
+            match written {
+                Ok(()) => eprintln!("[rag-mobil] livret : {}", path.display()),
+                Err(err) => eprintln!(
+                    "[rag-mobil] livret non écrit ({}) : {err:#}",
+                    path.display()
+                ),
             }
         }
         summary(&story);
