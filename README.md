@@ -1,6 +1,6 @@
 # rag-mobil 🏰
 
-English · [Français](README.fr.md)
+English · [Français](README.fr.md) · [Deutsch](README.de.md)
 
 [![CI](https://github.com/krisanselmo/rag-mobil/actions/workflows/ci.yml/badge.svg)](https://github.com/krisanselmo/rag-mobil/actions/workflows/ci.yml)
 

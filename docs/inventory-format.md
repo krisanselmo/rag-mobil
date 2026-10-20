@@ -1,6 +1,6 @@
 # Inventory format v1
 
-English · [Français](inventory-format.fr.md)
+English · [Français](inventory-format.fr.md) · [Deutsch](inventory-format.de.md)
 
 `rag-mobil` makes nothing up: the story is written from the exact inventory of the box. This
 document describes the JSON format of that inventory, so you can plug in a database other

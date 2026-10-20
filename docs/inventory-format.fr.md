@@ -1,6 +1,6 @@
 # Format d'inventaire v1
 
-[English](inventory-format.md) · Français
+[English](inventory-format.md) · Français · [Deutsch](inventory-format.de.md)
 
 `rag-mobil` n'invente rien : l'histoire est écrite à partir de l'inventaire exact de la
 boîte. Ce document décrit le format JSON de cet inventaire, pour brancher une autre base
