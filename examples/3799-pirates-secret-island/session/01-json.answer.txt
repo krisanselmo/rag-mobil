@@ -1,0 +1,16 @@
+{
+  "title": "Pepper and the Pirate's Hat",
+  "premise": "A grumpy pirate rows to the island to claim the treasure said to lie behind a secret door, but a cheeky parrot steals his hat, and the treasure he finds is not the one he expected.",
+  "setting": "A small sandy island in the middle of the sea, with two palm trees full of coconuts, big green bushes, a grassy hill, a hut on stilts with a straw roof, and grey rocks hiding a cave behind a secret door.",
+  "characters": [
+    {"name": "Finn", "figure": "30 00 391", "portrait": "A young castaway with orange hair and a black shirt. Cheerful and brave, he loves cooking and climbing palm trees."},
+    {"name": "Barnaby", "figure": "30 00 413", "portrait": "An old islander with long white hair and a long white beard. He has lived on the island for ages and smiles as if he knows a secret."},
+    {"name": "Captain Salty", "figure": "30 13 020", "portrait": "A pirate in a red vest with a long black ponytail, wearing a black tricorne hat with a red feather. He shouts a lot, but deep down he is afraid of the dark."}
+  ],
+  "outline": [
+    {"event": "Morning on the island: Finn stirs a coconut soup with the wooden cooking gear while Barnaby fills the round basket with coconuts. Pepper the parrot swings on his swing and Clover the goat naps under the hammock.", "characters": ["Finn", "Barnaby"], "objects": ["30 60 805", "30 05 882", "30 60 370", "30 06 198", "30 60 926", "30 66 012", "30 06 580"]},
+    {"event": "Captain Salty rows to the beach in his little boat, waving his golden saber. In his black tricorne hat with the red feather, he announces that he has come for the treasure hidden behind the secret door.", "characters": ["Captain Salty", "Finn", "Barnaby"], "objects": ["30 05 806", "30 60 815", "30 64 140", "30 04 724", "30 06 368"]},
+    {"event": "Pepper swoops down, snatches the tricorne hat and flies through the secret door into the dark cave. Salty is too scared of the dark to follow, so Finn lights the lantern and takes his hand, and they go in together with Barnaby.", "characters": ["Captain Salty", "Finn", "Barnaby"], "objects": ["30 06 198", "30 64 140", "30 06 573", "30 06 540", "30 65 079"]},
+    {"event": "Deep in the cave, Pepper is perched on an old trunk. Inside there is no gold, only a pink bottle with a note: Barnaby was once a pirate too, and his treasure was the friends he made on the island. Salty gets his hat back, and at sunset they all share the jug and the two cups while two sea turtles come ashore.", "characters": ["Captain Salty", "Finn", "Barnaby"], "objects": ["30 60 895", "30 60 896", "30 06 370", "30 64 140", "30 60 604", "30 66 062"]}
+  ]
+}

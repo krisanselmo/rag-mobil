@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pepper and the Pirate&#39;s Hat</title>
+<style>
+:root {
+  --paper: #fffdf7; --ink: #2b2b2b; --muted: #6b665c; --accent: #c8102e;
+  --card: #ffffff; --line: #e6dfcf; --setup: #fff4d6;
+}
+@media screen and (prefers-color-scheme: dark) {
+  :root {
+    --paper: #1d1b18; --ink: #ece7dc; --muted: #a8a194; --accent: #ff6b6b;
+    --card: #2a2723; --line: #3d3832; --setup: #332c1c;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font: 1.15rem/1.65 Georgia, "Times New Roman", serif;
+}
+main { max-width: 46rem; margin: 0 auto; padding: 2rem 1rem 1rem; }
+h1 { font-size: 2.1rem; line-height: 1.2; color: var(--accent); text-align: center; }
+h2, h3, figcaption, footer, .setup { font-family: system-ui, sans-serif; }
+h2 { border-top: 2px dashed var(--line); padding-top: 1.5rem; margin-top: 2.5rem; }
+h3 { font-size: 1rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+p { margin: 0 0 1em; }
+img.ref { height: 2.2em; vertical-align: middle; margin: 0 .15em; }
+span.ref { font: .75em system-ui, sans-serif; color: var(--muted); margin: 0 .2em; }
+.setup {
+  background: var(--setup); border-radius: 12px; padding: .6rem 1rem 1rem;
+  margin: 1.5rem 0 1rem; break-inside: avoid;
+}
+.setup h3 { margin: .3rem 0 .6rem; color: var(--ink); }
+.cards {
+  list-style: none; padding: 0; margin: 0;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr)); gap: .75rem;
+}
+.cards li { break-inside: avoid; }
+figure {
+  position: relative; margin: 0; height: 100%; background: var(--card);
+  border: 1px solid var(--line); border-radius: 10px; padding: .5rem; text-align: center;
+}
+figure input { position: absolute; top: .4rem; left: .4rem; width: 1.1rem; height: 1.1rem; margin: 0; }
+.pictures { display: flex; justify-content: center; gap: .25rem; height: 6rem; }
+.pictures img { max-height: 100%; max-width: 100%; object-fit: contain; min-width: 0; }
+.no-image { display: block; font-size: 3rem; line-height: 6rem; opacity: .5; }
+figcaption { font-size: .85rem; line-height: 1.35; margin-top: .35rem; }
+figcaption b, figcaption i, figcaption small { display: block; }
+figcaption b { font-size: .95rem; }
+figcaption i, figcaption small { color: var(--muted); }
+.cover { text-align: center; margin-bottom: 2rem; }
+.kicker, .boxes, .tick { font: .85rem system-ui, sans-serif; color: var(--muted); }
+.kicker { text-transform: uppercase; letter-spacing: .12em; margin: 0; }
+.cover h1 { margin: .4rem 0 1.5rem; }
+.cast {
+  list-style: none; padding: 0; margin: 0 0 1.5rem;
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 1.25rem;
+}
+.cast li { width: 7rem; font-family: system-ui, sans-serif; }
+.cast img { display: block; height: 9rem; max-width: 100%; margin: 0 auto .4rem; object-fit: contain; }
+.cast .no-image { line-height: 9rem; }
+.premise { font-style: italic; max-width: 32rem; margin: 0 auto 1rem; }
+.how { font: .95rem system-ui, sans-serif; text-align: center; color: var(--muted); }
+.paragraph { border-top: 2px dashed var(--line); margin-top: 2rem; padding-top: .5rem; }
+h2.number {
+  border: 0; margin: .5rem auto 1rem; padding: 0; width: 2.6rem; height: 2.6rem;
+  line-height: 2.6rem; border-radius: 50%; text-align: center;
+  background: var(--accent); color: #fff; font-size: 1.3rem;
+}
+.choices {
+  font-family: system-ui, sans-serif; background: var(--setup); border-radius: 12px;
+  padding: .6rem 1rem; margin: 1rem 0; break-inside: avoid;
+}
+.choices p { margin: 0 0 .4rem; font-weight: 600; }
+.choices ul { list-style: none; margin: 0; padding: 0; }
+.choices li { margin: .3rem 0; }
+.choices a { color: var(--ink); text-decoration: none; }
+.choices a span { color: var(--accent); white-space: nowrap; }
+.end { text-align: center; font-weight: bold; letter-spacing: .1em; color: var(--accent); }
+footer {
+  max-width: 46rem; margin: 2rem auto; padding: 0 1rem;
+  font-size: .75rem; color: var(--muted); text-align: center;
+}
+@page {
+  size: A4; margin: 16mm 16mm 18mm;
+  @bottom-center { content: counter(page); font: 9pt system-ui, sans-serif; color: #888; }
+}
+@page :first { @bottom-center { content: none; } }
+@media print {
+  :root {
+    --paper: #fff; --ink: #1a1a1a; --muted: #666; --accent: #c8102e;
+    --card: #fff; --line: #ddd; --setup: #fff4d6;
+  }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { font-size: 14pt; line-height: 1.6; }
+  main { max-width: none; padding: 0; }
+  p { text-align: justify; hyphens: auto; orphans: 3; widows: 3; }
+  img.ref { height: 1.8em; }
+  /* The cover fills the first page; then one page per scene. */
+  .cover {
+    min-height: 255mm; margin: 0; padding: 12mm; break-after: page;
+    display: flex; flex-direction: column; justify-content: center;
+    border: 3px double var(--accent); border-radius: 18px;
+  }
+  .cover p { text-align: center; }
+  .cover h1 { font-size: 30pt; }
+  .cast img { height: 11rem; }
+  .cast li { width: 8.5rem; font-size: 13pt; }
+  .scene + .scene { break-before: page; }
+  /* A gamebook paragraph stays on one page, with its number and choices. */
+  .paragraph { break-inside: avoid; margin-top: 1.2rem; }
+  .how { margin: 0 0 .5rem; }
+  /* Compact setups: the story keeps most of the page. */
+  .setup { margin: 0 0 1.2rem; padding: .4rem .7rem .7rem; }
+  .setup h3 { font-size: 9pt; margin: .2rem 0 .4rem; }
+  .setup .cards { grid-template-columns: repeat(auto-fill, minmax(25mm, 1fr)); gap: .35rem; }
+  .setup figure { padding: .3rem; border-radius: 6px; }
+  .setup .pictures { height: 15mm; }
+  .setup figcaption { font-size: 7pt; line-height: 1.25; }
+  .setup figcaption b { font-size: 8pt; }
+  .setup figcaption small { display: none; }
+  .box { break-before: page; }
+  .box h2 { border: 0; margin-top: 0; padding-top: 0; }
+  .box .cards { grid-template-columns: repeat(auto-fill, minmax(32mm, 1fr)); gap: .5rem; }
+  .box .pictures { height: 20mm; }
+  .box figcaption { font-size: 8pt; }
+  figure input { appearance: none; border: 1.5px solid #555; border-radius: 3px; background: #fff; }
+  footer { margin: 1.5rem 0 0; font-size: 7.5pt; break-inside: avoid; }
+}
+
+@page compact { size: A4; margin: 11mm 12mm 14mm; }
+@media print {
+  body.compact { page: compact; font-size: 10.5pt; line-height: 1.4; }
+  .compact .cover {
+    min-height: 0; padding: 0 0 3mm; margin: 0 0 4mm; border: 0; border-radius: 0;
+    border-bottom: 2px solid var(--accent); break-after: auto; display: block;
+  }
+  .compact .cover h1 { font-size: 20pt; margin: 1mm 0 2mm; }
+  .compact .kicker { font-size: 7pt; }
+  .compact .cast { gap: 4mm; margin: 0 0 2mm; }
+  .compact .cast li { width: 18mm; font-size: 8pt; }
+  .compact .cast img { height: 20mm; margin-bottom: 1mm; }
+  .compact .cast .no-image { line-height: 20mm; font-size: 2rem; }
+  .compact .premise { font-size: 9.5pt; margin-bottom: 1mm; }
+  .compact .boxes { font-size: 7.5pt; margin: 0; }
+  /* The story in two columns, no forced page break. */
+  .compact .story { column-count: 2; column-gap: 7mm; column-rule: 1px solid var(--line); }
+  .compact .scene + .scene { break-before: auto; margin-top: 3mm; padding-top: 2mm; border-top: 1px dashed var(--line); }
+  .compact p { margin: 0 0 .5em; }
+  .compact .setup { margin: 0 0 2mm; padding: 1.5mm 2mm 2mm; border-radius: 4px; }
+  .compact .setup h3 { font-size: 7pt; margin: 0 0 1mm; }
+  .compact .setup .cards { grid-template-columns: repeat(auto-fill, minmax(14mm, 1fr)); gap: 1mm; }
+  .compact .setup figure { padding: .5mm; border-radius: 3px; }
+  .compact .setup .pictures { height: 9mm; }
+  .compact .setup .no-image { line-height: 9mm; font-size: 1.2rem; }
+  .compact .setup figcaption { font-size: 5.5pt; line-height: 1.15; margin-top: .5mm; }
+  .compact .setup figcaption b { font-size: 6pt; }
+  .compact .how { font-size: 8pt; column-span: all; }
+  .compact .paragraph { margin-top: 2mm; padding-top: 1mm; }
+  .compact h2.number { width: 1.7rem; height: 1.7rem; line-height: 1.7rem; font-size: .9rem; margin: 1mm auto 2mm; }
+  .compact .choices { padding: 1.5mm 2.5mm; margin: 2mm 0; font-size: 9pt; }
+  .compact .end { margin: 1mm 0 0; }
+  .compact img.ref { height: 1.4em; }
+  /* "In your box": a dense checklist after the story. */
+  .compact .box { break-before: auto; margin-top: 5mm; padding-top: 3mm; border-top: 2px solid var(--accent); }
+  .compact .box h2 { font-size: 13pt; margin: 0 0 1mm; }
+  .compact .box h3 { font-size: 7.5pt; margin: 2mm 0 1mm; }
+  .compact .tick { font-size: 7.5pt; margin: 0 0 1mm; }
+  .compact .box .cards { grid-template-columns: repeat(auto-fill, minmax(21mm, 1fr)); gap: 1.2mm; }
+  .compact .box figure { padding: 1mm; border-radius: 4px; }
+  .compact .box .pictures { height: 12mm; }
+  .compact .box .no-image { line-height: 12mm; font-size: 1.4rem; }
+  .compact .box figcaption { font-size: 6pt; line-height: 1.2; }
+  .compact .box figcaption b { font-size: 6.5pt; }
+  .compact figure input { width: 3mm; height: 3mm; top: 1mm; left: 1mm; }
+  .compact footer { margin-top: 3mm; font-size: 6.5pt; }
+}
+</style>
+</head>
+<body class="booklet">
+<main>
+<header class="cover">
+<p class="kicker">A story to play with your Playmobil box</p>
+<h1>Pepper and the Pirate&#39;s Hat</h1>
+<ul class="cast"><li><img src="https://playmodb.org/parts/0/00/30%2000%20391.gif" alt=""><b>Finn</b></li><li><img src="https://playmodb.org/parts/0/00/30%2000%20413.gif" alt=""><b>Barnaby</b></li><li><img src="https://playmodb.org/parts/1/13/30%2013%20020.gif" alt=""><b>Captain Salty</b></li></ul>
+<p class="premise">A grumpy pirate rows to the island to claim the treasure said to lie behind a secret door, but a cheeky parrot steals his hat, and the treasure he finds is not the one he expected.</p>
+<p class="boxes">3799 &quot;Pirates Secret Island&quot;</p>
+</header>
+<div class="story">
+<section class="scene">
+<aside class="setup">
+<h3>🧱 Set the scene</h3>
+<ul class="cards"><li><figure><span class="pictures"><img src="https://playmodb.org/parts/0/00/30%2000%20391.gif" alt="Castaway" loading="lazy"></span><figcaption><b>Finn</b>Castaway<small>ref. 30 00 391</small></figcaption></figure></li><li><figure><span class="pictures"><img src="https://playmodb.org/parts/0/00/30%2000%20413.gif" alt="Crusoe (long white beard)" loading="lazy"></span><figcaption><b>Barnaby</b>Crusoe (long white beard)<small>ref. 30 00 413</small></figcaption></figure></li><li><figure><span class="pictures"><img src="https://playmodb.org/parts/6/60/30%2060%208050.gif" alt="Cooking gear, wooden (spoon, scoop, fork, bowl) (tan)" loading="lazy"></span><figcaption>Cooking gear, wooden (spoon, scoop, fork, bowl) (tan)<small>ref. 30 60 805</small></figcaption></figure></li><li><figure><span class="pictures"><img src="https://playmodb.org/parts/0/05/30%2005%208820_online(2).jpg" alt="Basket, round (light brown)" loading="lazy"><img src="https://playmodb.org/parts/6/60/30%2060%20806.gif" alt="Basket with Base (marino yellow)" loading="lazy"></span><figcaption>Basket, round (light brown) + Basket with Base (marino yellow)<small>ref. 30 05 882, 30 60 806</small></figcaption></figure></li><li><figure><span class="pictures"><img src="https://playmodb.org/parts/6/60/30%2060%20370.gif" alt="Palm tree leaves and coconuts (green)" loading="lazy"><img src="https://playmodb.org/parts/0/06/30%2006%208880.gif" alt="Palm tree trunk, straight (brown)" loading="lazy"></span><figcaption>Palm tree leaves and coconuts (green) + Palm tree trunk, straight (brown)<small>ref. 30 60 370, 30 06 888</small></figcaption></figure></li><li><figure><span class="pictures"><img src="https://playmodb.org/parts/0/06/30%2006%20198.gif" alt="Parrot body (light blue)" loading="lazy"><img src="https://playmodb.org/parts/0/06/30%2006%20199.gif" alt="Parrot wings (yellow)" loading="lazy"></span><figcaption>Parrot body (light blue) + Parrot wings (yellow)<small>ref. 30 06 198, 30 06 199</small></figcaption></figure></li><li><figure><span class="pictures"><img src="https://playmodb.org/parts/6/60/30%2060%20926.gif" alt="Parrot swing with pin (brass)" loading="lazy"></span><figcaption>Parrot swing with pin (brass)<small>ref. 30 60 926</small></figcaption></figure></li><li><figure><span class="pictures"><img src="https://playmodb.org/parts/6/66/30%2066%20012.gif" alt="Goat (white)" loading="lazy"></span><figcaption>Goat (white)<small>ref. 30 66 012</small></figcaption></figure></li><li><figure><span class="pictures"><img src="https://playmodb.org/parts/0/06/30%2006%205800.gif" alt="Hammock (light yellow)" loading="lazy"></span><figcaption>Hammock (light yellow)<small>ref. 30 06 580</small></figcaption></figure></li></ul>
+</aside>
+<p>The sun rose over a tiny island in the middle of the sea. Two palm trees swayed in the breeze, heavy with green coconuts, and a little hut stood on its stilts, with a roof of golden straw.</p>
+<p>In front of the hut, Finn, the castaway with orange hair, was stirring a big wooden bowl with his wooden spoon.<br />
+"Coconut soup, coming up!" he sang.</p>
+<p>Barnaby, the old islander with the long white beard, came back from the palm trees with his round basket full to the brim.<br />
+"Here are the best coconuts on the whole island," he said with a mysterious smile.</p>
+<p>Above them, Pepper the blue parrot with yellow wings rocked on his golden swing.<br />
+"Soup! Soup! Pepper wants soup!" he squawked.</p>
+<p>Under the yellow hammock, Clover the white goat was snoring softly, one ear twitching.</p>
+<p>It was a perfectly peaceful morning… or so they thought.</p>
+</section>
+<section class="scene">
+<aside class="setup">
+<h3>🧱 Set the scene</h3>
+<ul class="cards"><li><figure><span class="pictures"><img src="https://playmodb.org/parts/1/13/30%2013%20020.gif" alt="Pirate, red vest and ponytail" loading="lazy"></span><figcaption><b>Captain Salty</b>Pirate, red vest and ponytail<small>ref. 30 13 020</small></figcaption></figure></li><li><figure><span class="pictures"><img src="https://playmodb.org/parts/0/00/30%2000%20391.gif" alt="Castaway" loading="lazy"></span><figcaption><b>Finn</b>Castaway<small>ref. 30 00 391</small></figcaption></figure></li><li><figure><span class="pictures"><img src="https://playmodb.org/parts/0/00/30%2000%20413.gif" alt="Crusoe (long white beard)" loading="lazy"></span><figcaption><b>Barnaby</b>Crusoe (long white beard)<small>ref. 30 00 413</small></figcaption></figure></li><li><figure><span class="pictures"><img src="https://playmodb.org/parts/0/05/30%2005%208060_online.jpg" alt="Rowboat, one-seater (dark brown)" loading="lazy"><img src="https://playmodb.org/parts/6/60/30%2060%208150.gif" alt="Rowboat gear: seat, oarlocks, paddles (light brown)" loading="lazy"></span><figcaption>Rowboat, one-seater (dark brown) + Rowboat gear: seat, oarlocks, paddles (light brown)<small>ref. 30 05 806, 30 60 815</small></figcaption></figure></li><li><figure><span class="pictures"><img src="https://playmodb.org/parts/6/64/30%2064%20140.gif" alt="Hat, tricorne, with hole for feather (black, white stripe)" loading="lazy"><img src="https://playmodb.org/parts/0/06/30%2006%202190_online(2).jpg" alt="Hat, soft, tail on side (light green)" loading="lazy"></span><figcaption>Hat, tricorne, with hole for feather (black, white stripe) + Hat, soft, tail on side (light green)<small>ref. 30 64 140, 30 06 219</small></figcaption></figure></li><li><figure><span class="pictures"><img src="https://playmodb.org/parts/0/04/30%2004%20724.gif" alt="Feather, wide, slightly curved (red)" loading="lazy"></span><figcaption>Feather, wide, slightly curved (red)<small>ref. 30 04 724</small></figcaption></figure></li><li><figure><span class="pictures"><img src="https://playmodb.org/parts/0/06/30%2006%20368.gif" alt="Sword, saber (curved) (gold)" loading="lazy"></span><figcaption>Sword, saber (curved) (gold)<small>ref. 30 06 368</small></figcaption></figure></li></ul>
+</aside>
+<p>Splash, splash, splash! A little brown rowing boat was coming over the waves. In it sat a pirate in a red vest, with a long black ponytail, pulling hard on the paddles.</p>
+<p>The boat slid onto the sand. The pirate jumped out, straightened his black tricorne hat with its big red feather, and waved a shiny golden saber in the air.<br />
+"Ahoy, landlubbers! I am Captain Salty, the loudest pirate of the seven seas!"</p>
+<p>Clover woke up with a start. "Meeeh!"</p>
+<p>Finn put down his spoon. "Hello, Captain! Would you like some soup?"</p>
+<p>"Soup? I don't want soup!" roared Salty. "I want the treasure! Everybody knows there is a treasure on this island, hidden behind a secret door in the rocks. And I'm going to find it!"</p>
+<p>Barnaby stroked his long white beard and said nothing. But his eyes were twinkling.</p>
+</section>
+<section class="scene">
+<aside class="setup">
+<h3>🧱 Set the scene</h3>
+<ul class="cards"><li><figure><span class="pictures"><img src="https://playmodb.org/parts/1/13/30%2013%20020.gif" alt="Pirate, red vest and ponytail" loading="lazy"></span><figcaption><b>Captain Salty</b>Pirate, red vest and ponytail<small>ref. 30 13 020</small></figcaption></figure></li><li><figure><span class="pictures"><img src="https://playmodb.org/parts/0/00/30%2000%20391.gif" alt="Castaway" loading="lazy"></span><figcaption><b>Finn</b>Castaway<small>ref. 30 00 391</small></figcaption></figure></li><li><figure><span class="pictures"><img src="https://playmodb.org/parts/0/00/30%2000%20413.gif" alt="Crusoe (long white beard)" loading="lazy"></span><figcaption><b>Barnaby</b>Crusoe (long white beard)<small>ref. 30 00 413</small></figcaption></figure></li><li><figure><span class="pictures"><img src="https://playmodb.org/parts/0/06/30%2006%20198.gif" alt="Parrot body (light blue)" loading="lazy"><img src="https://playmodb.org/parts/0/06/30%2006%20199.gif" alt="Parrot wings (yellow)" loading="lazy"></span><figcaption>Parrot body (light blue) + Parrot wings (yellow)<small>ref. 30 06 198, 30 06 199</small></figcaption></figure></li><li><figure><span class="pictures"><img src="https://playmodb.org/parts/6/64/30%2064%20140.gif" alt="Hat, tricorne, with hole for feather (black, white stripe)" loading="lazy"><img src="https://playmodb.org/parts/0/06/30%2006%202190_online(2).jpg" alt="Hat, soft, tail on side (light green)" loading="lazy"></span><figcaption>Hat, tricorne, with hole for feather (black, white stripe) + Hat, soft, tail on side (light green)<small>ref. 30 64 140, 30 06 219</small></figcaption></figure></li><li><figure><span class="pictures"><img src="https://playmodb.org/parts/0/06/30%2006%20573.gif" alt="Rock formation, secret door (dark grey)" loading="lazy"></span><figcaption>Rock formation, secret door (dark grey)<small>ref. 30 06 573</small></figcaption></figure></li><li><figure><span class="pictures"><img src="https://playmodb.org/parts/0/06/30%2006%20540.gif" alt="Rock formation with cave (dark grey)" loading="lazy"></span><figcaption>Rock formation with cave (dark grey)<small>ref. 30 06 540</small></figcaption></figure></li><li><figure><span class="pictures"><img src="https://playmodb.org/parts/6/65/30%2065%20079.gif" alt="Lantern (silver/yellow)" loading="lazy"></span><figcaption>Lantern (silver/yellow)<small>ref. 30 65 079</small></figcaption></figure></li></ul>
+</aside>
+<p>Pepper had been watching that big red feather for a while. Suddenly, he swooped down from his swing, grabbed the tricorne hat in his beak and flapped away!<br />
+"My hat! Come back, you feathered thief!" shouted Salty.</p>
+<p>Pepper flew straight to the grey rocks and squeezed through a narrow crack. With a long creak, one of the rocks swung open like a door. Behind it, there was a cave, as black as night.</p>
+<p>Salty ran to the entrance… and stopped dead. His knees began to shake.<br />
+"It's… it's very dark in there," he whispered. "Pirates don't like the dark. Not one bit."</p>
+<p>Finn ran to the hut and came back with the lantern. He lit it, and a warm yellow light glowed.<br />
+"Don't worry, Captain. We'll go together," he said, and he took Salty's hand.</p>
+<p>Barnaby smiled. "Follow me. I know this cave very well."</p>
+<p>And the three of them stepped into the darkness.</p>
+</section>
+<section class="scene">
+<aside class="setup">
+<h3>🧱 Set the scene</h3>
+<ul class="cards"><li><figure><span class="pictures"><img src="https://playmodb.org/parts/1/13/30%2013%20020.gif" alt="Pirate, red vest and ponytail" loading="lazy"></span><figcaption><b>Captain Salty</b>Pirate, red vest and ponytail<small>ref. 30 13 020</small></figcaption></figure></li><li><figure><span class="pictures"><img src="https://playmodb.org/parts/0/00/30%2000%20391.gif" alt="Castaway" loading="lazy"></span><figcaption><b>Finn</b>Castaway<small>ref. 30 00 391</small></figcaption></figure></li><li><figure><span class="pictures"><img src="https://playmodb.org/parts/0/00/30%2000%20413.gif" alt="Crusoe (long white beard)" loading="lazy"></span><figcaption><b>Barnaby</b>Crusoe (long white beard)<small>ref. 30 00 413</small></figcaption></figure></li><li><figure><span class="pictures"><img src="https://playmodb.org/parts/6/60/30%2060%208950_online(2).jpg" alt="Trunk; body and lid (light brown)" loading="lazy"><img src="https://playmodb.org/parts/0/06/30%2006%20394.gif" alt="Trunk lid bars (dark metal)" loading="lazy"><img src="https://playmodb.org/parts/6/60/30%2060%20896.gif" alt="Trunk; base and lock (dark metal)" loading="lazy"></span><figcaption>Trunk; body and lid (light brown) + Trunk lid bars (dark metal) + Trunk; base and lock (dark metal)<small>ref. 30 60 895, 30 06 394, 30 60 896</small></figcaption></figure></li><li><figure><span class="pictures"><img src="https://playmodb.org/parts/0/06/30%2006%20370.gif" alt="Bottle (clear pink)" loading="lazy"><img src="https://playmodb.org/parts/6/60/30%2060%208260_online(2).jpg" alt="Bottle, Wide, with Bottom (clear amber)" loading="lazy"></span><figcaption>Bottle (clear pink) + Bottle, Wide, with Bottom (clear amber)<small>ref. 30 06 370, 30 60 826</small></figcaption></figure></li><li><figure><span class="pictures"><img src="https://playmodb.org/parts/6/64/30%2064%20140.gif" alt="Hat, tricorne, with hole for feather (black, white stripe)" loading="lazy"><img src="https://playmodb.org/parts/0/06/30%2006%202190_online(2).jpg" alt="Hat, soft, tail on side (light green)" loading="lazy"></span><figcaption>Hat, tricorne, with hole for feather (black, white stripe) + Hat, soft, tail on side (light green)<small>ref. 30 64 140, 30 06 219</small></figcaption></figure></li><li><figure><span class="pictures"><img src="https://playmodb.org/parts/6/60/30%2060%20604.gif" alt="Jug and 2 cups (light blue)" loading="lazy"></span><figcaption>Jug and 2 cups (light blue)<small>ref. 30 60 604</small></figcaption></figure></li><li><figure><span class="pictures"><img src="https://playmodb.org/parts/6/66/30%2066%20062.gif" alt="Sea turtle (brown/tan)" loading="lazy"></span><figcaption>Sea turtle (brown/tan)<small>ref. 30 66 062</small></figcaption></figure></li></ul>
+</aside>
+<p>Deep inside the cave, the lantern lit up an old wooden trunk with dark metal bars. On top of it sat Pepper, the black hat in his beak.<br />
+"Treasure! Treasure!" he squawked.</p>
+<p>With trembling hands, Salty lifted the lid. There was no gold inside. Only an empty pink bottle.</p>
+<p>Barnaby picked it up gently. "I know this bottle," he said. "When I was a young pirate, I came here looking for gold. I drank my last drop of water from it… and I found friends instead. I never left. That is the best treasure of all."</p>
+<p>Salty stared at the old man. "You were a pirate?"<br />
+Barnaby laughed. "A long time ago. And I was afraid of the dark too!"</p>
+<p>Pepper dropped the hat onto Salty's head. "Friends! Friends!"</p>
+<p>That evening, as the sun set over the sea, Finn poured coconut juice from the blue jug. There were only two cups, so Barnaby drank straight from the jug, and everyone laughed. Two sea turtles crawled up onto the sand to join them.</p>
+<p>"Maybe," said Salty softly, "I'll stay a little while."</p>
+</section>
+</div>
+<section class="box">
+<h2>In your box</h2>
+<p class="tick">Tick each piece once you have found it.</p>
+<h3>Characters</h3>
+<ul class="cards"><li><figure><input type="checkbox" aria-label="Castaway — found"><span class="pictures"><img src="https://playmodb.org/parts/0/00/30%2000%20391.gif" alt="Castaway" loading="lazy"></span><figcaption><b>Finn</b>Castaway<small>ref. 30 00 391</small></figcaption></figure></li><li><figure><input type="checkbox" aria-label="Crusoe (long white beard) — found"><span class="pictures"><img src="https://playmodb.org/parts/0/00/30%2000%20413.gif" alt="Crusoe (long white beard)" loading="lazy"></span><figcaption><b>Barnaby</b>Crusoe (long white beard)<small>ref. 30 00 413</small></figcaption></figure></li><li><figure><input type="checkbox" aria-label="Pirate, red vest and ponytail — found"><span class="pictures"><img src="https://playmodb.org/parts/1/13/30%2013%20020.gif" alt="Pirate, red vest and ponytail" loading="lazy"></span><figcaption><b>Captain Salty</b>Pirate, red vest and ponytail<small>ref. 30 13 020</small></figcaption></figure></li></ul>
+<h3>Objects</h3>
+<ul class="cards"><li><figure><input type="checkbox" aria-label="Cooking gear, wooden (spoon, scoop, fork, bowl) (tan) — found"><span class="pictures"><img src="https://playmodb.org/parts/6/60/30%2060%208050.gif" alt="Cooking gear, wooden (spoon, scoop, fork, bowl) (tan)" loading="lazy"></span><figcaption><b>1×</b>Cooking gear, wooden (spoon, scoop, fork, bowl) (tan)<small>ref. 30 60 805</small></figcaption></figure></li><li><figure><input type="checkbox" aria-label="Basket, round (light brown) — found"><span class="pictures"><img src="https://playmodb.org/parts/0/05/30%2005%208820_online(2).jpg" alt="Basket, round (light brown)" loading="lazy"></span><figcaption><b>1×</b>Basket, round (light brown)<small>ref. 30 05 882</small></figcaption></figure></li><li><figure><input type="checkbox" aria-label="Basket with Base (marino yellow) — found"><span class="pictures"><img src="https://playmodb.org/parts/6/60/30%2060%20806.gif" alt="Basket with Base (marino yellow)" loading="lazy"></span><figcaption><b>1×</b>Basket with Base (marino yellow)<small>ref. 30 60 806</small></figcaption></figure></li><li><figure><input type="checkbox" aria-label="Palm tree leaves and coconuts (green) — found"><span class="pictures"><img src="https://playmodb.org/parts/6/60/30%2060%20370.gif" alt="Palm tree leaves and coconuts (green)" loading="lazy"></span><figcaption><b>3×</b>Palm tree leaves and coconuts (green)<small>ref. 30 60 370</small></figcaption></figure></li><li><figure><input type="checkbox" aria-label="Palm tree trunk, straight (brown) — found"><span class="pictures"><img src="https://playmodb.org/parts/0/06/30%2006%208880.gif" alt="Palm tree trunk, straight (brown)" loading="lazy"></span><figcaption><b>2×</b>Palm tree trunk, straight (brown)<small>ref. 30 06 888</small></figcaption></figure></li><li><figure><input type="checkbox" aria-label="Parrot body (light blue) — found"><span class="pictures"><img src="https://playmodb.org/parts/0/06/30%2006%20198.gif" alt="Parrot body (light blue)" loading="lazy"></span><figcaption><b>1×</b>Parrot body (light blue)<small>ref. 30 06 198</small></figcaption></figure></li><li><figure><input type="checkbox" aria-label="Parrot wings (yellow) — found"><span class="pictures"><img src="https://playmodb.org/parts/0/06/30%2006%20199.gif" alt="Parrot wings (yellow)" loading="lazy"></span><figcaption><b>1×</b>Parrot wings (yellow)<small>ref. 30 06 199</small></figcaption></figure></li><li><figure><input type="checkbox" aria-label="Parrot swing with pin (brass) — found"><span class="pictures"><img src="https://playmodb.org/parts/6/60/30%2060%20926.gif" alt="Parrot swing with pin (brass)" loading="lazy"></span><figcaption><b>1×</b>Parrot swing with pin (brass)<small>ref. 30 60 926</small></figcaption></figure></li><li><figure><input type="checkbox" aria-label="Goat (white) — found"><span class="pictures"><img src="https://playmodb.org/parts/6/66/30%2066%20012.gif" alt="Goat (white)" loading="lazy"></span><figcaption><b>1×</b>Goat (white)<small>ref. 30 66 012</small></figcaption></figure></li><li><figure><input type="checkbox" aria-label="Hammock (light yellow) — found"><span class="pictures"><img src="https://playmodb.org/parts/0/06/30%2006%205800.gif" alt="Hammock (light yellow)" loading="lazy"></span><figcaption><b>1×</b>Hammock (light yellow)<small>ref. 30 06 580</small></figcaption></figure></li><li><figure><input type="checkbox" aria-label="Rowboat, one-seater (dark brown) — found"><span class="pictures"><img src="https://playmodb.org/parts/0/05/30%2005%208060_online.jpg" alt="Rowboat, one-seater (dark brown)" loading="lazy"></span><figcaption><b>1×</b>Rowboat, one-seater (dark brown)<small>ref. 30 05 806</small></figcaption></figure></li><li><figure><input type="checkbox" aria-label="Rowboat gear: seat, oarlocks, paddles (light brown) — found"><span class="pictures"><img src="https://playmodb.org/parts/6/60/30%2060%208150.gif" alt="Rowboat gear: seat, oarlocks, paddles (light brown)" loading="lazy"></span><figcaption><b>1×</b>Rowboat gear: seat, oarlocks, paddles (light brown)<small>ref. 30 60 815</small></figcaption></figure></li><li><figure><input type="checkbox" aria-label="Hat, tricorne, with hole for feather (black, white stripe) — found"><span class="pictures"><img src="https://playmodb.org/parts/6/64/30%2064%20140.gif" alt="Hat, tricorne, with hole for feather (black, white stripe)" loading="lazy"></span><figcaption><b>1×</b>Hat, tricorne, with hole for feather (black, white stripe)<small>ref. 30 64 140</small></figcaption></figure></li><li><figure><input type="checkbox" aria-label="Hat, soft, tail on side (light green) — found"><span class="pictures"><img src="https://playmodb.org/parts/0/06/30%2006%202190_online(2).jpg" alt="Hat, soft, tail on side (light green)" loading="lazy"></span><figcaption><b>1×</b>Hat, soft, tail on side (light green)<small>ref. 30 06 219</small></figcaption></figure></li><li><figure><input type="checkbox" aria-label="Feather, wide, slightly curved (red) — found"><span class="pictures"><img src="https://playmodb.org/parts/0/04/30%2004%20724.gif" alt="Feather, wide, slightly curved (red)" loading="lazy"></span><figcaption><b>1×</b>Feather, wide, slightly curved (red)<small>ref. 30 04 724</small></figcaption></figure></li><li><figure><input type="checkbox" aria-label="Sword, saber (curved) (gold) — found"><span class="pictures"><img src="https://playmodb.org/parts/0/06/30%2006%20368.gif" alt="Sword, saber (curved) (gold)" loading="lazy"></span><figcaption><b>1×</b>Sword, saber (curved) (gold)<small>ref. 30 06 368</small></figcaption></figure></li><li><figure><input type="checkbox" aria-label="Rock formation, secret door (dark grey) — found"><span class="pictures"><img src="https://playmodb.org/parts/0/06/30%2006%20573.gif" alt="Rock formation, secret door (dark grey)" loading="lazy"></span><figcaption><b>1×</b>Rock formation, secret door (dark grey)<small>ref. 30 06 573</small></figcaption></figure></li><li><figure><input type="checkbox" aria-label="Rock formation with cave (dark grey) — found"><span class="pictures"><img src="https://playmodb.org/parts/0/06/30%2006%20540.gif" alt="Rock formation with cave (dark grey)" loading="lazy"></span><figcaption><b>1×</b>Rock formation with cave (dark grey)<small>ref. 30 06 540</small></figcaption></figure></li><li><figure><input type="checkbox" aria-label="Lantern (silver/yellow) — found"><span class="pictures"><img src="https://playmodb.org/parts/6/65/30%2065%20079.gif" alt="Lantern (silver/yellow)" loading="lazy"></span><figcaption><b>1×</b>Lantern (silver/yellow)<small>ref. 30 65 079</small></figcaption></figure></li><li><figure><input type="checkbox" aria-label="Trunk; body and lid (light brown) — found"><span class="pictures"><img src="https://playmodb.org/parts/6/60/30%2060%208950_online(2).jpg" alt="Trunk; body and lid (light brown)" loading="lazy"></span><figcaption><b>1×</b>Trunk; body and lid (light brown)<small>ref. 30 60 895</small></figcaption></figure></li><li><figure><input type="checkbox" aria-label="Trunk lid bars (dark metal) — found"><span class="pictures"><img src="https://playmodb.org/parts/0/06/30%2006%20394.gif" alt="Trunk lid bars (dark metal)" loading="lazy"></span><figcaption><b>1×</b>Trunk lid bars (dark metal)<small>ref. 30 06 394</small></figcaption></figure></li><li><figure><input type="checkbox" aria-label="Trunk; base and lock (dark metal) — found"><span class="pictures"><img src="https://playmodb.org/parts/6/60/30%2060%20896.gif" alt="Trunk; base and lock (dark metal)" loading="lazy"></span><figcaption><b>1×</b>Trunk; base and lock (dark metal)<small>ref. 30 60 896</small></figcaption></figure></li><li><figure><input type="checkbox" aria-label="Bottle (clear pink) — found"><span class="pictures"><img src="https://playmodb.org/parts/0/06/30%2006%20370.gif" alt="Bottle (clear pink)" loading="lazy"></span><figcaption><b>1×</b>Bottle (clear pink)<small>ref. 30 06 370</small></figcaption></figure></li><li><figure><input type="checkbox" aria-label="Bottle, Wide, with Bottom (clear amber) — found"><span class="pictures"><img src="https://playmodb.org/parts/6/60/30%2060%208260_online(2).jpg" alt="Bottle, Wide, with Bottom (clear amber)" loading="lazy"></span><figcaption><b>1×</b>Bottle, Wide, with Bottom (clear amber)<small>ref. 30 60 826</small></figcaption></figure></li><li><figure><input type="checkbox" aria-label="Jug and 2 cups (light blue) — found"><span class="pictures"><img src="https://playmodb.org/parts/6/60/30%2060%20604.gif" alt="Jug and 2 cups (light blue)" loading="lazy"></span><figcaption><b>1×</b>Jug and 2 cups (light blue)<small>ref. 30 60 604</small></figcaption></figure></li><li><figure><input type="checkbox" aria-label="Sea turtle (brown/tan) — found"><span class="pictures"><img src="https://playmodb.org/parts/6/66/30%2066%20062.gif" alt="Sea turtle (brown/tan)" loading="lazy"></span><figcaption><b>2×</b>Sea turtle (brown/tan)<small>ref. 30 66 062</small></figcaption></figure></li></ul>
+</section>
+</main>
+<footer>Story written by rag-mobil from the inventory of 3799 &quot;Pirates Secret Island&quot;.<br>Unofficial project. PLAYMOBIL® is a registered trademark of geobra Brandstätter Stiftung &amp; Co. KG. Part pictures: PlaymoDB.</footer>
+</body>
+</html>
