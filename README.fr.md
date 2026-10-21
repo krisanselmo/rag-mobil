@@ -114,7 +114,8 @@ vont sur `stderr` (`rag-mobil 3666 > histoire.md` fonctionne).
 | `--star REF` | — | Pièce préférée de l'enfant, au cœur de l'histoire ; répétable (voir ci-dessous) |
 | `--missing REF[:N]` | — | Pièce absente de la boîte : toutes les copies, ou N ; répétable |
 | `--missing-file` / `RAG_MOBIL_MISSING_FILE` | — | Pièces absentes, une par ligne (voir ci-dessous) |
-| `--no-review` | off | Méthode `planned` : saute la relecture de fidélité |
+| `--reviews N` / `RAG_MOBIL_REVIEWS` | `1` | Méthodes `planned` et `interactive` : tours de relecture de fidélité (0 à 3), chacun suivi d'une réécriture ; ils s'arrêtent à la première relecture qui ne trouve rien |
+| `--no-review` | off | Comme `--reviews 0` : saute la relecture de fidélité |
 | `--include-all` | off | Garde aussi les notices papier dans le contexte |
 | `-m, --model` / `RAG_MOBIL_MODEL` | `claude-opus-5-5` | Modèle ; le fournisseur est déduit du nom |
 | `--effort` | `medium` pour Claude, défaut du fournisseur sinon | `low`, `medium`, `high`, `xhigh`, `max` |
@@ -138,7 +139,11 @@ dans l'histoire comme dans « Dans ta boîte » : `[ref. 30 06 368]`, ou
 `[ref. 30 06 198, 30 06 199]` pour un objet en plusieurs pièces. Le format est stable : un
 affichage les retire (`\s*\[ref\.[^\]]*\]`) ou fait de chaque référence un lien vers la pièce.
 Dans la méthode `planned`, la section « Dans ta boîte » est écrite par le code, donc ses
-citations sont toujours exactes ; dans le texte, c'est le LLM qui les recopie.
+citations sont toujours exactes ; dans le texte, c'est le LLM qui les recopie, et **le code
+les vérifie** (méthodes `planned` et `interactive`) : une référence absente des boîtes
+s'ajoute aux écarts de la relecture, pour que la réécriture la corrige, et s'il en reste après
+la dernière réécriture (ou avec `--no-review`), elle est retirée du texte (message sur
+`stderr`). L'histoire ne cite jamais une pièce qui n'est pas dans la boîte.
 
 ### Histoire dont tu es le héros
 
@@ -313,6 +318,7 @@ src/
 └── writer/              rédaction
     ├── mod.rs           méthodes direct / planned, Observer (progression)
     ├── plan.rs          plan, vérification contre l'inventaire, mise en place, « Dans ta boîte »
+    ├── citations.rs     --citations : références citées dans le texte, vérifiées contre les boîtes
     ├── interactive.rs   histoire dont tu es le héros : graphe de paragraphes, vérifié
     ├── prompts.rs       prompts plan / rédaction / relecture / correction
     └── planned.rs       Plan → Rédaction → Relecture (adapté de Re3/DOC)
@@ -411,7 +417,15 @@ ajoute ce qui est propre au projet :
 - **refus** : si le modèle décline la requête (`stop_reason: "refusal"` chez Claude, filtre
   de contenu ailleurs), le texte partiel est abandonné ; pour Claude, une seule nouvelle
   tentative est faite sur `--fallback-model` ;
-- **troncature** : un arrêt sur `max_tokens` est signalé.
+- **troncature** : un arrêt sur `max_tokens` est signalé ;
+- **cache de prompt** : les appels de rédaction (un par partie, un par paragraphe en mode
+  interactif) commencent tous par le même prompt système, le même inventaire et le même plan.
+  Pour Claude, ce début est marqué `cache_control` (5 minutes) : le premier appel l'écrit, les
+  suivants le relisent pour une fraction du prix des tokens d'entrée, et plus vite. Les autres
+  fournisseurs reçoivent le prompt tel quel (OpenAI et Gemini mettent d'eux-mêmes en cache
+  les débuts répétés) ;
+- **tokens** : le résumé sur `stderr` totalise, sur tous les appels, les tokens d'entrée (dont
+  ceux lus dans le cache) et les tokens générés.
 
 Les autres fournisseurs gardent leurs réglages par défaut (beaucoup de modèles locaux
 refusent les paramètres de raisonnement) ; `--effort` permet de les forcer.
@@ -438,14 +452,17 @@ Control*, ACL 2023), adaptée à la contrainte d'inventaire :
 3. **Rédaction** (contrôle par plan détaillé de DOC) : une partie par étape, guidée par
    le plan, les personnages et objets de l'étape et le texte déjà écrit.
 4. **Relecture** (module *Edit* de Re3) : un relecteur liste en JSON les écarts avec la
-   boîte (objet absent, quantité dépassée, apparence contredite) ; s'il y en a, une
-   seule réécriture les corrige.
+   boîte (objet absent, quantité dépassée, apparence contredite), et avec `--citations` le
+   code y ajoute les références citées absentes de la boîte ; s'il y en a, une réécriture
+   les corrige. `--reviews 2` (ou 3) relit encore l'histoire réécrite, tant qu'il reste des
+   écarts.
 5. **« Dans ta boîte »** : la liste finale des personnages et objets est générée **par
    le code** à partir du plan validé, elle ne cite donc que des pièces de la boîte. Les
    objets que PlaymoDB découpe en plusieurs lignes (corps et ailes du perroquet, coffre
    et serrure, barque et rames…) y sont regroupés.
 
-Cela représente 5 à 9 appels au LLM au lieu d'un : l'histoire s'affiche à la fin, les
+Cela représente 5 à 9 appels au LLM au lieu d'un (2 de plus par tour de relecture
+supplémentaire) : l'histoire s'affiche à la fin, les
 étapes sur `stderr`. `--method direct` revient à un seul appel en streaming.
 
 Un autre LLM peut être branché en implémentant le trait `StoryGenerator`, une autre

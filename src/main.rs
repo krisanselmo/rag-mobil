@@ -180,9 +180,21 @@ struct Cli {
     #[arg(long, env = "RAG_MOBIL_MISSING_FILE", value_name = "FILE")]
     missing_file: Option<PathBuf>,
 
-    /// Planned method: no faithfulness review at the end.
+    /// Planned and interactive methods: no faithfulness review at the end
+    /// (same as --reviews 0).
     #[arg(long)]
     no_review: bool,
+
+    /// Planned and interactive methods: rounds of faithfulness review, each
+    /// followed by a rewrite; they stop at the first review that finds
+    /// nothing.
+    #[arg(
+        long,
+        env = "RAG_MOBIL_REVIEWS",
+        default_value_t = 1,
+        value_parser = clap::value_parser!(u8).range(0..=3)
+    )]
+    reviews: u8,
 
     /// Keeps every category of pieces (including paper instructions).
     #[arg(long)]
@@ -530,7 +542,7 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
     }
     let writer = WriterOptions {
         method,
-        review: !cli.no_review,
+        reviews: if cli.no_review { 0 } else { cli.reviews },
         scene_setup: cli.scene_setup,
     };
     // Before any LLM call: a PDF needs a browser and a file.
@@ -662,6 +674,22 @@ impl Telling<'_> {
     }
 }
 
+/// `, ~12000 input tokens (8000 read from cache), ~1500 generated`, or what
+/// the provider reported of it.
+fn tokens(usage: &rag_mobil::generator::TokenUsage) -> String {
+    let mut out = String::new();
+    if let Some(input) = usage.input {
+        out.push_str(&format!(", ~{input} input tokens"));
+        if let Some(read) = usage.cache_read {
+            out.push_str(&format!(" ({read} read from cache)"));
+        }
+    }
+    if let Some(output) = usage.output {
+        out.push_str(&format!(", ~{output} generated"));
+    }
+    out
+}
+
 fn summary(story: &rag_mobil::Story) {
     let g = &story.written.generation;
     eprintln!(
@@ -671,9 +699,7 @@ fn summary(story: &rag_mobil::Story) {
         story.collection.figures().count(),
         g.model,
         story.written.calls,
-        g.output_tokens
-            .map(|t| format!(", ~{t} tokens generated"))
-            .unwrap_or_default(),
+        tokens(&g.usage),
     );
     if g.truncated {
         eprintln!("[rag-mobil] warning: story truncated (max_tokens limit reached)");
@@ -733,6 +759,10 @@ impl Observer for Terminal {
             Step::SceneSetupDropped => eprintln!(
                 "[rag-mobil] scene setup dropped: the revision didn't keep the parts \
                  separate"
+            ),
+            Step::CitationsDropped(references) => eprintln!(
+                "[rag-mobil] references not in the box removed from the story: {}",
+                references.join(", ")
             ),
         }
     }

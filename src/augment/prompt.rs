@@ -44,10 +44,28 @@ impl Default for StoryOptions {
 }
 
 /// The fully augmented prompt, ready for any LLM backend.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Prompt {
     pub system: String,
     pub user: String,
+    /// Length in bytes of the start of `user` that the next calls for the
+    /// same story repeat, with the same `system` (the inventory and the
+    /// plan, for each part drafted): a provider with prompt caching (Claude)
+    /// stores this prefix once, then reads it back at a fraction of the
+    /// price. 0 = nothing worth caching.
+    pub cached: usize,
+}
+
+impl Prompt {
+    /// `user` split after its [`cached`](Self::cached) prefix; the prefix
+    /// is empty when nothing is worth caching.
+    pub fn split_user(&self) -> (&str, &str) {
+        if self.cached > 0 && self.user.is_char_boundary(self.cached) {
+            self.user.split_at(self.cached)
+        } else {
+            ("", &self.user)
+        }
+    }
 }
 
 /// How a story cites a part with `citations` on: the inventory's reference
@@ -170,6 +188,7 @@ pub fn build_prompt(collection: &Collection, options: &StoryOptions) -> Prompt {
     Prompt {
         system: format!("{}\n\n{DIRECT_STYLE}", storyteller_rules(options)),
         user: format!("{context}\n\nWrite this story. {request}\n"),
+        cached: 0,
     }
 }
 
@@ -187,5 +206,19 @@ mod tests {
         });
         assert!(cited.contains(CITATION_FORMAT));
         assert!(!cited.contains("never cite it"));
+    }
+
+    #[test]
+    fn user_splits_after_its_cached_prefix() {
+        let mut prompt = Prompt {
+            system: "rules".into(),
+            user: "<set>…</set>\n\nWrite part 2.".into(),
+            cached: "<set>…</set>\n\n".len(),
+        };
+        assert_eq!(prompt.split_user(), ("<set>…</set>\n\n", "Write part 2."));
+        prompt.cached = 0;
+        assert_eq!(prompt.split_user(), ("", prompt.user.as_str()));
+        prompt.cached = "<set>".len() + 1; // inside "…"
+        assert_eq!(prompt.split_user().0, "");
     }
 }

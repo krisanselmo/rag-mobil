@@ -5,26 +5,27 @@
 //!
 //! Differences with the papers: the plan is grounded in the inventory and
 //! checked by code (instead of learned rerankers), the drafting is one call
-//! per plot point (instead of many short passages), and a review pass (Re3's
-//! Edit module) lists fidelity issues that a single rewrite then fixes.
+//! per plot point (instead of many short passages), and review passes (Re3's
+//! Edit module) list fidelity issues that a rewrite then fixes; with
+//! `--citations`, code checks the cited references too.
 
 use serde::de::DeserializeOwned;
 
 use crate::augment::{StoryOptions, build_prompt};
 use crate::error::Result;
-use crate::generator::{Generation, StoryGenerator};
+use crate::generator::{Generation, StoryGenerator, TokenUsage};
 use crate::model::Collection;
 use crate::writer::plan::{
-    Review, StoryPlan, feature_stars, in_your_box, plan_schema, review_schema, sanitize,
+    Issue, Review, StoryPlan, feature_stars, in_your_box, plan_schema, review_schema, sanitize,
     scene_setup, scene_setup_markdown, validate, validate_stars,
 };
-use crate::writer::{Observer, Step, WriterOptions, Written, prompts};
+use crate::writer::{Observer, Step, WriterOptions, Written, citations, prompts};
 
 /// Aggregated stats over the calls of one story.
 #[derive(Default)]
 pub(crate) struct Tally {
     pub(crate) calls: u32,
-    pub(crate) output_tokens: Option<u64>,
+    pub(crate) usage: TokenUsage,
     pub(crate) truncated: bool,
     pub(crate) model: String,
 }
@@ -32,10 +33,7 @@ pub(crate) struct Tally {
 impl Tally {
     pub(crate) fn add(&mut self, generation: &Generation) {
         self.calls += 1;
-        self.output_tokens = match (self.output_tokens, generation.output_tokens) {
-            (Some(a), Some(b)) => Some(a + b),
-            (a, b) => a.or(b),
-        };
+        self.usage.add(&generation.usage);
         self.truncated |= generation.truncated;
         self.model.clone_from(&generation.model);
     }
@@ -124,7 +122,7 @@ pub(crate) async fn fall_back_to_direct<G: StoryGenerator, O: Observer>(
             text: generation.text,
             model: tally.model,
             truncated: tally.truncated,
-            output_tokens: tally.output_tokens,
+            usage: tally.usage,
         },
         plan: None,
         scenes: Vec::new(),
@@ -133,6 +131,59 @@ pub(crate) async fn fall_back_to_direct<G: StoryGenerator, O: Observer>(
         issues: Vec::new(),
         calls: tally.calls,
     })
+}
+
+/// One review of `story` (Re3's Edit module, adapted): the reviewer's issues,
+/// then, with `--citations`, the references the boxes don't hold. An
+/// unreadable review counts as no issue: the story is written, it must not
+/// be lost.
+pub(crate) async fn review<G: StoryGenerator, O: Observer>(
+    generator: &G,
+    boxes: &Collection,
+    options: &StoryOptions,
+    story: &str,
+    observer: &mut O,
+    tally: &mut Tally,
+) -> Result<Vec<Issue>> {
+    observer.step(Step::Reviewing);
+    let prompt = prompts::review(boxes, options, story);
+    let report = generator
+        .generate_json(&prompt, "story_review", &review_schema())
+        .await?;
+    tally.add(&report);
+    let mut issues = match parse_json::<Review>(&report.text) {
+        Ok(review) => review.issues,
+        Err(_) => {
+            observer.step(Step::ReviewUnreadable);
+            Vec::new()
+        }
+    };
+    if options.citations {
+        issues.extend(citations::issues(story, boxes));
+    }
+    Ok(issues)
+}
+
+/// With `--citations`, removes the references the revisions left that the
+/// boxes don't hold: the story never cites a piece that isn't there.
+pub(crate) fn drop_unknown_citations<O: Observer>(
+    texts: &mut [String],
+    boxes: &Collection,
+    options: &StoryOptions,
+    observer: &mut O,
+) {
+    if !options.citations {
+        return;
+    }
+    let mut dropped = Vec::new();
+    for text in texts {
+        let (kept, mut gone) = citations::strip_unknown(text, boxes);
+        *text = kept;
+        dropped.append(&mut gone);
+    }
+    if !dropped.is_empty() {
+        observer.step(Step::CitationsDropped(&dropped));
+    }
 }
 
 /// Splits a revised story on the scene breaks kept by the reviser; `None`
@@ -184,56 +235,47 @@ pub(crate) async fn write<G: StoryGenerator, O: Observer>(
         tally.add(&part);
         scenes.push(part.text.trim().to_owned());
     }
-    let story = scenes.join("\n\n");
 
-    // 3. Edit: review, then one rewrite if needed
+    // 3. Edit: review, then a rewrite if needed, for as many rounds as asked
+    //    or until a review finds nothing
     let mut issues = Vec::new();
-    if writer.review {
-        observer.step(Step::Reviewing);
-        let prompt = prompts::review(boxes, options, &story);
-        let report = generator
-            .generate_json(&prompt, "story_review", &review_schema())
-            .await?;
-        tally.add(&report);
-        // The story is written: an unreadable review must not lose it.
-        issues = match parse_json::<Review>(&report.text) {
-            Ok(review) => review.issues,
-            Err(_) => {
-                observer.step(Step::ReviewUnreadable);
-                Vec::new()
+    for _ in 0..writer.reviews {
+        let story = scenes.join("\n\n");
+        let found = review(generator, boxes, options, &story, observer, &mut tally).await?;
+        if found.is_empty() {
+            break;
+        }
+        observer.step(Step::Revising(&found));
+        // With scene setups, the parts must stay apart: the reviser
+        // gets them separated by scene breaks, and is asked to keep them.
+        let staged = writer.scene_setup && scenes.len() > 1;
+        let prompt = if staged {
+            let story = scenes.join(&format!("\n\n{}\n\n", prompts::SCENE_BREAK));
+            prompts::revise(boxes, options, &story, &found, Some(scenes.len()))
+        } else {
+            prompts::revise(boxes, options, &story, &found, None)
+        };
+        let revised = generator.generate(&prompt, |_| {}).await?;
+        tally.add(&revised);
+        let revised = revised.text.trim();
+        scenes = match split_scenes(revised, scenes.len()) {
+            Some(parts) if staged => parts,
+            _ => {
+                if staged {
+                    observer.step(Step::SceneSetupDropped);
+                }
+                // Without the breaks, should some be left over.
+                let text = revised
+                    .lines()
+                    .filter(|l| !staged || l.trim() != prompts::SCENE_BREAK)
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                vec![text.trim().to_owned()]
             }
         };
-        if !issues.is_empty() {
-            observer.step(Step::Revising(&issues));
-            // With scene setups, the parts must stay apart: the reviser
-            // gets them separated by scene breaks, and is asked to keep them.
-            let staged = writer.scene_setup && scenes.len() > 1;
-            let prompt = if staged {
-                let story = scenes.join(&format!("\n\n{}\n\n", prompts::SCENE_BREAK));
-                prompts::revise(boxes, options, &story, &issues, Some(scenes.len()))
-            } else {
-                prompts::revise(boxes, options, &story, &issues, None)
-            };
-            let revised = generator.generate(&prompt, |_| {}).await?;
-            tally.add(&revised);
-            let revised = revised.text.trim();
-            scenes = match split_scenes(revised, scenes.len()) {
-                Some(parts) if staged => parts,
-                _ => {
-                    if staged {
-                        observer.step(Step::SceneSetupDropped);
-                    }
-                    // Without the breaks, should some be left over.
-                    let text = revised
-                        .lines()
-                        .filter(|l| !staged || l.trim() != prompts::SCENE_BREAK)
-                        .collect::<Vec<_>>()
-                        .join("\n");
-                    vec![text.trim().to_owned()]
-                }
-            };
-        }
+        issues.extend(found);
     }
+    drop_unknown_citations(&mut scenes, boxes, options, observer);
 
     let staged = writer.scene_setup && scenes.len() == plan.outline.len();
     let story = if staged {
@@ -265,7 +307,7 @@ pub(crate) async fn write<G: StoryGenerator, O: Observer>(
             text,
             model: tally.model,
             truncated: tally.truncated,
-            output_tokens: tally.output_tokens,
+            usage: tally.usage,
         },
         plan: Some(plan),
         scenes,

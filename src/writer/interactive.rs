@@ -14,10 +14,12 @@ use crate::error::Result;
 use crate::generator::{Generation, StoryGenerator};
 use crate::model::Collection;
 use crate::writer::plan::{
-    Labels, PlannedCharacter, PlotPoint, Review, StoryPlan, feature_stars, in_your_box,
-    review_schema, sanitize, scene_setup, scene_setup_markdown, validate, validate_stars,
+    Labels, PlannedCharacter, PlotPoint, StoryPlan, feature_stars, in_your_box, sanitize,
+    scene_setup, scene_setup_markdown, validate, validate_stars,
 };
-use crate::writer::planned::{Tally, fall_back_to_direct, parse_json};
+use crate::writer::planned::{
+    Tally, drop_unknown_citations, fall_back_to_direct, parse_json, review,
+};
 use crate::writer::{Observer, Step, WriterOptions, Written, prompts};
 
 /// Most choices a paragraph may offer.
@@ -501,50 +503,57 @@ pub(crate) async fn write<G: StoryGenerator, O: Observer>(
         texts.push(part.text.trim().to_owned());
     }
 
-    // 3. Edit: one review of every paragraph, then a rewrite of each
-    //    paragraph an issue quotes
+    // 3. Edit: a review of every paragraph, then a rewrite of each
+    //    paragraph an issue quotes, for as many rounds as asked or until a
+    //    review finds nothing
     let mut issues = Vec::new();
-    if writer.review {
-        observer.step(Step::Reviewing);
+    for _ in 0..writer.reviews {
         let all: Vec<String> = texts
             .iter()
             .enumerate()
             .map(|(i, t)| format!("§{}\n{t}", i + 1))
             .collect();
-        let prompt = prompts::review(boxes, options, &all.join("\n\n"));
-        let report = generator
-            .generate_json(&prompt, "story_review", &review_schema())
-            .await?;
-        tally.add(&report);
-        issues = match parse_json::<Review>(&report.text) {
-            Ok(review) => review.issues,
-            Err(_) => {
-                observer.step(Step::ReviewUnreadable);
-                Vec::new()
+        let found = review(
+            generator,
+            boxes,
+            options,
+            &all.join("\n\n"),
+            observer,
+            &mut tally,
+        )
+        .await?;
+        if found.is_empty() {
+            break;
+        }
+        observer.step(Step::Revising(&found));
+        let mut rewritten = false;
+        for text in &mut texts {
+            let haystack = normalized(text);
+            let own: Vec<_> = found
+                .iter()
+                .filter(|i| {
+                    let excerpt = normalized(&i.excerpt);
+                    !excerpt.is_empty() && haystack.contains(&excerpt)
+                })
+                .cloned()
+                .collect();
+            if own.is_empty() {
+                continue;
             }
-        };
-        if !issues.is_empty() {
-            observer.step(Step::Revising(&issues));
-            for text in &mut texts {
-                let haystack = normalized(text);
-                let own: Vec<_> = issues
-                    .iter()
-                    .filter(|i| {
-                        let excerpt = normalized(&i.excerpt);
-                        !excerpt.is_empty() && haystack.contains(&excerpt)
-                    })
-                    .cloned()
-                    .collect();
-                if own.is_empty() {
-                    continue;
-                }
-                let prompt = prompts::revise(boxes, options, text, &own, None);
-                let revised = generator.generate(&prompt, |_| {}).await?;
-                tally.add(&revised);
-                *text = revised.text.trim().to_owned();
-            }
+            let prompt = prompts::revise(boxes, options, text, &own, None);
+            let revised = generator.generate(&prompt, |_| {}).await?;
+            tally.add(&revised);
+            *text = revised.text.trim().to_owned();
+            rewritten = true;
+        }
+        issues.extend(found);
+        // Nothing quoted matched a paragraph: another review would see the
+        // same story.
+        if !rewritten {
+            break;
         }
     }
+    drop_unknown_citations(&mut texts, boxes, options, observer);
 
     let text = markdown(&story_plan, &texts, &paragraphs, boxes, options, writer);
     observer.text(&text);
@@ -553,7 +562,7 @@ pub(crate) async fn write<G: StoryGenerator, O: Observer>(
             text,
             model: tally.model,
             truncated: tally.truncated,
-            output_tokens: tally.output_tokens,
+            usage: tally.usage,
         },
         plan: Some(story_plan),
         scenes: texts,

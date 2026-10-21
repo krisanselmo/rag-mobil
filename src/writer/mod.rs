@@ -4,6 +4,7 @@
 //! - [`WritingMethod::Planned`]: Plan → Draft → Edit, adapted from the
 //!   open-source Re3 and DOC story generators (see `writer/planned.rs`).
 
+pub mod citations;
 pub mod interactive;
 pub mod plan;
 mod planned;
@@ -32,8 +33,10 @@ pub enum WritingMethod {
 #[derive(Debug, Clone, Copy)]
 pub struct WriterOptions {
     pub method: WritingMethod,
-    /// Planned method only: review the draft and fix fidelity issues.
-    pub review: bool,
+    /// Planned and interactive methods: rounds of review, each followed by a
+    /// rewrite fixing the fidelity issues found (0 = no review). The rounds
+    /// stop at the first review that finds nothing.
+    pub reviews: u8,
     /// Planned method only: before each part of the story, a "Mise en place"
     /// listing the characters and objects to put on the table, from the plan.
     pub scene_setup: bool,
@@ -43,7 +46,7 @@ impl Default for WriterOptions {
     fn default() -> Self {
         Self {
             method: WritingMethod::Planned,
-            review: true,
+            reviews: 1,
             scene_setup: false,
         }
     }
@@ -72,6 +75,9 @@ pub enum Step<'a> {
     /// The revision didn't keep the parts of the story apart: the scene
     /// setups are left out.
     SceneSetupDropped,
+    /// `--citations`: references still not in the boxes after the review,
+    /// removed from the story.
+    CitationsDropped(&'a [String]),
 }
 
 /// Receives the story text and the progress of the writing.

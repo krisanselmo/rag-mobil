@@ -16,7 +16,8 @@
 use futures_util::StreamExt;
 use genai::adapter::AdapterKind;
 use genai::chat::{
-    ChatMessage, ChatOptions, ChatRequest, ChatStreamEvent, JsonSpec, ReasoningEffort, StopReason,
+    CacheControl, ChatMessage, ChatOptions, ChatRequest, ChatStreamEvent, JsonSpec,
+    ReasoningEffort, StopReason, Usage,
 };
 use genai::resolver::{AuthData, Endpoint, ServiceTargetResolver};
 use genai::{Client, ServiceTarget};
@@ -24,7 +25,7 @@ use serde_json::Value;
 
 use crate::augment::Prompt;
 use crate::error::{RagError, Result};
-use crate::generator::{Generation, StoryGenerator};
+use crate::generator::{Generation, StoryGenerator, TokenUsage};
 
 pub const DEFAULT_MODEL: &str = "claude-opus-5-5";
 /// Model retried once when Claude declines a request (safety classifier).
@@ -108,7 +109,7 @@ impl LlmGenerator {
             model: response.model_iden.model_name.to_string(),
             text: String::new(),
             stop_reason: None,
-            output_tokens: None,
+            usage: TokenUsage::default(),
         };
         let mut stream = response.stream;
         while let Some(event) = stream.next().await {
@@ -119,10 +120,7 @@ impl LlmGenerator {
                 }
                 ChatStreamEvent::End(end) => {
                     attempt.stop_reason = end.captured_stop_reason;
-                    attempt.output_tokens = end
-                        .captured_usage
-                        .and_then(|u| u.completion_tokens)
-                        .and_then(|t| u64::try_from(t).ok());
+                    attempt.usage = end.captured_usage.map(token_usage).unwrap_or_default();
                 }
                 // Start, reasoning (thinking) and tool-call events: not shown.
                 _ => {}
@@ -138,7 +136,40 @@ struct Attempt {
     model: String,
     text: String,
     stop_reason: Option<StopReason>,
-    output_tokens: Option<u64>,
+    usage: TokenUsage,
+}
+
+/// genai's usage, in our terms (for Claude, genai counts the cached input
+/// tokens in `prompt_tokens`).
+fn token_usage(usage: Usage) -> TokenUsage {
+    let count = |t: Option<i32>| t.and_then(|t| u64::try_from(t).ok());
+    let details = usage.prompt_tokens_details.as_ref();
+    TokenUsage {
+        input: count(usage.prompt_tokens),
+        cache_read: count(details.and_then(|d| d.cached_tokens)),
+        cache_write: count(details.and_then(|d| d.cache_creation_tokens)),
+        output: count(usage.completion_tokens),
+    }
+}
+
+/// The request for `prompt`. For Claude, the prefix of the user message
+/// that the next calls repeat ([`Prompt::cached`]) is a message of its own,
+/// marked for the prompt cache: those calls read it (and the system prompt
+/// before it) back instead of paying for it in full. Claude joins the two
+/// user messages into one turn. Other providers get the prompt as is (OpenAI
+/// and Gemini cache repeated prefixes by themselves).
+fn chat_request(prompt: &Prompt, kind: AdapterKind) -> ChatRequest {
+    let mut messages = vec![ChatMessage::system(prompt.system.as_str())];
+    match prompt.split_user() {
+        (shared, rest) if kind == AdapterKind::Anthropic && !shared.is_empty() => {
+            messages.push(ChatMessage::user(shared).with_options(CacheControl::Ephemeral));
+            if !rest.trim().is_empty() {
+                messages.push(ChatMessage::user(rest));
+            }
+        }
+        _ => messages.push(ChatMessage::user(prompt.user.as_str())),
+    }
+    ChatRequest::new(messages)
 }
 
 impl Attempt {
@@ -218,10 +249,13 @@ impl LlmGenerator {
     where
         F: FnMut(&str) + Send,
     {
-        let request = ChatRequest::new(vec![
-            ChatMessage::system(prompt.system.as_str()),
-            ChatMessage::user(prompt.user.as_str()),
-        ]);
+        let kind = self
+            .client
+            .resolve_service_target(&self.config.model)
+            .await?
+            .model
+            .adapter_kind;
+        let request = chat_request(prompt, kind);
 
         let mut attempt = self
             .stream_once(&self.config.model, &request, format, &mut on_text)
@@ -252,7 +286,7 @@ impl LlmGenerator {
             truncated: matches!(attempt.stop_reason, Some(StopReason::MaxTokens(_))),
             text: attempt.text,
             model: attempt.model,
-            output_tokens: attempt.output_tokens,
+            usage: attempt.usage,
         })
     }
 }
@@ -336,6 +370,55 @@ mod tests {
             options.reasoning_effort,
             Some(ReasoningEffort::High)
         ));
+    }
+
+    fn prompt(cached: usize) -> Prompt {
+        Prompt {
+            system: "rules".into(),
+            user: "<set>…</set>\n\nWrite part 2.".into(),
+            cached,
+        }
+    }
+
+    fn texts(request: &ChatRequest) -> Vec<(Option<CacheControl>, String)> {
+        request
+            .messages
+            .iter()
+            .map(|m| {
+                (
+                    m.options.as_ref().and_then(|o| o.cache_control.clone()),
+                    m.content.joined_texts().unwrap_or_default(),
+                )
+            })
+            .collect()
+    }
+
+    #[test]
+    fn claude_gets_the_shared_prefix_cached() {
+        let shared = "<set>…</set>\n\n".len();
+        let request = chat_request(&prompt(shared), AdapterKind::Anthropic);
+        assert_eq!(
+            texts(&request),
+            [
+                (None, "rules".to_owned()),
+                (Some(CacheControl::Ephemeral), "<set>…</set>\n\n".to_owned()),
+                (None, "Write part 2.".to_owned()),
+            ]
+        );
+
+        // Nothing to cache, or another provider: one user message.
+        for request in [
+            chat_request(&prompt(0), AdapterKind::Anthropic),
+            chat_request(&prompt(shared), AdapterKind::OpenAI),
+        ] {
+            assert_eq!(
+                texts(&request),
+                [
+                    (None, "rules".to_owned()),
+                    (None, "<set>…</set>\n\nWrite part 2.".to_owned()),
+                ]
+            );
+        }
     }
 
     #[test]

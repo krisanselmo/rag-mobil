@@ -72,11 +72,16 @@ fn event(name: &str, data: Value) -> String {
 
 /// A Claude stream: a (hidden) thinking block, then the text in `chunks`.
 fn claude_stream(model: &str, chunks: &[&str], stop_reason: &str) -> String {
+    let usage = json!({"input_tokens": 100, "output_tokens": 1});
+    claude_stream_usage(model, chunks, stop_reason, usage)
+}
+
+/// The same, with the input `usage` of `message_start`.
+fn claude_stream_usage(model: &str, chunks: &[&str], stop_reason: &str, usage: Value) -> String {
     let mut sse = event(
         "message_start",
         json!({"type": "message_start", "message": {"id": "msg_1", "type": "message",
-            "role": "assistant", "model": model, "content": [],
-            "usage": {"input_tokens": 100, "output_tokens": 1}}}),
+            "role": "assistant", "model": model, "content": [], "usage": usage}}),
     );
     sse += &event(
         "content_block_start",
@@ -138,6 +143,7 @@ fn prompt() -> Prompt {
     Prompt {
         system: "You are a storyteller.".into(),
         user: "<set number=\"3666\"></set>\nWrite a story.".into(),
+        cached: 0,
     }
 }
 
@@ -161,7 +167,9 @@ async fn streams_story_and_sends_claude_settings() {
     assert_eq!(generation.model, "claude-opus-5-5");
     // genai adds message_start's output_tokens (1) to message_delta's
     // cumulative count (42): the total is approximate by a token or so.
-    assert_eq!(generation.output_tokens, Some(43));
+    assert_eq!(generation.usage.output, Some(43));
+    assert_eq!(generation.usage.input, Some(100));
+    assert_eq!(generation.usage.cache_read, None);
     assert!(!generation.truncated);
 
     let requests = recorded.lock().unwrap();
@@ -182,6 +190,43 @@ async fn streams_story_and_sends_claude_settings() {
     );
     assert_eq!(body["messages"][0]["role"], "user");
     assert!(body["messages"][0].to_string().contains("number"));
+}
+
+#[tokio::test]
+async fn shared_prefix_is_cached_and_counted() {
+    let usage = json!({"input_tokens": 20, "output_tokens": 1,
+        "cache_read_input_tokens": 3000, "cache_creation_input_tokens": 0});
+    let (url, recorded) = mock_server(vec![claude_stream_usage(
+        "claude-opus-5-5",
+        &["Part 2."],
+        "end_turn",
+        usage,
+    )])
+    .await;
+    let prompt = Prompt {
+        cached: "<set number=\"3666\"></set>\n".len(),
+        ..prompt()
+    };
+
+    let generation = generator(url, None)
+        .generate(&prompt, |_| {})
+        .await
+        .unwrap();
+
+    assert_eq!(generation.usage.input, Some(3020));
+    assert_eq!(generation.usage.cache_read, Some(3000));
+    let requests = recorded.lock().unwrap();
+    let messages = &requests[0].body["messages"];
+    assert_eq!(
+        messages[0],
+        json!({"role": "user", "content": [{"type": "text",
+            "text": "<set number=\"3666\"></set>\n",
+            "cache_control": {"type": "ephemeral"}}]})
+    );
+    assert_eq!(
+        messages[1],
+        json!({"role": "user", "content": "Write a story."})
+    );
 }
 
 #[tokio::test]

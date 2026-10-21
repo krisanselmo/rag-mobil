@@ -60,6 +60,7 @@ pub(crate) fn plan(boxes: &Collection, options: &StoryOptions) -> Prompt {
              {language}.",
             language = options.language,
         ),
+        cached: 0,
     }
 }
 
@@ -80,6 +81,7 @@ pub(crate) fn plan_fix(base: &Prompt, previous: &str, errors: &[String]) -> Prom
     Prompt {
         system: base.system.clone(),
         user,
+        cached: 0,
     }
 }
 
@@ -113,6 +115,7 @@ pub(crate) fn game_plan(boxes: &Collection, options: &StoryOptions) -> Prompt {
              into the cave\"). Write the texts of the outline in {language}.",
             language = options.language,
         ),
+        cached: 0,
     }
 }
 
@@ -157,6 +160,8 @@ pub(crate) fn paragraph(
         "{context}\n\n<plan>\n{}</plan>\n\n",
         render_plan(plan, boxes)
     );
+    // The same for every paragraph.
+    let cached = user.len();
     if !path.is_empty() {
         let _ = write!(user, "<story_so_far>\n{path}\n</story_so_far>\n\n");
     }
@@ -201,6 +206,7 @@ pub(crate) fn paragraph(
     Prompt {
         system: format!("{}\n\n{DRAFT_STYLE}", storyteller_rules(options)),
         user,
+        cached,
     }
 }
 
@@ -228,6 +234,8 @@ pub(crate) fn draft(
         "{context}\n\n<plan>\n{}</plan>\n\n",
         render_plan(plan, boxes)
     );
+    // The same for every part.
+    let cached = user.len();
     if !story_so_far.is_empty() {
         let _ = write!(user, "<story_so_far>\n{story_so_far}\n</story_so_far>\n\n");
     }
@@ -260,6 +268,7 @@ pub(crate) fn draft(
     Prompt {
         system: format!("{}\n\n{DRAFT_STYLE}", storyteller_rules(options)),
         user,
+        cached,
     }
 }
 
@@ -293,6 +302,7 @@ between <set> tags. Answer only with the requested JSON."
              answer. Write in {}.",
             options.language
         ),
+        cached: 0,
     }
 }
 
@@ -341,5 +351,6 @@ pub(crate) fn revise(
             storyteller_rules(options)
         ),
         user,
+        cached: 0,
     }
 }

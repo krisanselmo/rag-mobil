@@ -113,7 +113,8 @@ gehen nach `stderr` (`rag-mobil 3666 > story.md` funktioniert).
 | `--star REF` | — | Das Lieblingsteil des Kindes, im Mittelpunkt der Geschichte; wiederholbar (siehe unten) |
 | `--missing REF[:N]` | — | Ein Teil, das in der Packung fehlt: alle Exemplare oder N; wiederholbar |
 | `--missing-file` / `RAG_MOBIL_MISSING_FILE` | — | Fehlende Teile, eines pro Zeile (siehe unten) |
-| `--no-review` | aus | Methode `planned`: die Treue-Prüfung überspringen |
+| `--reviews N` / `RAG_MOBIL_REVIEWS` | `1` | Methoden `planned` und `interactive`: Runden der Treue-Prüfung (0 bis 3), jede gefolgt von einer Neufassung; sie enden bei der ersten Prüfung ohne Befund |
+| `--no-review` | aus | Wie `--reviews 0`: die Treue-Prüfung überspringen |
 | `--include-all` | aus | Auch Papieranleitungen im Kontext behalten |
 | `-m, --model` / `RAG_MOBIL_MODEL` | `claude-opus-5-5` | Modell; der Anbieter ergibt sich aus dem Namen |
 | `--effort` | `medium` bei Claude, sonst Standard des Anbieters | `low`, `medium`, `high`, `xhigh`, `max` |
@@ -138,7 +139,11 @@ sowohl in der Geschichte als auch in „In your box“: `[ref. 30 06 368]`, oder
 `[ref. 30 06 198, 30 06 199]` für einen Gegenstand aus mehreren Teilen. Das Format ist stabil:
 Ein Frontend kann die Zitate entfernen (`\s*\[ref\.[^\]]*\]`) oder jede Referenz in einen Link
 zum Teil verwandeln. Mit der Methode `planned` schreibt der Code den Abschnitt „In your box“,
-dessen Zitate sind also immer exakt; im Text der Geschichte übernimmt das LLM sie.
+dessen Zitate sind also immer exakt; im Text der Geschichte übernimmt das LLM sie, und **der
+Code prüft sie** (Methoden `planned` und `interactive`): Eine Referenz, die keine Packung
+enthält, kommt zu den Befunden der Prüfung, damit die Neufassung sie korrigiert; ist sie nach
+der letzten Neufassung (oder mit `--no-review`) noch da, wird sie aus dem Text entfernt
+(Meldung auf `stderr`). Die Geschichte zitiert nie ein Teil, das nicht in der Packung ist.
 
 ### Abenteuer zum Selbstwählen
 
@@ -313,6 +318,7 @@ src/
 └── writer/              writing
     ├── mod.rs           direct / planned methods, Observer (progress)
     ├── plan.rs          plan, check against the inventory, scene setup, "In your box"
+    ├── citations.rs     --citations: im Text zitierte Referenzen, gegen die Packungen geprüft
     ├── interactive.rs   choose-your-own-adventure: graph of paragraphs, checked
     ├── prompts.rs       plan / draft / review / revision prompts
     └── planned.rs       Plan → Draft → Edit (adapted from Re3/DOC)
@@ -410,7 +416,14 @@ Projekt spezifisch ist:
 - **Ablehnungen**: Lehnt das Modell die Anfrage ab (`stop_reason: "refusal"` bei Claude, ein
   Inhaltsfilter anderswo), wird der Teiltext verworfen; bei Claude folgt ein einziger erneuter
   Versuch mit `--fallback-model`;
-- **Abschneiden**: Ein Abbruch wegen `max_tokens` wird gemeldet.
+- **Abschneiden**: Ein Abbruch wegen `max_tokens` wird gemeldet;
+- **Prompt-Cache**: Die Entwurfsaufrufe (einer pro Teil, einer pro Absatz im interaktiven
+  Modus) beginnen alle mit demselben System-Prompt, Inventar und Plan. Bei Claude wird dieser
+  Anfang mit `cache_control` (5 Minuten) markiert: Der erste Aufruf schreibt ihn, die folgenden
+  lesen ihn zu einem Bruchteil des Eingabepreises und schneller wieder. Die anderen Anbieter
+  erhalten den Prompt unverändert (OpenAI und Gemini cachen wiederholte Anfänge von selbst);
+- **Tokens**: Die Zusammenfassung auf `stderr` summiert über alle Aufrufe die Eingabe-Tokens
+  (davon die aus dem Cache gelesenen) und die erzeugten Tokens.
 
 Die anderen Anbieter behalten ihre Standardeinstellungen (viele lokale Modelle lehnen
 Reasoning-Parameter ab); `--effort` erzwingt sie.
@@ -436,14 +449,16 @@ Revision*, EMNLP 2022) und [DOC](https://github.com/yangkevin2/doc-story-generat
 3. **Entwurf** (detaillierte Gliederungssteuerung von DOC): ein Teil pro Schritt, gelenkt vom
    Plan, den Figuren und Gegenständen des Schritts und dem bisher geschriebenen Text.
 4. **Überarbeitung** (Modul *Edit* von Re3): Ein Prüfer listet als JSON die Abweichungen von der
-   Packung auf (fehlender Gegenstand, überschrittene Menge, widersprochenes Aussehen); gibt es
-   welche, korrigiert sie eine einzige Neufassung.
+   Packung auf (fehlender Gegenstand, überschrittene Menge, widersprochenes Aussehen), und mit
+   `--citations` ergänzt der Code die zitierten Referenzen, die die Packung nicht enthält; gibt
+   es welche, korrigiert sie eine Neufassung. `--reviews 2` (oder 3) prüft die neu gefasste
+   Geschichte erneut, solange Befunde bleiben.
 5. **„In your box“**: Die endgültige Liste der Figuren und Gegenstände wird **vom Code** aus dem
    geprüften Plan erzeugt und nennt daher nur Teile aus der Packung. Gegenstände, die PlaymoDB
    auf mehrere Zeilen aufteilt (Körper und Flügel des Papageis, Truhe und Schloss, Ruderboot und
    Ruder…), werden zusammengefasst.
 
-Das sind 5 bis 9 LLM-Aufrufe statt einem: Die Geschichte erscheint am Ende, die Schritte auf
+Das sind 5 bis 9 LLM-Aufrufe statt einem (2 mehr pro zusätzlicher Prüfrunde): Die Geschichte erscheint am Ende, die Schritte auf
 `stderr`. `--method direct` kehrt zu einem einzigen gestreamten Aufruf zurück.
 
 Ein anderes LLM lässt sich anbinden, indem man den Trait `StoryGenerator` implementiert, eine

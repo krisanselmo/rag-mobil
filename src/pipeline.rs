@@ -56,7 +56,7 @@ mod tests {
 
     use super::*;
     use crate::augment::Prompt;
-    use crate::generator::Generation;
+    use crate::generator::{Generation, TokenUsage};
     use crate::model::{Part, SetInventory};
     use crate::writer::{Step, WritingMethod};
 
@@ -134,7 +134,11 @@ mod tests {
                 text,
                 model: "scripted".into(),
                 truncated: false,
-                output_tokens: Some(10),
+                usage: TokenUsage {
+                    input: Some(100),
+                    output: Some(10),
+                    ..TokenUsage::default()
+                },
             }
         }
     }
@@ -176,6 +180,7 @@ mod tests {
                 Step::ReviewUnreadable => "review-unreadable".into(),
                 Step::Revising(_) => "revise".into(),
                 Step::SceneSetupDropped => "setup-dropped".into(),
+                Step::CitationsDropped(refs) => format!("citations-dropped {}", refs.join(", ")),
             });
         }
     }
@@ -203,11 +208,20 @@ mod tests {
         writer: WriterOptions,
         sets: &[&str],
     ) -> (Story, Recorder) {
+        run_options(generator, writer, sets, &StoryOptions::default()).await
+    }
+
+    async fn run_options(
+        generator: &ScriptedGenerator,
+        writer: WriterOptions,
+        sets: &[&str],
+        options: &StoryOptions,
+    ) -> (Story, Recorder) {
         let pipeline = RagPipeline::new(FakeSource::default(), generator);
         let sets: Vec<SetNumber> = sets.iter().map(|s| SetNumber::parse(s).unwrap()).collect();
         let mut recorder = Recorder::default();
         let story = pipeline
-            .run(&sets, &StoryOptions::default(), writer, &mut recorder)
+            .run(&sets, options, writer, &mut recorder)
             .await
             .unwrap();
         (story, recorder)
@@ -255,7 +269,8 @@ mod tests {
             "planned text is emitted once, at the end"
         );
         assert_eq!(story.written.calls, 4);
-        assert_eq!(story.written.generation.output_tokens, Some(40));
+        assert_eq!(story.written.generation.usage.output, Some(40));
+        assert_eq!(story.written.generation.usage.input, Some(400));
 
         // The 2nd draft sees the plan, the story so far and its own objects.
         let prompts = generator.prompts.lock().unwrap();
@@ -727,5 +742,104 @@ mod tests {
                 .user
                 .contains("\"three horses\": the box holds no horse")
         );
+    }
+
+    #[tokio::test]
+    async fn later_review_rounds_check_the_revision() {
+        let horses = json!({"issues": [{
+            "excerpt": "three horses",
+            "problem": "the box holds no horse",
+            "fix": "remove the horses",
+        }]});
+        let cart = json!({"issues": [{
+            "excerpt": "a cart",
+            "problem": "the box holds no cart",
+            "fix": "walk",
+        }]});
+        let generator = ScriptedGenerator::new(&[
+            plan_json("30 00 001"),
+            "He leaves with three horses.".into(),
+            "He finds the chest.".into(),
+            horses.to_string(),
+            "He leaves in a cart.\n\nHe finds the chest.".into(),
+            cart.to_string(),
+            "He leaves on foot.\n\nHe finds the chest.".into(),
+            json!({"issues": []}).to_string(),
+        ]);
+        let writer = WriterOptions {
+            reviews: 3,
+            ..WriterOptions::default()
+        };
+        let (story, recorder) = run(&generator, writer).await;
+
+        // The third review finds nothing: no third rewrite.
+        assert_eq!(
+            recorder.steps[recorder.steps.len() - 5..],
+            ["review", "revise", "review", "revise", "review"]
+        );
+        assert_eq!(story.written.calls, 1 + 2 + 3 * 2 - 1);
+        assert_eq!(story.written.issues.len(), 2);
+        assert!(story.written.generation.text.contains("He leaves on foot."));
+        let prompts = generator.prompts.lock().unwrap();
+        assert!(
+            prompts[5].1.user.contains("He leaves in a cart."),
+            "2nd review"
+        );
+    }
+
+    #[tokio::test]
+    async fn no_review_round_writes_the_draft_as_is() {
+        let generator =
+            ScriptedGenerator::new(&[plan_json("30 00 001"), "Part 1.".into(), "Part 2.".into()]);
+        let writer = WriterOptions {
+            reviews: 0,
+            ..WriterOptions::default()
+        };
+        let (story, recorder) = run(&generator, writer).await;
+
+        assert_eq!(recorder.steps.last().unwrap(), "draft 2/2");
+        assert_eq!(story.written.calls, 3);
+    }
+
+    #[tokio::test]
+    async fn invented_citations_are_revised_then_removed() {
+        let options = StoryOptions {
+            citations: true,
+            ..StoryOptions::default()
+        };
+        let generator = ScriptedGenerator::new(&[
+            plan_json("30 00 001"),
+            "Redbeard [ref. 30 00 001] opens the old map [ref. 30 99 999].".into(),
+            "He finds the chest [ref. 30 00 002, 30 88 888].".into(),
+            json!({"issues": []}).to_string(),
+            // The revision fixes the map, not the chest.
+            "Redbeard [ref. 30 00 001] looks around.\n\n\
+             He finds the chest [ref. 30 00 002, 30 88 888]."
+                .into(),
+        ]);
+        let (story, recorder) =
+            run_options(&generator, WriterOptions::default(), &["5135"], &options).await;
+
+        // The reviewer found nothing: the issues come from the code.
+        assert_eq!(story.written.issues.len(), 2);
+        assert_eq!(
+            story.written.issues[0].excerpt,
+            "opens the old map [ref. 30 99 999]"
+        );
+        let prompts = generator.prompts.lock().unwrap();
+        let revise = &prompts[4].1.user;
+        assert!(revise.contains(
+            "- \"opens the old map [ref. 30 99 999]\": cites ref. 30 99 999, not in the box"
+        ));
+        assert!(revise.contains(
+            "- \"He finds the chest [ref. 30 00 002, 30 88 888]\": cites ref. 30 88 888"
+        ));
+        assert_eq!(
+            recorder.steps.last().unwrap(),
+            "citations-dropped 30 88 888"
+        );
+        let text = &story.written.generation.text;
+        assert!(text.contains("He finds the chest [ref. 30 00 002]."));
+        assert!(!text.contains("30 88 888"));
     }
 }
