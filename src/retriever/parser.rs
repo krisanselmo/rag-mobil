@@ -7,7 +7,7 @@
 //! - `listinv.pl` gives a tab-separated `<pre>` table with *quantities*
 //!   and sub-components (wigs, hats... attached to figures).
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use scraper::{ElementRef, Html, Selector};
 
@@ -252,18 +252,30 @@ fn normalize_part_number(raw: &str) -> String {
 /// with the categories from `showinv`. Falls back to `showinv` alone if the
 /// text list is empty.
 ///
-/// Rows without a count are alternate part numbers of a part already counted
-/// under another number (e.g. Throne `30 02 794` vs `30 08 698` ×2): they are
-/// dropped so the LLM doesn't see the same object twice.
+/// A row without a count that shares its name with a counted row is an
+/// alternate number of that part (Throne `30 02 794` vs `30 08 698` ×2): it is
+/// dropped so the LLM doesn't see the same object twice. Other count-less rows
+/// are real parts (set 3693 counts 7 of its 17, not the car) and are kept,
+/// with no quantity.
 pub fn merge(show: &ShowInvPage, list: Vec<ListInvRow>) -> Vec<Part> {
     if list.is_empty() {
         return show.parts.clone();
     }
-    let has_counts = list.iter().any(|r| r.quantity.is_some());
+    let counted: HashSet<String> = list
+        .iter()
+        .filter(|r| r.quantity.is_some())
+        .map(|r| r.name.to_lowercase())
+        .collect();
     let categories: HashMap<&str, &str> = show
         .parts
         .iter()
         .map(|p| (p.number.as_str(), p.category.as_str()))
+        .collect();
+    let names: HashMap<&str, &str> = show
+        .parts
+        .iter()
+        .filter(|p| !p.name.is_empty())
+        .map(|p| (p.number.as_str(), p.name.as_str()))
         .collect();
     let images: HashMap<&str, &str> = show
         .parts
@@ -272,7 +284,7 @@ pub fn merge(show: &ShowInvPage, list: Vec<ListInvRow>) -> Vec<Part> {
         .collect();
 
     list.into_iter()
-        .filter(|row| !has_counts || row.quantity.is_some())
+        .filter(|row| row.quantity.is_some() || !counted.contains(&row.name.to_lowercase()))
         .map(|row| Part {
             category: categories
                 .get(row.number.as_str())
@@ -280,8 +292,15 @@ pub fn merge(show: &ShowInvPage, list: Vec<ListInvRow>) -> Vec<Part> {
                 .unwrap_or(CATEGORY_UNKNOWN)
                 .to_owned(),
             image: images.get(row.number.as_str()).map(|s| (*s).to_owned()),
+            // listinv says "(no name)" for parts showinv only knows by their official name.
+            name: if row.name == "(no name)" {
+                names
+                    .get(row.number.as_str())
+                    .map_or(row.name.clone(), |n| (*n).to_owned())
+            } else {
+                row.name
+            },
             number: row.number,
-            name: row.name,
             color: row.color,
             quantity: row.quantity,
             components: row.components,
@@ -295,6 +314,8 @@ mod tests {
 
     const SHOWINV: &str = include_str!("../../tests/fixtures/showinv_3666.html");
     const LISTINV: &str = include_str!("../../tests/fixtures/listinv_3666.html");
+    const SHOWINV_3693: &str = include_str!("../../tests/fixtures/showinv_3693.html");
+    const LISTINV_3693: &str = include_str!("../../tests/fixtures/listinv_3693.html");
     const SHOWINV_MISSING: &str = include_str!("../../tests/fixtures/showinv_missing.html");
     const SHOWINV_NEW_LAYOUT: &str = include_str!("../../tests/fixtures/showinv_70145.html");
 
@@ -402,11 +423,24 @@ mod tests {
         let trumpeter = parts.iter().find(|p| p.name == "Castle Trumpeter").unwrap();
         assert_eq!(trumpeter.category, "Klicky");
         assert!(trumpeter.is_figure());
-        // Count-less alternate number: dropped.
-        assert!(parts.iter().all(|p| p.name != "Throne"));
+        // Count-less alternate number of a counted part: dropped.
+        let thrones: Vec<_> = parts.iter().filter(|p| p.name == "Throne").collect();
+        assert_eq!(thrones.len(), 1);
+        assert_eq!(thrones[0].quantity, Some(2));
         // Counted but absent from the category page.
         let keys = parts.iter().find(|p| p.name == "Keys on keyring").unwrap();
         assert_eq!(keys.category, "Tool");
+    }
+
+    #[test]
+    fn merge_keeps_countless_parts() {
+        let parts = merge(&parse_showinv(SHOWINV_3693), parse_listinv(LISTINV_3693));
+        assert_eq!(parts.len(), 17);
+        // Neither counted nor named by listinv: the car's body.
+        let body = parts.iter().find(|p| p.number == "30 64 259").unwrap();
+        assert_eq!(body.name, "BODY II CITYCAR");
+        assert_eq!(body.quantity, None);
+        assert!(parts.iter().any(|p| p.name == "Dashboard of City Car"));
     }
 
     #[test]

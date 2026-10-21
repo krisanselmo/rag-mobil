@@ -359,7 +359,10 @@ Zwei Seiten werden parallel geholt und dann zusammengeführt:
 
 Teile aus dem Abschnitt „Extra parts not included in inventory“ (alternative Nummern oder
 Ersatzteile) werden verworfen, damit das Modell denselben Gegenstand nicht doppelt zählt. Bei
-Sets, die PlaymoDB noch nicht gezählt hat, ist die Menge unbekannt (`?`).
+Sets, die PlaymoDB noch nicht gezählt hat, ist die Menge unbekannt (`?`). Ein Teil ohne Anzahl, das denselben
+Namen trägt wie ein gezähltes, ist eine alternative Nummer und wird ebenfalls verworfen; jedes
+andere Teil ohne Anzahl bleibt erhalten, mit unbekannter Menge (Set 3693 zählt nur 7 seiner
+17 Teile).
 
 Der Scraper gibt sich mit einem eindeutigen User-Agent zu erkennen und stellt nur zwei Anfragen
 pro Set; bei einem vorübergehenden Fehler (PlaymoDB antwortet oft mit 508, dem Ressourcenlimit

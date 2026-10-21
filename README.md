@@ -344,7 +344,9 @@ Two pages are fetched in parallel, then merged:
 
 Pieces from the "Extra parts not included in inventory" section (alternative numbers or spare
 parts) are dropped so the model doesn't count the same object twice. For sets PlaymoDB hasn't
-counted yet, the quantity is unknown (`?`).
+counted yet, the quantity is unknown (`?`). A piece listed without a count under the
+same name as a counted one is an alternative number and is dropped as well; any other piece
+without a count is kept, its quantity unknown (set 3693 counts only 7 of its 17 pieces).
 
 The scraper identifies itself with an explicit User-Agent and makes only two requests per set;
 on a transient error (PlaymoDB often answers 508, its host's resource limit), it retries up to
