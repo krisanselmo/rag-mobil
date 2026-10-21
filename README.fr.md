@@ -18,6 +18,13 @@ numéro de set ──► Retrieve ──► Augment ──► Rédaction ──�
                   source
 ```
 
+## Exemple
+
+[**Pepper and the Pirate's Hat**](examples/3799-pirates-secret-island/) : une histoire en anglais
+pour le set 3799 « Pirates Secret Island », écrite par Claude, avec son
+[livret illustré (PDF)](examples/3799-pirates-secret-island/booklet.pdf). Chaque figurine et
+chaque objet de l'histoire est dans la boîte.
+
 ## Installation
 
 ```bash

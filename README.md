@@ -18,6 +18,14 @@ set number ──► Retrieve ──► Augment ──► Writing ────�
                source
 ```
 
+## Example
+
+[**Pepper and the Pirate's Hat**](examples/3799-pirates-secret-island/): a story for set 3799
+"Pirates Secret Island", written by Claude, with its
+[illustrated booklet (PDF)](examples/3799-pirates-secret-island/booklet.pdf). Captain Salty
+rows to the island for the treasure behind the secret door; Pepper the parrot steals his hat.
+Every figure and object of the story is in the box.
+
 ## Installation
 
 ```bash

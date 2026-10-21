@@ -1,0 +1,154 @@
+=== SYSTEM ===
+You are a children's storyteller specializing in the Playmobil world. You write stories that a child can play out with the exact contents of a Playmobil box set out in front of them.
+
+The official inventory of the box is given to you between <set> tags. It comes from PlaymoDB, a fan database, and it is your only source of truth about what the box contains. Faithfulness to this inventory is what makes the story useful: the child must be able to find every character and every object mentioned.
+
+Faithfulness rules:
+- The main characters are the figures from <characters>. You can give them a name and a personality, but their appearance (clothes, colors, hair, accessories) must match their description. Don't invent any extra character who would play an active role; a character outside the box can only be mentioned ("the neighboring king", "a dragon people talk about").
+- The objects, animals, vehicles and pieces of scenery the characters use must appear in <pieces>. Respect the quantities: if there are 2 horses, there are not 3. A quantity "?" means it is unknown.
+- Purely technical pieces (connectors, clips, hinges, wall sections) are not objects of the story, but they show what can be built (a castle, a tower, a drawbridge...): use them to set the scene.
+- Piece names are in English in the inventory; translate them naturally into the language of the story. Each piece is followed by its reference [ref. …]: it is for the outline, never cite it in the story.
+
+You write the story part by part, following an approved outline. Style: suited to the requested age, warm, no graphic violence, with dialogue. Write only the requested part, in prose: no title, no subheading, no commentary, no list of pieces.
+
+=== USER ===
+<set number="3799" name="Pirates Secret Island" theme="Pirates" subtheme="Building" released="1991/10" source="https://playmodb.org/cgi-bin/showinv.pl?setnum=3799">
+<characters>
+- 1× Castaway [ref. 30 00 391] — with: Torso, plain (male) - black; Wig (hair), classic male - orange
+- 1× Crusoe (long white beard) [ref. 30 00 413] — with: Wig (hair), classic male - white; Beard, long - white
+- 1× Pirate, red vest and ponytail [ref. 30 13 020] — with: Wig (hair), long ponytail - black
+</characters>
+<pieces category="Animal">
+- 1× Parrot body (light blue) [ref. 30 06 198]
+- 1× Parrot wings (yellow) [ref. 30 06 199]
+- 1× Goat (white) [ref. 30 66 012]
+- 2× Sea turtle (brown/tan) [ref. 30 66 062]
+</pieces>
+<pieces category="Building">
+- 1× Hut floor (dark brown) [ref. 30 06 574]
+- 5× Hut Support (Stilt) (dark brown) [ref. 30 06 575]
+- 1× Hut roof support (dark brown) [ref. 30 06 576]
+- 1× Hut roof thatch (light brown) [ref. 30 06 577]
+- 4× Hut side (dark brown) [ref. 30 06 578]
+- 2× Hut Hammock Bracket (dark brown) [ref. 30 06 579]
+</pieces>
+<pieces category="Cloth">
+- 2× String (?) [ref. 30 80 327]
+</pieces>
+<pieces category="Furniture">
+- 1× Barrel, wooden (brown) [ref. 30 02 378]
+- 3× Bag, closed at top with handgrip (yellow) [ref. 30 05 002]
+- 1× Basket, round (light brown) [ref. 30 05 882]
+- 1× Bottle (clear pink) [ref. 30 06 370]
+- 1× Trunk lid bars (dark metal) [ref. 30 06 394]
+- 1× Hammock (light yellow) [ref. 30 06 580]
+- 4× Loop to attach to rock (brass) [ref. 30 06 582]
+- 1× Jug and 2 cups (light blue) [ref. 30 60 604]
+- 1× Basket with Base (marino yellow) [ref. 30 60 806]
+- 1× Bottle, Wide, with Bottom (clear amber) [ref. 30 60 826]
+- 1× Trunk; body and lid (light brown) [ref. 30 60 895]
+- 1× Trunk; base and lock (dark metal) [ref. 30 60 896]
+- 1× Parrot swing with pin (brass) [ref. 30 60 926]
+- 1× Lantern (silver/yellow) [ref. 30 65 079]
+</pieces>
+<pieces category="Plant">
+- 9× Flower blossom (dark pink) [ref. 30 05 871]
+- 4× Flower stem (single) (dark green) [ref. 30 06 092]
+- 1× Climbing vine (green) [ref. 30 06 581]
+- 2× Palm tree trunk, straight (brown) [ref. 30 06 888]
+- 3× Palm tree leaves and coconuts (green) [ref. 30 60 370]
+- 5× Bush, large (3 parts) (dusty green) [ref. 30 60 787] — with: Bush, large (inner part) - dusty green; Bush, large (outer part) - dusty green
+</pieces>
+<pieces category="Scenery">
+- 1× Island base, large (mustard) [ref. 30 06 504]
+- 1× Rock formation with cave (dark grey) [ref. 30 06 540]
+- 1× Grassy mound, large, for island (green) [ref. 30 06 541]
+- 1× Rock Formation (dark grey) [ref. 30 06 572]
+- 1× Rock formation, secret door (dark grey) [ref. 30 06 573]
+- 1× Rock formations (dark grey) [ref. 30 60 925]
+</pieces>
+<pieces category="Tool">
+- 3× Pistol, flared barrel (grey) [ref. 30 03 089]
+- 1× Sword, saber (curved) (gold) [ref. 30 06 368]
+- 2× Rifle, flintlock (musket) (dark brown) [ref. 30 06 607]
+- 1× Cooking gear, wooden (spoon, scoop, fork, bowl) (tan) [ref. 30 60 805]
+- 1× Tools: boathook, axe, short-handled spade / shovel (light grey) [ref. 30 60 891]
+</pieces>
+<pieces category="Vehicle">
+- 1× Rowboat, one-seater (dark brown) [ref. 30 05 806]
+- 1× Rowboat gear: seat, oarlocks, paddles (light brown) [ref. 30 60 815]
+</pieces>
+<pieces category="Wearable">
+- 1× Feather, wide, slightly curved (red) [ref. 30 04 724]
+- 1× Hat, soft, tail on side (light green) [ref. 30 06 219]
+- 1× Headband, looped over (red) [ref. 30 06 605]
+- 1× Hat, tricorne, with hole for feather (black, white stripe) [ref. 30 64 140] — with: Hat, tricorne, with hole for feather - black
+- 1× Chain for prisoner (steel) [ref. 30 80 510]
+</pieces>
+</set>
+
+<plan>
+Title: Pepper and the Pirate's Hat
+Premise: A grumpy pirate rows to the island to claim the treasure said to lie behind a secret door, but a cheeky parrot steals his hat, and the treasure he finds is not the one he expected.
+Setting: A small sandy island in the middle of the sea, with two palm trees full of coconuts, big green bushes, a grassy hill, a hut on stilts with a straw roof, and grey rocks hiding a cave behind a secret door.
+Characters:
+- Finn (figure: Castaway): A young castaway with orange hair and a black shirt. Cheerful and brave, he loves cooking and climbing palm trees.
+- Barnaby (figure: Crusoe (long white beard)): An old islander with long white hair and a long white beard. He has lived on the island for ages and smiles as if he knows a secret.
+- Captain Salty (figure: Pirate, red vest and ponytail): A pirate in a red vest with a long black ponytail, wearing a black tricorne hat with a red feather. He shouts a lot, but deep down he is afraid of the dark.
+Steps:
+1. Morning on the island: Finn stirs a coconut soup with the wooden cooking gear while Barnaby fills the round basket with coconuts. Pepper the parrot swings on his swing and Clover the goat naps under the hammock.
+2. Captain Salty rows to the beach in his little boat, waving his golden saber. In his black tricorne hat with the red feather, he announces that he has come for the treasure hidden behind the secret door.
+3. Pepper swoops down, snatches the tricorne hat and flies through the secret door into the dark cave. Salty is too scared of the dark to follow, so Finn lights the lantern and takes his hand, and they go in together with Barnaby.
+4. Deep in the cave, Pepper is perched on an old trunk. Inside there is no gold, only a pink bottle with a note: Barnaby was once a pirate too, and his treasure was the friends he made on the island. Salty gets his hat back, and at sunset they all share the jug and the two cups while two sea turtles come ashore.
+</plan>
+
+<story_so_far>
+The sun rose over a tiny island in the middle of the sea. Two palm trees swayed in the breeze, heavy with green coconuts, and a little hut stood on its stilts, with a roof of golden straw.
+
+In front of the hut, Finn, the castaway with orange hair, was stirring a big wooden bowl with his wooden spoon.
+"Coconut soup, coming up!" he sang.
+
+Barnaby, the old islander with the long white beard, came back from the palm trees with his round basket full to the brim.
+"Here are the best coconuts on the whole island," he said with a mysterious smile.
+
+Above them, Pepper the blue parrot with yellow wings rocked on his golden swing.
+"Soup! Soup! Pepper wants soup!" he squawked.
+
+Under the yellow hammock, Clover the white goat was snoring softly, one ear twitching.
+
+It was a perfectly peaceful morning… or so they thought.
+
+Splash, splash, splash! A little brown rowing boat was coming over the waves. In it sat a pirate in a red vest, with a long black ponytail, pulling hard on the paddles.
+
+The boat slid onto the sand. The pirate jumped out, straightened his black tricorne hat with its big red feather, and waved a shiny golden saber in the air.
+"Ahoy, landlubbers! I am Captain Salty, the loudest pirate of the seven seas!"
+
+Clover woke up with a start. "Meeeh!"
+
+Finn put down his spoon. "Hello, Captain! Would you like some soup?"
+
+"Soup? I don't want soup!" roared Salty. "I want the treasure! Everybody knows there is a treasure on this island, hidden behind a secret door in the rocks. And I'm going to find it!"
+
+Barnaby stroked his long white beard and said nothing. But his eyes were twinkling.
+
+Pepper had been watching that big red feather for a while. Suddenly, he swooped down from his swing, grabbed the tricorne hat in his beak and flapped away!
+"My hat! Come back, you feathered thief!" shouted Salty.
+
+Pepper flew straight to the grey rocks and squeezed through a narrow crack. With a long creak, one of the rocks swung open like a door. Behind it, there was a cave, as black as night.
+
+Salty ran to the entrance… and stopped dead. His knees began to shake.
+"It's… it's very dark in there," he whispered. "Pirates don't like the dark. Not one bit."
+
+Finn ran to the hut and came back with the lantern. He lit it, and a warm yellow light glowed.
+"Don't worry, Captain. We'll go together," he said, and he took Salty's hand.
+
+Barnaby smiled. "Follow me. I know this cave very well."
+
+And the three of them stepped into the darkness.
+</story_so_far>
+
+Write part 4/4 in English, for a 7-year-old child, about 150 words long.
+What happens: Deep in the cave, Pepper is perched on an old trunk. Inside there is no gold, only a pink bottle with a note: Barnaby was once a pirate too, and his treasure was the friends he made on the island. Salty gets his hat back, and at sunset they all share the jug and the two cups while two sea turtles come ashore.
+Characters present: Captain Salty (Pirate, red vest and ponytail); Finn (Castaway); Barnaby (Crusoe (long white beard))
+Objects from the box to use: Trunk; body and lid (light brown) + Trunk lid bars (dark metal) + Trunk; base and lock (dark metal); Bottle (clear pink) + Bottle, Wide, with Bottom (clear amber); Hat, tricorne, with hole for feather (black, white stripe) + Hat, soft, tail on side (light green); Jug and 2 cups (light blue); Sea turtle (brown/tan)
+This is the last part: bring the story to a close.

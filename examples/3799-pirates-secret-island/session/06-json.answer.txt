@@ -1,0 +1,5 @@
+{"issues": [
+  {"excerpt": "Only a pink bottle, with a rolled-up note.",
+   "problem": "The box has a pink bottle, but no paper note: the child can't find the note that Finn reads out loud.",
+   "fix": "Keep the empty pink bottle and have Barnaby recognize it and tell his secret himself, instead of a note being read."}
+]}
