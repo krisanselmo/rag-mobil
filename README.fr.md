@@ -358,7 +358,10 @@ Deux pages sont récupérées en parallèle puis fusionnées :
 
 Les pièces de la section « Extra parts not included in inventory » (numéros alternatifs
 ou pièces de rechange) sont écartées pour que le modèle ne compte pas deux fois le même
-objet. Pour les sets que PlaymoDB n'a pas encore dénombrés, la quantité est inconnue (`?`).
+objet. Pour les sets que PlaymoDB n'a pas encore dénombrés, la quantité est inconnue (`?`). Une pièce listée sans
+nombre sous le même nom qu'une pièce comptée est un numéro alternatif, écarté lui aussi ; toute
+autre pièce sans nombre est gardée, de quantité inconnue (le set 3693 ne compte que 7 de ses
+17 pièces).
 
 Le scraper s'identifie avec un User-Agent explicite et ne fait que deux requêtes par
 set ; en cas d'erreur passagère (PlaymoDB répond souvent 508, limite de ressources de
