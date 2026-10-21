@@ -110,7 +110,8 @@ The story is printed on `stdout` (as Markdown); steps and progress messages go t
 | `--star REF` | — | The child's favorite piece, at the heart of the story; repeatable (see below) |
 | `--missing REF[:N]` | — | A piece missing from the box: every copy, or N; repeatable |
 | `--missing-file` / `RAG_MOBIL_MISSING_FILE` | — | Missing pieces, one per line (see below) |
-| `--no-review` | off | `planned` method: skip the faithfulness review |
+| `--reviews N` / `RAG_MOBIL_REVIEWS` | `1` | `planned` and `interactive` methods: rounds of faithfulness review (0 to 3), each followed by a rewrite; they stop at the first review that finds nothing |
+| `--no-review` | off | Same as `--reviews 0`: skip the faithfulness review |
 | `--include-all` | off | Also keep paper instructions in the context |
 | `-m, --model` / `RAG_MOBIL_MODEL` | `claude-opus-5-5` | Model; the provider is inferred from the name |
 | `--effort` | `medium` for Claude, provider default otherwise | `low`, `medium`, `high`, `xhigh`, `max` |
@@ -134,7 +135,10 @@ the story and in "In your box": `[ref. 30 06 368]`, or `[ref. 30 06 198, 30 06 1
 object made of several pieces. The format is stable: a front end can strip them
 (`\s*\[ref\.[^\]]*\]`) or turn each reference into a link to the piece. With the `planned`
 method, the "In your box" section is written by code, so its citations are always exact; in
-the story text, the LLM copies them.
+the story text, the LLM copies them, and **code checks them** (`planned` and `interactive`
+methods): a reference the boxes don't hold is added to the review's issues, for the rewrite to
+fix, and if one is still there after the last rewrite (or with `--no-review`), it is removed
+from the text (message on `stderr`). The story never cites a piece that isn't in the box.
 
 ### Choose-your-own-adventure
 
@@ -301,6 +305,7 @@ src/
 └── writer/              writing
     ├── mod.rs           direct / planned methods, Observer (progress)
     ├── plan.rs          plan, check against the inventory, scene setup, "In your box"
+    ├── citations.rs     --citations: references cited in the text, checked against the boxes
     ├── interactive.rs   choose-your-own-adventure: graph of paragraphs, checked
     ├── prompts.rs       plan / draft / review / revision prompts
     └── planned.rs       Plan → Draft → Edit (adapted from Re3/DOC)
@@ -392,7 +397,14 @@ Generation relies on the open-source library [`genai`](https://github.com/jeremy
 - **refusals**: if the model declines the request (`stop_reason: "refusal"` for Claude, a
   content filter elsewhere), the partial text is discarded; for Claude, a single retry is made
   on `--fallback-model`;
-- **truncation**: stopping on `max_tokens` is reported.
+- **truncation**: stopping on `max_tokens` is reported;
+- **prompt cache**: the drafting calls (one per part, one per paragraph in interactive mode)
+  all start with the same system prompt, inventory and plan. For Claude, that prefix is marked
+  `cache_control` (5 minutes): the first call writes it, the next ones read it back at a
+  fraction of the input price, and faster. Other providers get the prompt as is (OpenAI and
+  Gemini cache repeated prefixes by themselves);
+- **tokens**: the summary on `stderr` adds up, over every call, the input tokens (with those
+  read from the cache) and the tokens generated.
 
 Other providers keep their default settings (many local models reject reasoning parameters);
 `--effort` forces them.
@@ -417,14 +429,15 @@ Revision*, EMNLP 2022) and [DOC](https://github.com/yangkevin2/doc-story-generat
 3. **Draft** (DOC's detailed outline control): one part per step, guided by the plan, the
    step's characters and objects, and the text written so far.
 4. **Edit** (Re3's *Edit* module): a reviewer lists, as JSON, the discrepancies with the box
-   (missing object, quantity exceeded, contradicted appearance); if there are any, a single
-   rewrite fixes them.
+   (missing object, quantity exceeded, contradicted appearance), and with `--citations` the
+   code adds the cited references the box doesn't hold; if there are any, a rewrite fixes
+   them. `--reviews 2` (or 3) reviews the rewritten story again, as long as issues remain.
 5. **"In your box"**: the final list of characters and objects is generated **by code** from
    the validated plan, so it only names pieces from the box. Objects PlaymoDB splits into
    several lines (the parrot's body and wings, chest and lock, rowboat and oars…) are grouped
    together.
 
-That's 5 to 9 LLM calls instead of one: the story is shown at the end, the steps on `stderr`.
+That's 5 to 9 LLM calls instead of one (2 more per extra review round): the story is shown at the end, the steps on `stderr`.
 `--method direct` goes back to a single streamed call.
 
 Another LLM can be plugged in by implementing the `StoryGenerator` trait, another data source

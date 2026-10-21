@@ -15,7 +15,7 @@ use serde_json::Value;
 
 use crate::augment::Prompt;
 use crate::error::{RagError, Result};
-use crate::generator::{Generation, StoryGenerator};
+use crate::generator::{Generation, StoryGenerator, TokenUsage};
 
 pub struct ReplayGenerator {
     answers: PathBuf,
@@ -49,7 +49,7 @@ impl ReplayGenerator {
                 text,
                 model: "replay".into(),
                 truncated: false,
-                output_tokens: None,
+                usage: TokenUsage::default(),
             }),
             Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
                 Err(RagError::ReplayMissing {

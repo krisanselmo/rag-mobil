@@ -15,10 +15,10 @@ use pulldown_cmark::{CowStr, Event, Parser, html::push_html};
 use crate::augment::StoryOptions;
 use crate::model::{Collection, Part, SetInventory};
 use crate::pipeline::Story;
-use crate::writer::StoryPlan;
 use crate::writer::plan::{
     Labels, SceneSetup, box_contents, find_part, is_german, part_label, scene_setup,
 };
+use crate::writer::{self, StoryPlan};
 
 /// How the page is laid out when printed (or saved as PDF).
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -190,43 +190,28 @@ fn markdown(text: &str, collection: &Collection) -> String {
     html
 }
 
-/// `[réf.` is the marker of stories written before the English prompts.
-const CITATIONS: [&str; 2] = ["[ref.", "[réf."];
-
-/// The first citation marker in `text`: its position and length.
-fn find_citation(text: &str) -> Option<(usize, usize)> {
-    CITATIONS
-        .iter()
-        .filter_map(|marker| text.find(marker).map(|at| (at, marker.len())))
-        .min()
-}
-
 /// Splits a text around its `[ref. …]` citations, each reference becoming a
 /// thumbnail (or a label when the part has no picture).
 fn citations<'a>(text: &str, collection: &Collection) -> Vec<Event<'a>> {
     let mut events = Vec::new();
-    let mut rest = text;
-    while let Some((start, marker)) = find_citation(rest) {
-        let Some(len) = rest[start..].find(']') else {
-            break;
-        };
-        let before = rest[..start].trim_end();
+    let mut copied = 0;
+    for citation in writer::citations::find(text) {
+        let before = text[copied..citation.range.start].trim_end();
         if !before.is_empty() {
             events.push(Event::Text(CowStr::from(before.to_owned())));
         }
-        let references = &rest[start + marker..start + len];
-        let html: String = references
-            .split(',')
-            .map(str::trim)
-            .filter(|r| !r.is_empty())
+        let html: String = citation
+            .references
+            .iter()
             .map(|reference| match find_part(collection, reference) {
                 Some(part) => thumbnail(part),
                 None => format!("<span class=\"ref\">ref. {}</span>", escape(reference)),
             })
             .collect();
         events.push(Event::InlineHtml(CowStr::from(html)));
-        rest = &rest[start + len + 1..];
+        copied = citation.range.end;
     }
+    let rest = &text[copied..];
     if !rest.is_empty() {
         events.push(Event::Text(CowStr::from(rest.to_owned())));
     }
@@ -666,7 +651,7 @@ mod tests {
                     text: text.into(),
                     model: "test".into(),
                     truncated: false,
-                    output_tokens: None,
+                    usage: Default::default(),
                 },
                 plan: plan.then(valid_plan),
                 scenes: scenes.iter().map(|s| (*s).to_owned()).collect(),
