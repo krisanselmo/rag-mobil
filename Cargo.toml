@@ -7,6 +7,9 @@ repository = "https://github.com/krisanselmo/rag-mobil"
 license = "MIT"
 rust-version = "1.88"
 readme = "README.md"
+# The example (PDF with PlaymoDB images) and CI stay on GitHub; tests ship so
+# `cargo test` works from the published crate.
+exclude = ["/examples/", "/.github/", "/.gitattributes"]
 keywords = ["playmobil", "rag", "llm", "story", "children"]
 categories = ["command-line-utilities", "text-processing"]
 
