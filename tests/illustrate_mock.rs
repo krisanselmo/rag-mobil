@@ -131,4 +131,8 @@ async fn gemini_images_come_from_inline_data() {
         body["generationConfig"]["responseModalities"],
         json!(["IMAGE"])
     );
+    assert_eq!(
+        body["generationConfig"]["imageConfig"]["aspectRatio"],
+        "16:9"
+    );
 }

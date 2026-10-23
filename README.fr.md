@@ -289,10 +289,12 @@ livret qui ne s'écrit pas (navigateur absent) est signalé sur `stderr` sans pe
 ### Image de couverture
 
 `--illustrate` ajoute une image à la couverture du livret (HTML et PDF, par `--format` ou
-`--booklet`) : une fois l'histoire écrite, un modèle d'image dessine ses personnages dans leur
-décor, d'après le plan : le décor, chaque personnage décrit par sa figurine (« Pirate, red vest
-and ponytail ») et son portrait, et quelques objets utilisés. Le prompt demande des figurines
-en plastique, et aucun texte dans l'image. L'image est intégrée à la page (adresse `data:`), qui
+`--booklet`) : une fois l'histoire écrite, un modèle d'image dessine son moment clé comme un
+plan de cinéma. D'après le plan de l'histoire, le prompt prend l'étape située aux 3/5 (au plus
+fort de l'aventure), le décor, chaque personnage présent décrit par sa figurine (« Pirate, red
+vest and ponytail ») et son portrait, et les objets de ce moment. Il décrit la prise de vue :
+photo de figurines en plastique, contre-plongée et grand angle, contre-jour doré de fin de
+journée, personnages saisis en plein mouvement, format 16:9, et aucun texte dans l'image. L'image est intégrée à la page (adresse `data:`), qui
 reste un seul fichier.
 
 | `--image-model` | Fournisseur | Prérequis |

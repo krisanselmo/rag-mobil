@@ -276,10 +276,12 @@ the story.
 ### Cover illustration
 
 `--illustrate` adds a picture to the booklet's cover (HTML and PDF, `--format` or `--booklet`):
-once the story is written, an image model draws its characters in their setting, from the plan:
-the setting, each character described by its figure ("Pirate, red vest and ponytail") and its
-portrait, and a few of the objects used. The prompt asks for chunky toy figures, and for no text
-in the picture. The picture is embedded in the page (`data:` address), which stays a single file.
+once the story is written, an image model draws its key moment like a film still. From the plan,
+the prompt takes the plot point about 3/5 through (where the trouble peaks), the setting, each
+character present described by its figure ("Pirate, red vest and ponytail") and its portrait,
+and the objects of that moment. It spells out the shot: toy photography of chunky figures, low
+angle and wide-angle lens, golden-hour rim light, characters caught mid-movement, 16:9, and no
+text in the picture. The picture is embedded in the page (`data:` address), which stays a single file.
 
 | `--image-model` | Provider | Requirements |
 |---|---|---|

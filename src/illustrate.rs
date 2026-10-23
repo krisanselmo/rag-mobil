@@ -1,5 +1,5 @@
-//! The cover illustration: one picture of the story's characters in its
-//! setting, drawn by an image model from the plan, for the HTML/PDF booklet.
+//! The cover illustration: a cinematic still of the story's key moment,
+//! drawn by an image model from the plan, for the HTML/PDF booklet.
 //!
 //! | Model name                          | Provider | API key          |
 //! |-------------------------------------|----------|------------------|
@@ -19,15 +19,15 @@ use serde_json::{Value, json};
 use crate::augment::StoryOptions;
 use crate::error::{RagError, Result};
 use crate::model::Collection;
-use crate::writer::StoryPlan;
-use crate::writer::plan::{box_contents, part_label};
+use crate::writer::plan::{part_label, scene_setup};
+use crate::writer::{PlotPoint, StoryPlan};
 
 pub const DEFAULT_IMAGE_MODEL: &str = "gpt-image-1";
 /// Replaces `https://api.openai.com` (tests, OpenAI-compatible servers).
 pub const OPENAI_IMAGE_BASE_URL_ENV: &str = "RAG_MOBIL_OPENAI_IMAGE_BASE_URL";
 /// Replaces `https://generativelanguage.googleapis.com` (tests).
 pub const GEMINI_BASE_URL_ENV: &str = "RAG_MOBIL_GEMINI_BASE_URL";
-/// Objects named in the prompt, at most: the picture is a cover, not an inventory.
+/// Objects named in the prompt, at most: the picture is a shot, not an inventory.
 const MAX_OBJECTS: usize = 8;
 /// File name of the picture and its prompt, with `--replay`.
 const REPLAY_NAME: &str = "illustration";
@@ -156,7 +156,11 @@ impl Illustrator {
             } => {
                 let body = json!({
                     "contents": [{"parts": [{"text": prompt}]}],
-                    "generationConfig": {"responseModalities": ["IMAGE"]},
+                    // Widescreen, like the film still the prompt asks for.
+                    "generationConfig": {
+                        "responseModalities": ["IMAGE"],
+                        "imageConfig": {"aspectRatio": "16:9"},
+                    },
                 });
                 let url = format!("{base_url}/v1beta/models/{model}:generateContent");
                 let answer =
@@ -234,60 +238,88 @@ fn found(bytes: Vec<u8>, mime: String) -> Illustration {
     }
 }
 
-/// What the image model is asked to draw: the plan's setting and cast, each
-/// character described by its figure, and a few of the objects. In English
-/// whatever the story's language: image models follow it best.
+/// What the image model is asked to draw: a film still of the story's key
+/// moment (the plot point about 3/5 through, where the trouble peaks), with
+/// the characters present described by their figures and portraits, and the
+/// objects of that moment. Camera, light and motion are spelled out: image
+/// models default to a flat, posed group shot. In English whatever the
+/// story's language: image models follow it best.
 pub fn prompt(plan: Option<&StoryPlan>, collection: &Collection, options: &StoryOptions) -> String {
     let mut out = format!(
-        "The cover picture of an illustrated story booklet for a {}-year-old child. \
-         Bright, warm, friendly toy photography: the characters are chunky plastic \
-         toy figures with round heads, a simple painted smile, dot eyes and C-shaped \
-         hands, like classic Playmobil figures, standing in a diorama built from the \
-         same toy line. Soft daylight, shallow depth of field, landscape format.\n\
+        "A cinematic film still for the cover of a story booklet for a {age}-year-old \
+         child, as if taken from an animated adventure movie, but it is real toy \
+         photography: the characters are chunky plastic toy figures with round heads, \
+         a simple painted smile, dot eyes and C-shaped hands, like classic Playmobil \
+         figures, in a detailed diorama built from the same toy line.\n\
+         Camera: low angle, wide-angle lens close to the action, the main characters \
+         large in the foreground on the rule of thirds, toy pieces blurred in the \
+         foreground and the setting receding into the background with a shallow \
+         depth of field, 16:9 widescreen framing.\n\
+         Light: golden-hour sun low in the sky, warm rim light outlining the figures, \
+         long shadows, light rays through haze, rich teal-and-orange color grading.\n\
+         Action: the moment is caught mid-movement, with dynamic tilted poses and \
+         flying details (spray, sand, leaves). Exciting and full of wonder, never \
+         scary for a {age}-year-old.\n\
          Show only the characters and things listed below, each looking exactly like \
          its toy. No text, letters, logos or watermarks in the picture.\n",
-        options.reader_age
+        age = options.reader_age
     );
-    match plan {
-        Some(plan) => {
-            let _ = write!(
-                out,
-                "\nStory: \"{}\". {}\nSetting: {}\n\nCharacters:\n",
-                plan.title.trim(),
-                plan.premise.trim(),
-                plan.setting.trim()
-            );
-            let contents = box_contents(plan, collection);
-            for (character, figure) in &contents.characters {
-                let toy = figure.map(|(_, part)| format!(" (toy figure: {})", part_label(part)));
-                let _ = writeln!(
-                    out,
-                    "- {}{}: {}",
-                    character.name.trim(),
-                    toy.unwrap_or_default(),
-                    character.portrait.trim()
-                );
-            }
-            if !contents.objects.is_empty() {
-                out.push_str("\nThings that may appear:\n");
-                for (_, part) in contents.objects.iter().take(MAX_OBJECTS) {
-                    let _ = writeln!(out, "- {}", part_label(part));
-                }
-            }
-        }
+    let Some(plan) = plan else {
         // Direct method: no plan, the boxes' figures.
-        None => {
-            let _ = write!(
+        let _ = write!(
+            out,
+            "\nThe toys come from {}.\n\nCharacters:\n",
+            collection.label()
+        );
+        for figure in collection.figures() {
+            let _ = writeln!(out, "- {}", part_label(figure));
+        }
+        return out;
+    };
+    let _ = write!(
+        out,
+        "\nStory: \"{}\". {}\nSetting: {}\n",
+        plan.title.trim(),
+        plan.premise.trim(),
+        plan.setting.trim()
+    );
+    let Some(step) = key_moment(plan) else {
+        return out;
+    };
+    let setup = scene_setup(step, plan, collection);
+    let _ = writeln!(out, "\nThe moment in the shot: {}", step.event.trim());
+    if !setup.characters.is_empty() {
+        out.push_str("\nIn the shot:\n");
+        for (name, figure) in &setup.characters {
+            let portrait = plan
+                .characters
+                .iter()
+                .find(|c| c.name == *name)
+                .map(|c| format!(": {}", c.portrait.trim()))
+                .unwrap_or_default();
+            let _ = writeln!(
                 out,
-                "\nThe toys come from {}.\n\nCharacters:\n",
-                collection.label()
+                "- {} (toy figure: {}){portrait}",
+                name.trim(),
+                part_label(figure)
             );
-            for figure in collection.figures() {
-                let _ = writeln!(out, "- {}", part_label(figure));
-            }
+        }
+    }
+    if !setup.objects.is_empty() {
+        out.push_str("\nThings in the shot:\n");
+        for pieces in setup.objects.iter().take(MAX_OBJECTS) {
+            let labels: Vec<String> = pieces.iter().map(|p| part_label(p)).collect();
+            let _ = writeln!(out, "- {}", labels.join(" + "));
         }
     }
     out
+}
+
+/// The plot point about 3/5 through the outline: past the setup, at the
+/// height of the trouble, before it is solved.
+fn key_moment(plan: &StoryPlan) -> Option<&PlotPoint> {
+    let n = plan.outline.len();
+    plan.outline.get((n * 3 / 5).min(n.saturating_sub(1)))
 }
 
 #[cfg(test)]
@@ -301,11 +333,31 @@ mod tests {
         let plan = valid_plan();
         let text = prompt(Some(&plan), &collection, &StoryOptions::default());
         assert!(text.contains(&format!("Story: \"{}\"", plan.title)));
-        for character in &plan.characters {
-            assert!(text.contains(&format!("- {}", character.name)));
-        }
-        assert!(text.contains("(toy figure: "));
+        let moment = key_moment(&plan).unwrap();
+        assert!(text.contains(&format!("The moment in the shot: {}", moment.event)));
+        // "leon" in the outline is Leon, with his portrait.
+        assert!(text.contains("- Rose (toy figure: "));
+        assert!(text.contains("- Leon (toy figure: "));
+        assert!(text.contains(": cheerful trumpeter"));
+        assert!(text.contains("Camera: low angle"));
         assert!(text.contains("No text"));
+    }
+
+    #[test]
+    fn key_moment_is_past_the_middle() {
+        let mut plan = valid_plan();
+        let step = plan.outline[0].clone();
+        for (n, expected) in [(1, 0), (2, 1), (3, 1), (4, 2), (5, 3)] {
+            plan.outline = (0..n)
+                .map(|i| PlotPoint {
+                    event: i.to_string(),
+                    ..step.clone()
+                })
+                .collect();
+            assert_eq!(key_moment(&plan).unwrap().event, expected.to_string());
+        }
+        plan.outline.clear();
+        assert!(key_moment(&plan).is_none());
     }
 
     #[test]

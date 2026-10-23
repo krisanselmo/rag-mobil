@@ -289,10 +289,12 @@ Markdown-Geschichte als auch ihr Heft behalten. Ein Heft, das nicht geschrieben 
 ### Titelbild
 
 `--illustrate` fügt dem Titelblatt des Hefts ein Bild hinzu (HTML und PDF, über `--format` oder
-`--booklet`): Sobald die Geschichte geschrieben ist, zeichnet ein Bildmodell ihre Figuren in
-ihrer Umgebung, nach dem Plan: der Schauplatz, jede Figur beschrieben durch ihre
-Spielfigur („Pirate, red vest and ponytail“) und ihr Porträt, und einige der verwendeten
-Gegenstände. Der Prompt verlangt Spielfiguren aus Kunststoff und keinen Text im Bild. Das Bild
+`--booklet`): Sobald die Geschichte geschrieben ist, zeichnet ein Bildmodell ihren
+Schlüsselmoment wie ein Filmstandbild. Aus dem Plan nimmt der Prompt den Handlungsschritt bei
+etwa 3/5 (wo die Spannung am größten ist), den Schauplatz, jede anwesende Figur beschrieben
+durch ihre Spielfigur („Pirate, red vest and ponytail“) und ihr Porträt, und die Gegenstände
+dieses Moments. Er beschreibt die Aufnahme: Spielzeugfotografie, Froschperspektive und
+Weitwinkel, goldenes Gegenlicht, Figuren mitten in der Bewegung, 16:9 und kein Text im Bild. Das Bild
 wird in die Seite eingebettet (`data:`-Adresse), die eine einzige Datei bleibt.
 
 | `--image-model` | Anbieter | Voraussetzungen |
