@@ -22,7 +22,7 @@ numéro de set ──► Retrieve ──► Augment ──► Rédaction ──�
 
 [**Pepper and the Pirate's Hat**](examples/3799-pirates-secret-island/) : une histoire en anglais
 pour le set 3799 « Pirates Secret Island », écrite par Claude, avec son
-[livret illustré (PDF)](examples/3799-pirates-secret-island/booklet.pdf). Chaque figurine et
+[livret illustré (PDF)](examples/3799-pirates-secret-island/booklet.pdf) et son image de couverture. Chaque figurine et
 chaque objet de l'histoire est dans la boîte.
 
 ## Installation
@@ -67,6 +67,7 @@ rag-mobil 3666 --method direct
 rag-mobil 3799 --scene-setup --format html > livret.html
 rag-mobil 3799 --scene-setup --format pdf > livret.pdf
 rag-mobil 3799 --scene-setup --format pdf --layout compact > livret.pdf   # 2 pages au lieu de 7
+rag-mobil 3799 --scene-setup --illustrate --format pdf > livret.pdf       # avec une image de couverture
 
 # Histoire dont tu es le héros : paragraphes numérotés, choix, plusieurs fins
 rag-mobil 3799 --interactive --format pdf > aventure.pdf
@@ -110,6 +111,8 @@ vont sur `stderr` (`rag-mobil 3666 > histoire.md` fonctionne).
 | `-f, --format` / `RAG_MOBIL_FORMAT` | `markdown` | `markdown`, `html` ou `pdf` (livret illustré, voir ci-dessous) |
 | `--booklet FICHIER` (alias `--livret`) | — | Écrit aussi le livret (HTML, ou PDF si `.pdf`) : l'histoire reste en Markdown sur `stdout`, en un seul passage du LLM |
 | `--layout` / `RAG_MOBIL_LAYOUT` | `booklet` | `--format html` ou `pdf` : `booklet` (livret) ou `compact` (économe en papier) |
+| `--illustrate` / `RAG_MOBIL_ILLUSTRATE` | non | Livret : une image de couverture dessinée par un modèle d'image (voir plus bas) |
+| `--image-model` / `RAG_MOBIL_IMAGE_MODEL` | `gpt-image-1` | Modèle d'image de `--illustrate` : `gpt-image-…`, `dall-e-…` (OpenAI) ou `gemini-…` (Gemini) |
 | `--browser-arg` | — | `--format pdf` : argument passé au navigateur (ex. `--no-sandbox`) ; répétable |
 | `--star REF` | — | Pièce préférée de l'enfant, au cœur de l'histoire ; répétable (voir ci-dessous) |
 | `--missing REF[:N]` | — | Pièce absente de la boîte : toutes les copies, ou N ; répétable |
@@ -283,6 +286,25 @@ place et un « Dans ta boîte » en petites vignettes, juste après l'histoire. 
 `--format` : un service garde ainsi l'histoire en Markdown et son livret, pour un seul passage du LLM. Un
 livret qui ne s'écrit pas (navigateur absent) est signalé sur `stderr` sans perdre l'histoire.
 
+### Image de couverture
+
+`--illustrate` ajoute une image à la couverture du livret (HTML et PDF, par `--format` ou
+`--booklet`) : une fois l'histoire écrite, un modèle d'image dessine ses personnages dans leur
+décor, d'après le plan : le décor, chaque personnage décrit par sa figurine (« Pirate, red vest
+and ponytail ») et son portrait, et quelques objets utilisés. Le prompt demande des figurines
+en plastique, et aucun texte dans l'image. L'image est intégrée à la page (adresse `data:`), qui
+reste un seul fichier.
+
+| `--image-model` | Fournisseur | Prérequis |
+|---|---|---|
+| `gpt-image-1` (défaut), `gpt-image-…`, `dall-e-3` | OpenAI | `OPENAI_API_KEY` |
+| `gemini-2.5-flash-image`, `gemini-…` | Google Gemini | `GEMINI_API_KEY` |
+
+La clé est vérifiée avant tout appel au LLM. Une image qui échoue (quota, refus du filtre du
+fournisseur…) est signalée sur `stderr` : le livret sort sans elle. Avec `--replay DIR`, le
+prompt est écrit dans `DIR/illustration.prompt.txt` et l'image lue dans `DIR/illustration.png`
+(ou `.jpg`, `.webp`, `.svg`).
+
 `--format pdf` fait cette impression directement : le livret est imprimé par un Chrome,
 Chromium ou Edge sans interface, déjà installé (cherché dans le `PATH` et aux
 emplacements habituels, ou indiqué par `RAG_MOBIL_BROWSER`). Le PDF s'écrit sur
@@ -301,6 +323,7 @@ src/
 ├── saga.rs              --saga : épisodes précédents, continuité des personnages
 ├── html.rs              --format html : livret illustré (pulldown-cmark)
 ├── pdf.rs               --format pdf : le livret imprimé par Chrome sans interface
+├── illustrate.rs        --illustrate : l'image de couverture (OpenAI, Gemini, replay)
 ├── retriever/           R — récupération
 │   ├── mod.rs           trait InventorySource
 │   ├── playmodb.rs      client HTTP (2 pages en parallèle)

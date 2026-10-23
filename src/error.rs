@@ -58,6 +58,9 @@ pub enum RagError {
         source: std::io::Error,
     },
 
+    #[error("illustration failed: {0}")]
+    Image(String),
+
     #[error("PDF printing failed: {0}")]
     Pdf(String),
 

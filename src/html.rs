@@ -3,8 +3,8 @@
 //! inventory) in the scene setups, in "In your box", and in place of each
 //! `[ref. …]` citation.
 //!
-//! Printed (or saved as PDF), it is a booklet: a cover with the cast, one
-//! page per scene, and "In your box" as a checklist, with page numbers.
+//! Printed (or saved as PDF), it is a booklet: a cover with the cast (and
+//! the `--illustrate` picture, embedded in the page), one page per scene, and "In your box" as a checklist, with page numbers.
 //!
 //! Everything the LLM wrote is escaped: its raw HTML is shown as text.
 
@@ -13,6 +13,7 @@ use std::fmt::Write;
 use pulldown_cmark::{CowStr, Event, Parser, html::push_html};
 
 use crate::augment::StoryOptions;
+use crate::illustrate::Illustration;
 use crate::model::{Collection, Part, SetInventory};
 use crate::pipeline::Story;
 use crate::writer::plan::{
@@ -38,10 +39,12 @@ pub fn render(story: &Story, options: &StoryOptions, layout: Layout) -> String {
     let written = &story.written;
     let labels = Labels::new(options);
     let texts = Texts::new(options);
+    let illustration = story.illustration.as_ref().map(illustration_html);
+    let illustration = illustration.as_deref().unwrap_or_default();
 
     let (title, body) = match &written.plan {
         Some(plan) => {
-            let mut body = cover_html(plan, collection, &texts);
+            let mut body = cover_html(plan, collection, &texts, illustration);
             body.push_str("<div class=\"story\">\n");
             if !written.paragraphs.is_empty() {
                 body.push_str(&gamebook_html(written, plan, collection, &labels));
@@ -74,7 +77,7 @@ pub fn render(story: &Story, options: &StoryOptions, layout: Layout) -> String {
                 .find_map(|l| l.strip_prefix("# "))
                 .map_or_else(|| collection.label(), |t| t.trim().to_owned());
             let body = format!(
-                "<div class=\"story\">\n{}</div>\n",
+                "{illustration}<div class=\"story\">\n{}</div>\n",
                 markdown(text, collection)
             );
             (title, body)
@@ -239,10 +242,25 @@ fn image(part: &Part) -> Option<String> {
     (src.starts_with("https://") || src.starts_with("http://")).then(|| escape(src))
 }
 
-/// The first page: title, cast, premise, boxes.
-fn cover_html(plan: &StoryPlan, collection: &Collection, texts: &Texts) -> String {
+/// The cover picture, embedded: the page stays a single file. In its own
+/// block: a bare image on the compact cover is pushed to the next page when
+/// printed (Chrome, named `@page`).
+fn illustration_html(illustration: &Illustration) -> String {
+    format!(
+        "<div class=\"illustration\"><img src=\"{}\" alt=\"\"></div>\n",
+        illustration.data_url()
+    )
+}
+
+/// The first page: title, illustration, cast, premise, boxes.
+fn cover_html(
+    plan: &StoryPlan,
+    collection: &Collection,
+    texts: &Texts,
+    illustration: &str,
+) -> String {
     let mut out = format!(
-        "<header class=\"cover\">\n<p class=\"kicker\">{}</p>\n<h1>{}</h1>\n",
+        "<header class=\"cover\">\n<p class=\"kicker\">{}</p>\n<h1>{}</h1>\n{illustration}",
         texts.play_with,
         escape(plan.title.trim())
     );
@@ -498,6 +516,10 @@ figcaption i, figcaption small { color: var(--muted); }
 .kicker, .boxes, .tick { font: .85rem system-ui, sans-serif; color: var(--muted); }
 .kicker { text-transform: uppercase; letter-spacing: .12em; margin: 0; }
 .cover h1 { margin: .4rem 0 1.5rem; }
+.illustration img {
+  display: block; width: 100%; max-height: 28rem; object-fit: cover;
+  border-radius: 14px; margin: 0 auto 1.5rem;
+}
 .cast {
   list-style: none; padding: 0; margin: 0 0 1.5rem;
   display: flex; flex-wrap: wrap; justify-content: center; gap: 1.25rem;
@@ -552,6 +574,12 @@ footer {
   .cover h1 { font-size: 30pt; }
   .cast img { height: 11rem; }
   .cast li { width: 8.5rem; font-size: 13pt; }
+  /* With an illustration, the cast makes room for it on the cover. */
+  .booklet .cover .illustration img { max-height: 120mm; margin-bottom: 6mm; }
+  .booklet .cover:has(.illustration) h1 { margin-bottom: 5mm; }
+  .booklet .cover:has(.illustration) .cast { margin-bottom: 4mm; }
+  .booklet .cover:has(.illustration) .cast img { height: 6.5rem; }
+  .booklet .cover:has(.illustration) .cast li { width: 7rem; font-size: 11pt; }
   .scene + .scene { break-before: page; }
   /* A gamebook paragraph stays on one page, with its number and choices. */
   .paragraph { break-inside: avoid; margin-top: 1.2rem; }
@@ -586,6 +614,9 @@ const COMPACT: &str = r#"
   }
   .compact .cover h1 { font-size: 20pt; margin: 1mm 0 2mm; }
   .compact .kicker { font-size: 7pt; }
+  .compact .cover .illustration img {
+    width: auto; max-width: 100%; height: 50mm; max-height: none; margin: 0 auto 2mm; border-radius: 6px;
+  }
   .compact .cast { gap: 4mm; margin: 0 0 2mm; }
   .compact .cast li { width: 18mm; font-size: 8pt; }
   .compact .cast img { height: 20mm; margin-bottom: 1mm; }
@@ -660,7 +691,24 @@ mod tests {
                 issues: vec![],
                 calls: 1,
             },
+            illustration: None,
         }
+    }
+
+    #[test]
+    fn illustration_is_embedded_on_the_cover() {
+        let mut story = story("", true, &["Leon blows.", "Rose finds the horse."], false);
+        story.illustration = Some(Illustration {
+            bytes: b"<svg/>".to_vec(),
+            mime: "image/svg+xml".into(),
+            model: "test".into(),
+        });
+        let html = render(&story, &options("English"), Layout::Booklet);
+        let cover =
+            &html[html.find("<header class=\"cover\">").unwrap()..html.find("</header>").unwrap()];
+        assert!(cover.contains(
+            "<div class=\"illustration\"><img src=\"data:image/svg+xml;base64,PHN2Zy8+\" alt=\"\"></div>"
+        ));
     }
 
     #[test]
