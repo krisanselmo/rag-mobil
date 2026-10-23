@@ -3,6 +3,7 @@
 use crate::augment::StoryOptions;
 use crate::error::Result;
 use crate::generator::StoryGenerator;
+use crate::illustrate::Illustration;
 use crate::model::{Collection, SetNumber};
 use crate::retriever::InventorySource;
 use crate::writer::{Observer, WriterOptions, Written, write};
@@ -11,6 +12,8 @@ pub struct Story {
     /// The boxes the story is played with.
     pub collection: Collection,
     pub written: Written,
+    /// `--illustrate`: the cover picture, drawn after the story.
+    pub illustration: Option<Illustration>,
 }
 
 pub struct RagPipeline<S, G> {
@@ -43,6 +46,7 @@ impl<S: InventorySource, G: StoryGenerator> RagPipeline<S, G> {
         Ok(Story {
             collection,
             written,
+            illustration: None,
         })
     }
 }

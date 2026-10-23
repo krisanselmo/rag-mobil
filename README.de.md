@@ -22,7 +22,7 @@ set number ──► Retrieve ──► Augment ──► Writing ────�
 
 [**Pepper and the Pirate's Hat**](examples/3799-pirates-secret-island/): eine englische
 Geschichte zum Set 3799 „Pirates Secret Island“, geschrieben von Claude, mit dem
-[illustrierten Heft (PDF)](examples/3799-pirates-secret-island/booklet.pdf). Jede Figur und
+[illustrierten Heft (PDF)](examples/3799-pirates-secret-island/booklet.pdf) und seinem Titelbild. Jede Figur und
 jeder Gegenstand der Geschichte ist in der Schachtel.
 
 ## Installation
@@ -64,6 +64,7 @@ rag-mobil 3666 --method direct
 rag-mobil 3799 --scene-setup --format html > booklet.html
 rag-mobil 3799 --scene-setup --format pdf > booklet.pdf
 rag-mobil 3799 --scene-setup --format pdf --layout compact > booklet.pdf   # 2 pages instead of 7
+rag-mobil 3799 --scene-setup --illustrate --format pdf > booklet.pdf       # with a cover picture
 
 # Choose-your-own-adventure: numbered paragraphs, choices, several endings
 rag-mobil 3799 --interactive --format pdf > adventure.pdf
@@ -109,6 +110,8 @@ gehen nach `stderr` (`rag-mobil 3666 > story.md` funktioniert).
 | `-f, --format` / `RAG_MOBIL_FORMAT` | `markdown` | `markdown`, `html` oder `pdf` (illustriertes Heft, siehe unten) |
 | `--booklet FILE` (Alias `--livret`) | — | Schreibt zusätzlich das Heft (HTML, oder PDF bei `.pdf`): Die Geschichte bleibt als Markdown auf `stdout`, mit einem einzigen LLM-Durchlauf |
 | `--layout` / `RAG_MOBIL_LAYOUT` | `booklet` | `--format html` oder `pdf`: `booklet` oder `compact` (spart Papier) |
+| `--illustrate` / `RAG_MOBIL_ILLUSTRATE` | aus | Heft: ein Titelbild, gezeichnet von einem Bildmodell (siehe unten) |
+| `--image-model` / `RAG_MOBIL_IMAGE_MODEL` | `gpt-image-1` | Bildmodell für `--illustrate`: `gpt-image-…`, `dall-e-…` (OpenAI) oder `gemini-…` (Gemini) |
 | `--browser-arg` | — | `--format pdf`: Argument für den Browser (z. B. `--no-sandbox`); wiederholbar |
 | `--star REF` | — | Das Lieblingsteil des Kindes, im Mittelpunkt der Geschichte; wiederholbar (siehe unten) |
 | `--missing REF[:N]` | — | Ein Teil, das in der Packung fehlt: alle Exemplare oder N; wiederholbar |
@@ -283,6 +286,27 @@ gewählten Ausgabe in eine Datei: Ein Dienst kann so aus einem einzigen LLM-Durc
 Markdown-Geschichte als auch ihr Heft behalten. Ein Heft, das nicht geschrieben werden kann
 (kein Browser), wird auf `stderr` gemeldet, ohne dass die Geschichte verloren geht.
 
+### Titelbild
+
+`--illustrate` fügt dem Titelblatt des Hefts ein Bild hinzu (HTML und PDF, über `--format` oder
+`--booklet`): Sobald die Geschichte geschrieben ist, zeichnet ein Bildmodell ihren
+Schlüsselmoment wie ein Filmstandbild. Aus dem Plan nimmt der Prompt den Handlungsschritt bei
+etwa 3/5 (wo die Spannung am größten ist), den Schauplatz, jede anwesende Figur beschrieben
+durch ihre Spielfigur („Pirate, red vest and ponytail“) und ihr Porträt, und die Gegenstände
+dieses Moments. Er beschreibt die Aufnahme: Spielzeugfotografie, Froschperspektive und
+Weitwinkel, goldenes Gegenlicht, Figuren mitten in der Bewegung, 16:9 und kein Text im Bild. Das Bild
+wird in die Seite eingebettet (`data:`-Adresse), die eine einzige Datei bleibt.
+
+| `--image-model` | Anbieter | Voraussetzungen |
+|---|---|---|
+| `gpt-image-1` (Standard), `gpt-image-…`, `dall-e-3` | OpenAI | `OPENAI_API_KEY` |
+| `gemini-2.5-flash-image`, `gemini-…` | Google Gemini | `GEMINI_API_KEY` |
+
+Der Schlüssel wird vor jedem LLM-Aufruf geprüft. Ein Bild, das fehlschlägt (Kontingent, vom
+Sicherheitsfilter des Anbieters abgelehnt…), wird auf `stderr` gemeldet: Das Heft erscheint
+ohne Bild. Mit `--replay DIR` wird der Prompt nach `DIR/illustration.prompt.txt` geschrieben und
+das Bild aus `DIR/illustration.png` (oder `.jpg`, `.webp`, `.svg`) gelesen.
+
 `--format pdf` druckt selbst: Das Heft wird von einem bereits installierten Headless-Chrome,
 -Chromium oder -Edge gedruckt (gesucht in `PATH` und an den üblichen Orten, oder angegeben über
 `RAG_MOBIL_BROWSER`). Das PDF wird auf `stdout` geschrieben und in eine Datei umgeleitet. Der
@@ -301,6 +325,7 @@ src/
 ├── saga.rs              --saga: previous episodes, character continuity
 ├── html.rs              --format html: illustrated booklet (pulldown-cmark)
 ├── pdf.rs               --format pdf: the booklet printed by headless Chrome
+├── illustrate.rs        --illustrate: the cover picture (OpenAI, Gemini, replay)
 ├── retriever/           R — retrieval
 │   ├── mod.rs           InventorySource trait
 │   ├── playmodb.rs      HTTP client (2 pages in parallel)

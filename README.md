@@ -22,7 +22,7 @@ set number ──► Retrieve ──► Augment ──► Writing ────�
 
 [**Pepper and the Pirate's Hat**](examples/3799-pirates-secret-island/): a story for set 3799
 "Pirates Secret Island", written by Claude, with its
-[illustrated booklet (PDF)](examples/3799-pirates-secret-island/booklet.pdf). Captain Salty
+[illustrated booklet (PDF)](examples/3799-pirates-secret-island/booklet.pdf) and its cover picture. Captain Salty
 rows to the island for the treasure behind the secret door; Pepper the parrot steals his hat.
 Every figure and object of the story is in the box.
 
@@ -65,6 +65,7 @@ rag-mobil 3666 --method direct
 rag-mobil 3799 --scene-setup --format html > booklet.html
 rag-mobil 3799 --scene-setup --format pdf > booklet.pdf
 rag-mobil 3799 --scene-setup --format pdf --layout compact > booklet.pdf   # 2 pages instead of 7
+rag-mobil 3799 --scene-setup --illustrate --format pdf > booklet.pdf       # with a cover picture
 
 # Choose-your-own-adventure: numbered paragraphs, choices, several endings
 rag-mobil 3799 --interactive --format pdf > adventure.pdf
@@ -106,6 +107,8 @@ The story is printed on `stdout` (as Markdown); steps and progress messages go t
 | `-f, --format` / `RAG_MOBIL_FORMAT` | `markdown` | `markdown`, `html` or `pdf` (illustrated booklet, see below) |
 | `--booklet FILE` (alias `--livret`) | — | Also writes the booklet (HTML, or PDF for `.pdf`): the story stays Markdown on `stdout`, with a single LLM run |
 | `--layout` / `RAG_MOBIL_LAYOUT` | `booklet` | `--format html` or `pdf`: `booklet` or `compact` (saves paper) |
+| `--illustrate` / `RAG_MOBIL_ILLUSTRATE` | off | Booklet: a cover picture drawn by an image model (see below) |
+| `--image-model` / `RAG_MOBIL_IMAGE_MODEL` | `gpt-image-1` | Image model for `--illustrate`: `gpt-image-…`, `dall-e-…` (OpenAI) or `gemini-…` (Gemini) |
 | `--browser-arg` | — | `--format pdf`: argument passed to the browser (e.g. `--no-sandbox`); repeatable |
 | `--star REF` | — | The child's favorite piece, at the heart of the story; repeatable (see below) |
 | `--missing REF[:N]` | — | A piece missing from the box: every copy, or N; repeatable |
@@ -270,6 +273,26 @@ with `--format`: a service can thus keep both the Markdown story and its booklet
 LLM run. A booklet that can't be written (no browser) is reported on `stderr` without losing
 the story.
 
+### Cover illustration
+
+`--illustrate` adds a picture to the booklet's cover (HTML and PDF, `--format` or `--booklet`):
+once the story is written, an image model draws its key moment like a film still. From the plan,
+the prompt takes the plot point about 3/5 through (where the trouble peaks), the setting, each
+character present described by its figure ("Pirate, red vest and ponytail") and its portrait,
+and the objects of that moment. It spells out the shot: toy photography of chunky figures, low
+angle and wide-angle lens, golden-hour rim light, characters caught mid-movement, 16:9, and no
+text in the picture. The picture is embedded in the page (`data:` address), which stays a single file.
+
+| `--image-model` | Provider | Requirements |
+|---|---|---|
+| `gpt-image-1` (default), `gpt-image-…`, `dall-e-3` | OpenAI | `OPENAI_API_KEY` |
+| `gemini-2.5-flash-image`, `gemini-…` | Google Gemini | `GEMINI_API_KEY` |
+
+The key is checked before any LLM call. A picture that fails (quota, refused by the provider's
+safety system…) is reported on `stderr`: the booklet comes out without it. With `--replay DIR`,
+the prompt is written to `DIR/illustration.prompt.txt` and the picture read from
+`DIR/illustration.png` (or `.jpg`, `.webp`, `.svg`).
+
 `--format pdf` does the printing itself: the booklet is printed by a headless Chrome, Chromium
 or Edge already installed (looked up in `PATH` and the usual locations, or given by
 `RAG_MOBIL_BROWSER`). The PDF is written to `stdout`, to be redirected to a file. The browser
@@ -288,6 +311,7 @@ src/
 ├── saga.rs              --saga: previous episodes, character continuity
 ├── html.rs              --format html: illustrated booklet (pulldown-cmark)
 ├── pdf.rs               --format pdf: the booklet printed by headless Chrome
+├── illustrate.rs        --illustrate: the cover picture (OpenAI, Gemini, replay)
 ├── retriever/           R — retrieval
 │   ├── mod.rs           InventorySource trait
 │   ├── playmodb.rs      HTTP client (2 pages in parallel)

@@ -1,0 +1,227 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" width="1536" height="1024">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7cc8ee"/>
+      <stop offset="1" stop-color="#e2f5ff"/>
+    </linearGradient>
+    <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3bb3d4"/>
+      <stop offset="1" stop-color="#16789c"/>
+    </linearGradient>
+    <linearGradient id="sand" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f8e2a0"/>
+      <stop offset="1" stop-color="#e7c372"/>
+    </linearGradient>
+    <linearGradient id="rock" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8d939a"/>
+      <stop offset="1" stop-color="#565c63"/>
+    </linearGradient>
+    <radialGradient id="skin" cx=".4" cy=".35" r=".7">
+      <stop offset="0" stop-color="#ffe6c9"/>
+      <stop offset="1" stop-color="#f2c79d"/>
+    </radialGradient>
+    <!-- A C-shaped toy hand. -->
+    <g id="hand">
+      <circle r="11" fill="url(#skin)" stroke="#d9a878" stroke-width="1.5"/>
+      <circle cx="5" cy="-2" r="4.5" fill="#d9a878" opacity=".55"/>
+    </g>
+    <!-- Head: eyes and smile; hair and beard are drawn by each figure. -->
+    <g id="face">
+      <circle cy="-228" r="40" fill="url(#skin)" stroke="#d9a878" stroke-width="1.5"/>
+      <circle cx="-13" cy="-230" r="4.5" fill="#222"/>
+      <circle cx="13" cy="-230" r="4.5" fill="#222"/>
+      <path d="M-13 -212 Q0 -201 13 -212" fill="none" stroke="#222" stroke-width="3" stroke-linecap="round"/>
+    </g>
+  </defs>
+
+  <!-- Sky, sun, clouds -->
+  <rect width="1200" height="800" fill="url(#sky)"/>
+  <circle cx="1060" cy="110" r="62" fill="#ffe27a"/>
+  <circle cx="1060" cy="110" r="88" fill="#ffe27a" opacity=".25"/>
+  <g fill="#fff" opacity=".9">
+    <ellipse cx="190" cy="110" rx="80" ry="26"/>
+    <ellipse cx="240" cy="92" rx="52" ry="30"/>
+    <ellipse cx="760" cy="80" rx="70" ry="22"/>
+    <ellipse cx="805" cy="66" rx="44" ry="24"/>
+  </g>
+
+  <!-- Sea -->
+  <rect y="420" width="1200" height="380" fill="url(#sea)"/>
+  <g fill="none" stroke="#bfeaf6" stroke-width="4" stroke-linecap="round" opacity=".7">
+    <path d="M40 470 q20 -10 40 0 t40 0"/>
+    <path d="M980 455 q20 -10 40 0 t40 0"/>
+    <path d="M1080 520 q20 -10 40 0 t40 0"/>
+    <path d="M60 760 q20 -10 40 0 t40 0"/>
+    <path d="M1040 770 q20 -10 40 0 t40 0"/>
+  </g>
+
+  <!-- Island: grassy hill, then sand -->
+  <ellipse cx="300" cy="560" rx="300" ry="110" fill="#6cbf4a"/>
+  <ellipse cx="300" cy="555" rx="270" ry="90" fill="#7fd05a"/>
+  <ellipse cx="600" cy="660" rx="590" ry="150" fill="url(#sand)"/>
+  <path d="M30 680 Q300 600 600 615 T1170 670" fill="none" stroke="#fff" stroke-width="6" opacity=".35"/>
+
+  <!-- Rocks with the secret door, half open -->
+  <path d="M860 640 L880 470 L940 400 L1010 380 L1080 420 L1130 500 L1150 640 Z" fill="url(#rock)"/>
+  <path d="M900 470 L960 420 L1000 440 M1060 450 L1100 500" fill="none" stroke="#4a4f55" stroke-width="5" stroke-linecap="round"/>
+  <path d="M965 640 L965 540 Q1000 500 1035 540 L1035 640 Z" fill="#1d1f22"/>
+  <path d="M1035 640 L1035 540 L1072 528 L1072 648 Z" fill="#7a8087" stroke="#4a4f55" stroke-width="3"/>
+  <circle cx="1062" cy="590" r="5" fill="#c9a227"/>
+  <!-- Trunk with dark metal bars, at the cave's entrance -->
+  <g transform="translate(905 668)">
+    <rect x="-46" y="-38" width="92" height="40" rx="5" fill="#b07a3e" stroke="#5b3c1b" stroke-width="3"/>
+    <path d="M-46 -38 Q0 -72 46 -38 Z" fill="#c48a4a" stroke="#5b3c1b" stroke-width="3"/>
+    <path d="M-24 -52 V2 M24 -52 V2" stroke="#3a3a3f" stroke-width="7"/>
+    <rect x="-8" y="-30" width="16" height="16" rx="3" fill="#3a3a3f"/>
+  </g>
+
+  <!-- Hut on stilts, straw roof -->
+  <g transform="translate(150 360)">
+    <path d="M20 120 V300 M80 120 V305 M140 120 V300 M200 120 V295" stroke="#7a4a1f" stroke-width="12" stroke-linecap="round"/>
+    <rect x="0" y="110" width="220" height="18" rx="4" fill="#9b6330"/>
+    <rect x="18" y="30" width="184" height="84" fill="#c08850"/>
+    <path d="M18 50 H202 M18 72 H202 M18 94 H202" stroke="#9b6330" stroke-width="4"/>
+    <rect x="88" y="52" width="44" height="62" rx="4" fill="#5b3a1b"/>
+    <path d="M-20 44 L110 -40 L240 44 Z" fill="#e9bd4f"/>
+    <path d="M-20 44 L110 -40 L240 44" fill="none" stroke="#c99a2e" stroke-width="5"/>
+    <path d="M10 40 L60 0 M60 44 L100 -10 M120 -10 L160 44 M160 0 L210 40" stroke="#c99a2e" stroke-width="3"/>
+  </g>
+
+  <!-- Palm trees with coconuts -->
+  <g>
+    <path d="M520 640 C510 520 470 420 430 330" fill="none" stroke="#8a5a2b" stroke-width="22" stroke-linecap="round"/>
+    <path d="M520 640 C510 520 470 420 430 330" fill="none" stroke="#a8763f" stroke-width="22" stroke-dasharray="6 18"/>
+    <g transform="translate(430 330)" fill="#2f9e44">
+      <path d="M0 0 C-60 -40 -130 -20 -160 30 C-110 0 -60 0 0 0Z"/>
+      <path d="M0 0 C40 -60 120 -60 160 -20 C100 -30 50 -20 0 0Z"/>
+      <path d="M0 0 C-30 -70 -100 -100 -150 -80 C-90 -60 -40 -40 0 0Z"/>
+      <path d="M0 0 C60 -10 130 20 150 80 C100 30 50 10 0 0Z"/>
+      <path d="M0 0 C-50 10 -100 60 -100 110 C-70 60 -40 30 0 0Z"/>
+      <circle cx="-8" cy="14" r="13" fill="#3d7a2a"/>
+      <circle cx="14" cy="10" r="13" fill="#3d7a2a"/>
+    </g>
+    <path d="M800 640 C800 540 830 430 870 360" fill="none" stroke="#8a5a2b" stroke-width="20" stroke-linecap="round"/>
+    <path d="M800 640 C800 540 830 430 870 360" fill="none" stroke="#a8763f" stroke-width="20" stroke-dasharray="6 18"/>
+    <g transform="translate(870 360)" fill="#37b24d">
+      <path d="M0 0 C-60 -40 -130 -20 -150 30 C-110 0 -60 0 0 0Z"/>
+      <path d="M0 0 C40 -60 120 -60 150 -20 C100 -30 50 -20 0 0Z"/>
+      <path d="M0 0 C-20 -70 -80 -100 -130 -90 C-80 -60 -40 -40 0 0Z"/>
+      <path d="M0 0 C60 -10 120 20 140 80 C100 30 50 10 0 0Z"/>
+      <circle cx="-8" cy="14" r="12" fill="#3d7a2a"/>
+      <circle cx="13" cy="10" r="12" fill="#3d7a2a"/>
+    </g>
+  </g>
+
+  <!-- Parrot swing hanging from the palm, empty: Pepper has flown off -->
+  <path d="M470 380 V470 M520 395 V470" stroke="#b8902a" stroke-width="3"/>
+  <rect x="462" y="466" width="66" height="8" rx="4" fill="#d4a92e"/>
+
+  <!-- Rowboat on the beach -->
+  <g transform="translate(1000 735) rotate(-4)">
+    <path d="M-120 -30 H120 Q100 30 0 34 Q-100 30 -120 -30Z" fill="#5c3a1e"/>
+    <path d="M-112 -22 H112" stroke="#8a5a2b" stroke-width="6"/>
+    <path d="M-20 -30 L-150 -75 M20 -30 L140 -80" stroke="#c8915a" stroke-width="7" stroke-linecap="round"/>
+    <ellipse cx="-160" cy="-78" rx="20" ry="8" fill="#c8915a" transform="rotate(20 -160 -78)"/>
+  </g>
+
+  <!-- Clover the goat, under the hut -->
+  <g transform="translate(250 650)">
+    <ellipse cx="0" cy="0" rx="46" ry="26" fill="#fafafa" stroke="#cfcfcf" stroke-width="2"/>
+    <path d="M-30 18 V48 M-14 20 V50 M14 20 V50 M30 18 V48" stroke="#e8e8e8" stroke-width="8" stroke-linecap="round"/>
+    <ellipse cx="50" cy="-22" rx="18" ry="15" fill="#fafafa" stroke="#cfcfcf" stroke-width="2"/>
+    <path d="M44 -36 Q40 -54 30 -58 M54 -36 Q56 -54 66 -58" fill="none" stroke="#b9a07a" stroke-width="4" stroke-linecap="round"/>
+    <path d="M58 -10 Q60 2 54 6" fill="none" stroke="#e8e8e8" stroke-width="5" stroke-linecap="round"/>
+    <circle cx="56" cy="-24" r="2.5" fill="#222"/>
+  </g>
+
+  <!-- Barnaby: Crusoe, long white hair and beard -->
+  <g transform="translate(400 705) scale(.92)">
+    <path d="M-32 -95 H32 V-6 H-32Z" fill="#7a4d24"/>
+    <path d="M0 -95 V-6" stroke="#5b3a1b" stroke-width="3"/>
+    <rect x="-36" y="-10" width="34" height="12" rx="4" fill="#3b2a1a"/>
+    <rect x="2" y="-10" width="34" height="12" rx="4" fill="#3b2a1a"/>
+    <path d="M-38 -186 H38 L42 -100 H-42Z" fill="#c9a46a"/>
+    <path d="M-42 -112 H42" stroke="#8a6a3a" stroke-width="10"/>
+    <path d="M-38 -182 L-58 -122" stroke="#c9a46a" stroke-width="22" stroke-linecap="round"/>
+    <path d="M38 -182 L62 -140" stroke="#c9a46a" stroke-width="22" stroke-linecap="round"/>
+    <use href="#hand" x="-60" y="-112"/>
+    <use href="#hand" x="66" y="-130"/>
+    <path d="M-44 -232 Q-50 -150 -30 -150 L-30 -232Z M44 -232 Q50 -150 30 -150 L30 -232Z" fill="#f4f4f4"/>
+    <use href="#face"/>
+    <path d="M-40 -238 Q-38 -276 0 -276 Q38 -276 40 -238 Q20 -258 0 -256 Q-20 -258 -40 -238Z" fill="#f4f4f4"/>
+    <path d="M-30 -212 Q-34 -150 0 -132 Q34 -150 30 -212 Q22 -200 14 -206 Q0 -196 -14 -206 Q-22 -200 -30 -212Z" fill="#fafafa" stroke="#dcdcdc" stroke-width="2"/>
+    <path d="M-12 -207 Q0 -199 12 -207" fill="none" stroke="#222" stroke-width="3" stroke-linecap="round"/>
+  </g>
+
+  <!-- Finn: castaway, orange hair, black shirt, wooden spoon -->
+  <g transform="translate(560 712) scale(.92)">
+    <path d="M-32 -95 H32 V-40 H-32Z" fill="#c9a46a"/>
+    <path d="M-32 -40 L-26 -46 L-20 -40 L-14 -46 L-8 -40 L-2 -46 L2 -40 L8 -46 L14 -40 L20 -46 L26 -40 L32 -46" fill="#c9a46a"/>
+    <path d="M0 -95 V-40" stroke="#a8844d" stroke-width="3"/>
+    <rect x="-30" y="-40" width="26" height="34" fill="url(#skin)"/>
+    <rect x="4" y="-40" width="26" height="34" fill="url(#skin)"/>
+    <rect x="-36" y="-10" width="34" height="12" rx="4" fill="#f0c49a"/>
+    <rect x="2" y="-10" width="34" height="12" rx="4" fill="#f0c49a"/>
+    <path d="M-38 -186 H38 L42 -100 H-42Z" fill="#2b2b2b"/>
+    <path d="M-38 -182 L-62 -128" stroke="#2b2b2b" stroke-width="22" stroke-linecap="round"/>
+    <path d="M38 -182 L60 -230" stroke="#2b2b2b" stroke-width="22" stroke-linecap="round"/>
+    <use href="#hand" x="-64" y="-118"/>
+    <path d="M58 -246 L92 -330" stroke="#c8915a" stroke-width="7" stroke-linecap="round"/>
+    <ellipse cx="94" cy="-338" rx="10" ry="14" fill="#c8915a" transform="rotate(22 94 -338)"/>
+    <use href="#hand" x="62" y="-240"/>
+    <use href="#face"/>
+    <path d="M-42 -226 Q-46 -276 0 -274 Q46 -276 42 -226 Q36 -246 24 -250 L18 -240 L10 -254 L0 -244 L-10 -254 L-18 -240 L-24 -250 Q-36 -246 -42 -226Z" fill="#e8742a"/>
+  </g>
+
+  <!-- Captain Salty: red vest, black ponytail, golden saber; hatless! -->
+  <g transform="translate(730 712) scale(.92)">
+    <path d="M-32 -95 H32 V-6 H-32Z" fill="#2a2a33"/>
+    <path d="M0 -95 V-6" stroke="#111" stroke-width="3"/>
+    <rect x="-36" y="-12" width="34" height="14" rx="4" fill="#111"/>
+    <rect x="2" y="-12" width="34" height="14" rx="4" fill="#111"/>
+    <path d="M-38 -186 H38 L42 -100 H-42Z" fill="#f5f5f0"/>
+    <path d="M-38 -186 H-8 L-14 -100 H-42Z M38 -186 H8 L14 -100 H42Z" fill="#d42a2a"/>
+    <path d="M-42 -110 H42" stroke="#3b2a1a" stroke-width="10"/>
+    <rect x="-8" y="-116" width="16" height="12" fill="#e0b52c"/>
+    <path d="M-38 -182 L-64 -236" stroke="#f5f5f0" stroke-width="22" stroke-linecap="round"/>
+    <path d="M38 -182 L62 -126" stroke="#f5f5f0" stroke-width="22" stroke-linecap="round"/>
+    <use href="#hand" x="-66" y="-246"/>
+    <use href="#hand" x="64" y="-116"/>
+    <path d="M70 -112 Q130 -130 150 -190" fill="none" stroke="#f0c419" stroke-width="9" stroke-linecap="round"/>
+    <path d="M56 -106 L80 -122" stroke="#b8902a" stroke-width="8" stroke-linecap="round"/>
+    <path d="M30 -250 Q70 -240 66 -190 Q62 -170 54 -160" fill="none" stroke="#161616" stroke-width="14" stroke-linecap="round"/>
+    <use href="#face"/>
+    <path d="M-12 -232 L-18 -240 M12 -232 L18 -240" stroke="#222" stroke-width="3" stroke-linecap="round"/>
+    <path d="M-42 -226 Q-46 -276 0 -274 Q46 -276 42 -226 Q30 -252 0 -252 Q-30 -252 -42 -226Z" fill="#161616"/>
+    <ellipse cx="0" cy="-205" rx="9" ry="7" fill="#7a2020"/>
+  </g>
+
+  <!-- Pepper the parrot, flying off with the black tricorne and its red feather -->
+  <g transform="translate(860 230) rotate(-8)">
+    <path d="M-40 10 Q-110 -40 -120 -10 Q-90 0 -40 26Z" fill="#f2c50c" stroke="#c9a00a" stroke-width="2"/>
+    <path d="M30 0 Q90 -70 120 -40 Q90 -20 40 20Z" fill="#f2c50c" stroke="#c9a00a" stroke-width="2"/>
+    <ellipse cx="0" cy="10" rx="48" ry="30" fill="#41a7e8"/>
+    <path d="M-44 18 L-96 50 L-80 28 L-104 36Z" fill="#2d7fbf"/>
+    <circle cx="42" cy="-6" r="22" fill="#41a7e8"/>
+    <circle cx="48" cy="-12" r="6" fill="#fff"/>
+    <circle cx="50" cy="-12" r="3" fill="#222"/>
+    <path d="M60 0 Q78 2 72 18 Q66 12 58 12Z" fill="#3a3a3a"/>
+    <g transform="translate(78 44) rotate(12)">
+      <path d="M-46 0 Q-40 -26 0 -30 Q40 -26 46 0 Q24 -10 0 -8 Q-24 -10 -46 0Z" fill="#1c1c1c"/>
+      <path d="M-46 0 Q0 -16 46 0" fill="none" stroke="#f5f5f5" stroke-width="3"/>
+      <path d="M8 -28 Q30 -70 66 -64 Q36 -50 18 -26Z" fill="#d42a2a"/>
+    </g>
+  </g>
+
+  <!-- Two sea turtles in the shallows -->
+  <g transform="translate(110 740)">
+    <ellipse rx="32" ry="20" fill="#7a5a2e"/>
+    <path d="M-16 -10 L0 -16 L16 -10 L18 8 L0 14 L-18 8Z" fill="#a8844d"/>
+    <ellipse cx="38" cy="-4" rx="12" ry="9" fill="#c9a46a"/>
+  </g>
+  <g transform="translate(180 770) scale(.8)">
+    <ellipse rx="32" ry="20" fill="#7a5a2e"/>
+    <path d="M-16 -10 L0 -16 L16 -10 L18 8 L0 14 L-18 8Z" fill="#a8844d"/>
+    <ellipse cx="38" cy="-4" rx="12" ry="9" fill="#c9a46a"/>
+  </g>
+</svg>

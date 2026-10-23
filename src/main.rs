@@ -10,6 +10,7 @@ use rag_mobil::augment::{ContextOptions, StoryOptions};
 use rag_mobil::generator::{
     LlmConfig, LlmGenerator, ReasoningEffort, ReplayGenerator, StoryGenerator, llm,
 };
+use rag_mobil::illustrate::{self, Illustrator};
 use rag_mobil::model::{Collection, MissingPart};
 use rag_mobil::retriever::{
     Answered, Cached, Fallback, HttpJson, InventorySource, JsonFile, PlaymoDb, cache, playmodb,
@@ -157,6 +158,19 @@ struct Cli {
     /// single LLM run.
     #[arg(long, value_name = "FILE", alias = "livret")]
     booklet: Option<PathBuf>,
+
+    /// --format html or pdf, or --booklet: an image model draws a cover
+    /// picture of the characters in their setting, from the plan (one more
+    /// call, after the story).
+    #[arg(long, env = "RAG_MOBIL_ILLUSTRATE", value_parser = BoolishValueParser::new())]
+    illustrate: bool,
+
+    /// Image model for --illustrate; the provider is inferred from the name:
+    /// gpt-image-… or dall-e-… (OpenAI, OPENAI_API_KEY), gemini-…
+    /// (e.g. gemini-2.5-flash-image, GEMINI_API_KEY). With --replay, the
+    /// picture is read from DIR/illustration.{png,jpg,webp,svg}.
+    #[arg(long, env = "RAG_MOBIL_IMAGE_MODEL", default_value = illustrate::DEFAULT_IMAGE_MODEL)]
+    image_model: String,
 
     /// --format pdf or --booklet … .pdf: argument passed to the browser (e.g.
     /// --no-sandbox in a container running as root). Repeatable. The browser
@@ -562,7 +576,18 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
     } else {
         None
     };
+    // Before any LLM call: a missing image key fails now, not after the story.
+    let illustrator = match (&cli.replay, cli.illustrate) {
+        (_, false) => None,
+        _ if cli.format == Format::Markdown && cli.booklet.is_none() => {
+            eprintln!("[rag-mobil] --illustrate ignored: it needs --format html/pdf or --booklet");
+            None
+        }
+        (Some(dir), true) => Some(Illustrator::Replay(dir.clone())),
+        (None, true) => Some(Illustrator::new(&cli.image_model)?),
+    };
     let telling = Telling {
+        illustrator,
         collection,
         sets: &sets,
         options: &options,
@@ -600,6 +625,8 @@ struct Telling<'a> {
     booklet: Option<(PathBuf, bool)>,
     /// `--saga`: where to add the new episode.
     saga: Option<PathBuf>,
+    /// `--illustrate`: who draws the cover.
+    illustrator: Option<Illustrator>,
 }
 
 /// The booklet printed to PDF by the browser found before writing.
@@ -615,9 +642,26 @@ impl Telling<'_> {
         let mut terminal = Terminal {
             stream: self.format == Format::Markdown,
         };
-        let story = pipeline
+        let mut story = pipeline
             .run(self.sets, self.options, self.writer, &mut terminal)
             .await?;
+        // The story is written: a picture that fails is a warning, not a lost story.
+        if let Some(illustrator) = &self.illustrator {
+            eprintln!("[rag-mobil] drawing the cover…");
+            let prompt =
+                illustrate::prompt(story.written.plan.as_ref(), &story.collection, self.options);
+            match illustrator.draw(&prompt).await {
+                Ok(picture) => {
+                    eprintln!(
+                        "[rag-mobil] cover drawn by {} ({} KB)",
+                        picture.model,
+                        picture.bytes.len() / 1024
+                    );
+                    story.illustration = Some(picture);
+                }
+                Err(err) => eprintln!("[rag-mobil] no cover illustration: {err}"),
+            }
+        }
         match self.format {
             Format::Markdown => println!(),
             Format::Html => print!("{}", html::render(&story, self.options, self.layout)),
