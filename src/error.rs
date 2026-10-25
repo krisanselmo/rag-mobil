@@ -4,7 +4,7 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum RagError {
     #[error(
-        "invalid set number: \"{0}\" (expected: digits, optionally followed by a letter, e.g. 3666 or 3258a)"
+        "invalid set number: \"{0}\" (expected: digits, optionally followed by one or two letters, e.g. 3666 or 3258a)"
     )]
     InvalidSetNumber(String),
 

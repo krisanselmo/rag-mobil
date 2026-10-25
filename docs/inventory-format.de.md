@@ -66,7 +66,7 @@ Ein Test (`tests/inventory_schema.rs`) stellt sicher, dass es mit dem Code über
 
 | Feld | Typ | Pflicht | Zweck |
 |---|---|---|---|
-| `set_number` | String | ja | Setnummer, 1 bis 8 **Ziffern**, bei einer Neuauflage gefolgt von einem Kleinbuchstaben (`"3258a"`), als String: `"3666", nicht `3666`. Muss die angefragte Nummer sein. |
+| `set_number` | String | ja | Setnummer, 1 bis 8 **Ziffern**, optional gefolgt von ein oder zwei Kleinbuchstaben wie in PlaymoDB (`"3258a"`, eine Neuauflage), als String: `"3666", nicht `3666`. Muss die angefragte Nummer sein. |
 | `name` | String | ja | Name des Sets, verwendet im Prompt und in der Zusammenfassung. |
 | `theme` | String oder `null` | nein | Thema (Produktlinie): `Knights`, `Pirates`… |
 | `focus` | String oder `null` | nein | Unterthema. |
