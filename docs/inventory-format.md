@@ -64,7 +64,7 @@ mean "unknown". Unknown fields are ignored (you can add `"$schema"` or fields of
 
 | Field | Type | Required | Purpose |
 |---|---|---|---|
-| `set_number` | string | yes | Set number, **digits only** (1 to 8), as a string: `"3666"`, not `3666`. Must be the number requested. |
+| `set_number` | string | yes | Set number, 1 to 8 **digits**, optionally followed by a lowercase letter for a revised edition (`"3258a"`), as a string: `"3666", not `3666`. Must be the number requested. |
 | `name` | string | yes | Set name, used in the prompt and the summary. |
 | `theme` | string or `null` | no | Theme (product line): `Knights`, `Pirates`… |
 | `focus` | string or `null` | no | Sub-theme. |

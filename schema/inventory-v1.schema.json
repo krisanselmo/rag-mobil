@@ -7,10 +7,10 @@
   "required": ["set_number", "name", "parts", "source_url"],
   "properties": {
     "set_number": {
-      "description": "Set number, digits only (1 to 8). Must be the one requested.",
+      "description": "Set number: 1 to 8 digits, optionally followed by a lowercase letter (a revised edition). Must be the one requested.",
       "type": "string",
-      "pattern": "^[0-9]{1,8}$",
-      "examples": ["3666", "70145"]
+      "pattern": "^[0-9]{1,8}[a-z]?$",
+      "examples": ["3666", "70145", "3258a"]
     },
     "name": {
       "description": "Set name.",
