@@ -3,7 +3,9 @@ use thiserror::Error;
 /// Every error the pipeline can surface, by stage.
 #[derive(Debug, Error)]
 pub enum RagError {
-    #[error("invalid set number: \"{0}\" (expected: digits only, e.g. 3666)")]
+    #[error(
+        "invalid set number: \"{0}\" (expected: digits, optionally followed by one or two letters, e.g. 3666 or 3258a)"
+    )]
     InvalidSetNumber(String),
 
     #[error(

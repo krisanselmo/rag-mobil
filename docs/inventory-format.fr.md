@@ -66,7 +66,7 @@ ignorés (on peut ajouter `"$schema"` ou ses propres champs).
 
 | Champ | Type | Obligatoire | Rôle |
 |---|---|---|---|
-| `set_number` | texte | oui | Numéro du set, **chiffres uniquement** (1 à 8), en texte : `"3666"`, pas `3666`. Doit être le numéro demandé. |
+| `set_number` | texte | oui | Numéro du set, 1 à 8 **chiffres**, suivis au besoin d'une ou deux lettres minuscules comme dans PlaymoDB (`"3258a"`, une réédition), en texte : `"3666", pas `3666`. Doit être le numéro demandé. |
 | `name` | texte | oui | Nom du set, repris dans le prompt et le résumé. |
 | `theme` | texte ou `null` | non | Thème (gamme) : `Knights`, `Pirates`… |
 | `focus` | texte ou `null` | non | Sous-thème. |

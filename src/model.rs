@@ -2,18 +2,20 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::{RagError, Result};
 
-/// A validated Playmobil set number (e.g. `3666`, `70145`).
+/// A validated Playmobil set number as PlaymoDB spells it: `3666`, `70145`,
+/// `3258a` (a revised edition), `3110x`, `2016ah`.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct SetNumber(String);
 
 impl SetNumber {
     pub fn parse(raw: &str) -> Result<Self> {
-        let trimmed = raw.trim();
-        let valid = !trimmed.is_empty()
-            && trimmed.len() <= 8
-            && trimmed.chars().all(|c| c.is_ascii_digit());
+        let trimmed = raw.trim().to_ascii_lowercase();
+        let digits = trimmed.trim_end_matches(|c: char| c.is_ascii_lowercase());
+        let valid = (1..=8).contains(&digits.len())
+            && digits.chars().all(|c| c.is_ascii_digit())
+            && trimmed.len() - digits.len() <= 2;
         if valid {
-            Ok(Self(trimmed.to_owned()))
+            Ok(Self(trimmed))
         } else {
             Err(RagError::InvalidSetNumber(raw.to_owned()))
         }
@@ -245,6 +247,18 @@ mod tests {
             category: category.into(),
             components: vec![],
             image: None,
+        }
+    }
+
+    #[test]
+    fn parses_set_numbers() {
+        let parse = |raw| SetNumber::parse(raw).unwrap();
+        assert_eq!(parse(" 3666 ").as_str(), "3666");
+        assert_eq!(parse("3258a").as_str(), "3258a");
+        assert_eq!(parse("3258A").as_str(), "3258a");
+        assert_eq!(parse("2016ah").as_str(), "2016ah");
+        for raw in ["", "a", "abc", "3258abc", "32a58", "123456789"] {
+            assert!(SetNumber::parse(raw).is_err(), "{raw}");
         }
     }
 
