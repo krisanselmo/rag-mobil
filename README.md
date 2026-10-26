@@ -187,6 +187,10 @@ added to the file once the story is written, unless the plan failed (single-call
 `--saga` requires the `planned` or `interactive` method; an interactive story is saved without
 its steps, since how it unfolds depends on the reader.
 
+A figure or piece the child named (`nickname` in the inventory: "Coco" for a parrot) keeps that
+name in every story, saga or not: the prompt says so, and a plan that renames the figure is
+refused.
+
 ### Favorite piece
 
 `--star REF` puts the child's favorite piece at the heart of the story: a figure becomes the

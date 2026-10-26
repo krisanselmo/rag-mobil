@@ -29,6 +29,9 @@ fn render_part(out: &mut String, part: &Part) {
         let _ = write!(out, " ({color})");
     }
     let _ = write!(out, " [ref. {}]", part.number);
+    if let Some(nickname) = &part.nickname {
+        let _ = write!(out, " — named \"{nickname}\"");
+    }
     if !part.components.is_empty() {
         let _ = write!(out, " — with: {}", part.components.join("; "));
     }
@@ -124,6 +127,7 @@ mod tests {
             category: category.into(),
             components: vec![],
             image: None,
+            nickname: None,
         }
     }
 
@@ -154,6 +158,14 @@ mod tests {
         assert!(ctx.contains("4× Halberd (red) [ref. 30 00 000]"));
         assert!(ctx.contains("?× Throne"));
         assert!(!ctx.contains("Instructions"));
+    }
+
+    #[test]
+    fn a_nickname_follows_the_reference() {
+        let mut named = inventory();
+        named.parts[1].nickname = Some("Tutu".into());
+        let ctx = build_context(&named.into(), &ContextOptions::default());
+        assert!(ctx.contains("Castle Trumpeter (red) [ref. 30 00 000] — named \"Tutu\"\n"));
     }
 
     #[test]

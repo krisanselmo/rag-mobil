@@ -48,6 +48,10 @@ pub struct Part {
     /// Absolute URL of a picture of the part; not read by the prompt.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub image: Option<String>,
+    /// The name the child gave this figure or piece (\"Coco\" for a parrot):
+    /// every story calls it that.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub nickname: Option<String>,
 }
 
 impl Part {
@@ -247,6 +251,7 @@ mod tests {
             category: category.into(),
             components: vec![],
             image: None,
+            nickname: None,
         }
     }
 

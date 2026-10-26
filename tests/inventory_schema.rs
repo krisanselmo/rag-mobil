@@ -29,6 +29,7 @@ fn full_inventory() -> SetInventory {
             category: "Klicky".into(),
             components: vec!["Wig (hair), classic male - brown".into()],
             image: Some("https://playmodb.org/parts/0/00/30%2000%20495.gif".into()),
+            nickname: Some("Tutu".into()),
         }],
         source_url: "https://playmodb.org/cgi-bin/showinv.pl?setnum=3666".into(),
     }

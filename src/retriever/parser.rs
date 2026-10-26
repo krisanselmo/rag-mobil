@@ -158,6 +158,7 @@ pub fn parse_showinv(html: &str) -> ShowInvPage {
                     category: category.clone(),
                     components: Vec::new(),
                     image,
+                    nickname: None,
                 });
             }
             "a" if el
@@ -178,6 +179,7 @@ pub fn parse_showinv(html: &str) -> ShowInvPage {
                     category: category.clone(),
                     components: Vec::new(),
                     image: None,
+                    nickname: None,
                 });
             }
             _ => {}
@@ -292,6 +294,7 @@ pub fn merge(show: &ShowInvPage, list: Vec<ListInvRow>) -> Vec<Part> {
                 .unwrap_or(CATEGORY_UNKNOWN)
                 .to_owned(),
             image: images.get(row.number.as_str()).map(|s| (*s).to_owned()),
+            nickname: None,
             // listinv says "(no name)" for parts showinv only knows by their official name.
             name: if row.name == "(no name)" {
                 names
