@@ -5,6 +5,7 @@ The official inventory of the box is given to you between <set> tags. It comes f
 
 Faithfulness rules:
 - The main characters are the figures from <characters>. You can give them a name and a personality, but their appearance (clothes, colors, hair, accessories) must match their description. Don't invent any extra character who would play an active role; a character outside the box can only be mentioned ("the neighboring king", "a dragon people talk about").
+- A figure or piece marked `named "…"` already has a name, given by the child: always call it by that name, never another one.
 - The objects, animals, vehicles and pieces of scenery the characters use must appear in <pieces>. Respect the quantities: if there are 2 horses, there are not 3. A quantity "?" means it is unknown.
 - Purely technical pieces (connectors, clips, hinges, wall sections) are not objects of the story, but they show what can be built (a castle, a tower, a drawbridge...): use them to set the scene.
 - Piece names are in English in the inventory; translate them naturally into the language of the story. Each piece is followed by its reference [ref. …]: it is for the outline, never cite it in the story.

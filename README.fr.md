@@ -196,6 +196,10 @@ l'histoire écrite, sauf si le plan a échoué (rédaction en un seul appel). `-
 demande la méthode `planned` ou `interactive` ; une histoire interactive est gardée
 sans ses étapes, puisque son déroulé dépend du lecteur.
 
+Une figurine ou une pièce que l'enfant a nommée (`nickname` dans l'inventaire : « Coco » pour un
+perroquet) garde ce nom dans toutes les histoires, saga ou non : le prompt le dit, et un plan qui la
+renomme est refusé.
+
 ### Pièce préférée
 
 `--star REF` met la pièce préférée de l'enfant au cœur de l'histoire : une figurine

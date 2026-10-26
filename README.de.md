@@ -196,6 +196,10 @@ Geschichte geschrieben ist, außer wenn der Plan gescheitert ist (Schreiben in e
 `--saga` setzt die Methode `planned` oder `interactive` voraus; eine interaktive Geschichte wird
 ohne ihre Schritte gespeichert, da ihr Verlauf vom Leser abhängt.
 
+Eine Figur oder ein Teil, dem das Kind einen Namen gegeben hat (`nickname` im Inventar: „Coco“ für
+einen Papagei), behält diesen Namen in jeder Geschichte, ob Saga oder nicht: Der Prompt sagt es, und
+ein Plan, der die Figur umbenennt, wird abgelehnt.
+
 ### Lieblingsteil
 
 `--star REF` stellt das Lieblingsteil des Kindes in den Mittelpunkt der Geschichte: Eine Figur

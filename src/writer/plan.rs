@@ -217,6 +217,30 @@ pub fn validate(plan: &StoryPlan, collection: &Collection) -> Vec<String> {
             }
         }
     }
+
+    // A figure the child named is played under that name (one of its copies, if several).
+    let mut named = HashSet::new();
+    for (_, part) in collection.parts() {
+        let Some(nickname) = &part.nickname else {
+            continue;
+        };
+        if !part.is_figure() || !named.insert(part.number.as_str()) {
+            continue;
+        }
+        let mut played = plan
+            .characters
+            .iter()
+            .filter(|c| find_part(collection, &c.figure).is_some_and(|p| p.number == part.number));
+        if let Some(character) = played.clone().next()
+            && !played.any(|c| key(&c.name) == key(nickname))
+        {
+            errors.push(format!(
+                "character \"{}\": the figure {} is called \"{nickname}\" by the \
+                 child, give it that name",
+                character.name, part.number
+            ));
+        }
+    }
     errors
 }
 
@@ -726,6 +750,7 @@ pub(crate) mod tests {
             category: category.into(),
             components: vec![],
             image: None,
+            nickname: None,
         }
     }
 
@@ -810,6 +835,27 @@ pub(crate) mod tests {
         assert_eq!(plan.outline[0].objects, ["30 65 622"]);
         assert_eq!(plan.outline[1], valid_plan().outline[1]);
         assert!(validate_stars(&plan, &boxes, &stars).is_empty());
+        assert!(validate(&plan, &boxes).is_empty());
+    }
+
+    #[test]
+    fn a_named_figure_keeps_its_name() {
+        let mut named = inventory();
+        named.parts[0].nickname = Some("Tutu".into());
+        let boxes: Collection = named.into();
+        let errors = validate(&valid_plan(), &boxes);
+        assert_eq!(errors.len(), 1, "{errors:?}");
+        assert!(errors[0].contains("the figure 30 00 496 is called \"Tutu\""));
+
+        let mut plan = valid_plan();
+        plan.characters[0].name = "tutu".into();
+        for step in &mut plan.outline {
+            for name in &mut step.characters {
+                if name.eq_ignore_ascii_case("leon") {
+                    *name = "Tutu".into();
+                }
+            }
+        }
         assert!(validate(&plan, &boxes).is_empty());
     }
 

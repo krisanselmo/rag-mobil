@@ -91,6 +91,8 @@ name and a personality, but their appearance (clothes, colors, hair, \
 accessories) must match their description. Don't invent any extra character who \
 would play an active role; a character outside the box can only be mentioned \
 (\"the neighboring king\", \"a dragon people talk about\").
+- A figure or piece marked `named \"…\"` already has a name, given by the child: \
+always call it by that name, never another one.
 - The objects, animals, vehicles and pieces of scenery the characters use must \
 appear in <pieces>. Respect the quantities: if there are 2 horses, there are not \
 3. A quantity \"?\" means it is unknown.

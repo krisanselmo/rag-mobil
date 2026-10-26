@@ -84,6 +84,11 @@
           "description": "Absolute URL of an image of the piece, null or absent if none. Not read by the prompt: used for display.",
           "type": ["string", "null"],
           "examples": ["https://playmodb.org/parts/0/00/30%2000%20495.gif"]
+        },
+        "nickname": {
+          "description": "The name the child gave this figure or piece; every story calls it that. Null or absent if none.",
+          "type": ["string", "null"],
+          "examples": ["Coco"]
         }
       }
     }

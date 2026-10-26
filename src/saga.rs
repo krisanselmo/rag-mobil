@@ -53,6 +53,13 @@ impl Episode {
     }
 }
 
+/// A figure the child named: its nickname wins over the saga's name.
+fn nicknamed(collection: &Collection, figure: &str) -> bool {
+    collection
+        .parts()
+        .any(|(_, p)| p.nickname.is_some() && reference_key(&p.number) == figure)
+}
+
 fn key(name: &str) -> String {
     name.trim().to_lowercase()
 }
@@ -140,7 +147,7 @@ impl Saga {
                 let _ = writeln!(
                     out,
                     "- {}: figure {} [ref. {}]; {}",
-                    c.name.trim(),
+                    figure.nickname.as_deref().unwrap_or(c.name.trim()),
                     part_label(figure),
                     figure.number,
                     c.portrait
@@ -200,6 +207,9 @@ impl Saga {
             }
         }
         for (figure, names) in &by_figure {
+            if nicknamed(collection, figure) {
+                continue;
+            }
             let players: Vec<&PlannedCharacter> = plan
                 .characters
                 .iter()
@@ -236,6 +246,9 @@ impl Saga {
             let Some(part) = find_part(collection, &plan.characters[i].figure) else {
                 continue;
             };
+            if part.nickname.is_some() {
+                continue;
+            }
             let Some(names) = by_figure.get(&reference_key(&part.number)) else {
                 continue;
             };
@@ -332,6 +345,22 @@ mod tests {
         plan.characters[1].name = "Lili".into();
         let errors = saga.validate(&plan, &boxes);
         assert!(errors.iter().any(|e| e.contains("\"Rose\" was played")));
+    }
+
+    #[test]
+    fn a_nickname_wins_over_the_saga_name() {
+        let mut named = inventory();
+        named.parts[0].nickname = Some("Tutu".into());
+        let boxes: Collection = named.into();
+        let saga = saga(); // the trumpeter was "Gaspard"
+        assert!(
+            saga.context(&boxes)
+                .contains("- Tutu: figure Castle Trumpeter")
+        );
+        let mut plan = valid_plan();
+        plan.characters[0].name = "Tutu".into();
+        assert!(saga.validate(&plan, &boxes).is_empty());
+        assert_eq!(saga.restore_names(plan, &boxes).characters[0].name, "Tutu");
     }
 
     #[test]

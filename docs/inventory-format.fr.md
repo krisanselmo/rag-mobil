@@ -85,6 +85,7 @@ ignorés (on peut ajouter `"$schema"` ou ses propres champs).
 | `category` | texte | oui | Catégorie, en texte libre (voir plus bas). |
 | `components` | tableau de textes | oui | Sous-éléments de la pièce (perruque, chapeau, arme d'une figurine…) ; `[]` s'il n'y en a pas. |
 | `image` | texte ou `null` | non | Adresse absolue (`http` ou `https`) d'une image de la pièce. Le prompt ne la lit pas : elle sert à qui affiche l'inventaire (PlaymoDB la donne pour chaque pièce). |
+| `nickname` | texte ou `null` | non | Le nom que l'enfant a donné à cette figurine ou pièce (`"Coco"` pour un perroquet) : l'histoire l'appelle toujours ainsi. |
 
 ## Catégories
 
