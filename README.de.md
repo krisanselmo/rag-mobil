@@ -79,6 +79,9 @@ rag-mobil 3799 --star "30 06 368"
 # The real box: the parrot is lost, and so are 2 of the 4 halberds
 rag-mobil 3666 --missing "30 06 368" --missing "30 07 640:2"
 
+# The child named the parrot "Coco" and the pirate "Pip"
+rag-mobil 3799 --nickname "30 06 198=Coco" --nickname "30 13 020=Pip"
+
 # Other providers
 rag-mobil 3666 -m gpt-5.4-mini
 rag-mobil 3666 -m ollama::llama3.2        # local, no API key
@@ -116,6 +119,8 @@ gehen nach `stderr` (`rag-mobil 3666 > story.md` funktioniert).
 | `--star REF` | — | Das Lieblingsteil des Kindes, im Mittelpunkt der Geschichte; wiederholbar (siehe unten) |
 | `--missing REF[:N]` | — | Ein Teil, das in der Packung fehlt: alle Exemplare oder N; wiederholbar |
 | `--missing-file` / `RAG_MOBIL_MISSING_FILE` | — | Fehlende Teile, eines pro Zeile (siehe unten) |
+| `--nickname REF=NAME` | — | Der Name, den das Kind einer Figur oder einem Teil gegeben hat; wiederholbar (siehe unten) |
+| `--nickname-file` / `RAG_MOBIL_NICKNAME_FILE` | — | Spitznamen, einer pro Zeile, für alle Packungen (siehe unten) |
 | `--reviews N` / `RAG_MOBIL_REVIEWS` | `1` | Methoden `planned` und `interactive`: Runden der Treue-Prüfung (0 bis 3), jede gefolgt von einer Neufassung; sie enden bei der ersten Prüfung ohne Befund |
 | `--no-review` | aus | Wie `--reviews 0`: die Treue-Prüfung überspringen |
 | `--include-all` | aus | Auch Papieranleitungen im Kontext behalten |
@@ -202,6 +207,22 @@ ohne ihre Schritte gespeichert, da ihr Verlauf vom Leser abhängt.
 Eine Figur oder ein Teil, dem das Kind einen Namen gegeben hat (`nickname` im Inventar: „Coco“ für
 einen Papagei), behält diesen Namen in jeder Geschichte, ob Saga oder nicht: Der Prompt sagt es, und
 ein Plan, der die Figur umbenennt, wird abgelehnt.
+
+Der Name kann auch auf der Kommandozeile angegeben oder in einer Datei für alle Packungen
+aufbewahrt werden: Teile, die nicht in den Packungen sind, werden übersprungen. Die
+Kommandozeile hat Vorrang vor der Datei, beide vor dem Inventar; zwei Teile können nicht
+denselben Namen tragen. Jeder Name wird auf `stderr` gemeldet, und `--inventory-json` zeigt ihn.
+
+```bash
+rag-mobil 3799 --nickname "30 06 198=Coco"            # the parrot is Coco
+rag-mobil 3799 70145 --nickname-file our-toys.txt     # the names, kept in a file
+```
+
+```text
+# our-toys.txt: one piece per line, REF=NAME
+30 06 198 = Coco     # the parrot
+30 13 020 = Pip
+```
 
 ### Lieblingsteil
 

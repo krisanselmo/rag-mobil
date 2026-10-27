@@ -91,22 +91,49 @@ impl MissingPart {
             }
             None => (raw, None),
         };
-        let reference = reference.trim();
-        let reference = reference
-            .strip_prefix("ref.")
-            .or_else(|| reference.strip_prefix("réf."))
-            .unwrap_or(reference)
-            .trim();
-        let valid = !reference.is_empty()
-            && reference
-                .chars()
-                .all(|c| c.is_ascii_digit() || c.is_whitespace());
-        if !valid {
+        Ok(Self {
+            reference: parse_reference(reference).ok_or_else(invalid)?,
+            count,
+        })
+    }
+}
+
+/// A reference as typed by hand: digits and spaces, `ref.` allowed in front.
+fn parse_reference(raw: &str) -> Option<String> {
+    let reference = raw.trim();
+    let reference = reference
+        .strip_prefix("ref.")
+        .or_else(|| reference.strip_prefix("réf."))
+        .unwrap_or(reference)
+        .trim();
+    let valid = !reference.is_empty()
+        && reference
+            .chars()
+            .all(|c| c.is_ascii_digit() || c.is_whitespace());
+    valid.then(|| reference.to_owned())
+}
+
+/// The name the child gave a figure or piece, by its reference:
+/// `30 06 368=Coco`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NamedPart {
+    pub reference: String,
+    pub nickname: String,
+}
+
+impl NamedPart {
+    pub fn parse(raw: &str) -> Result<Self> {
+        let invalid = || RagError::InvalidNickname(raw.to_owned());
+        let (reference, nickname) = raw.split_once('=').ok_or_else(invalid)?;
+        let nickname = nickname.trim();
+        // Quoted in the prompt (`named "Coco"`): a quote or a line break would
+        // break out of it.
+        if nickname.is_empty() || nickname.contains(['"', '\n', '\r']) {
             return Err(invalid());
         }
         Ok(Self {
-            reference: reference.to_owned(),
-            count,
+            reference: parse_reference(reference).ok_or_else(invalid)?,
+            nickname: nickname.to_owned(),
         })
     }
 }
@@ -222,6 +249,35 @@ impl Collection {
         report
     }
 
+    /// Gives the child's names to their pieces, every copy in every box,
+    /// over any name the inventory had. Returns one line per name, saying
+    /// what was done.
+    pub fn name_parts(&mut self, names: &[NamedPart]) -> Vec<String> {
+        let mut report = Vec::with_capacity(names.len());
+        for named in names {
+            let key = reference_key(&named.reference);
+            let mut parts = self
+                .sets
+                .iter_mut()
+                .flat_map(|s| &mut s.parts)
+                .filter(|p| reference_key(&p.number) == key)
+                .peekable();
+            let Some(first) = parts.peek() else {
+                report.push(format!("{}: not in the boxes, ignored", named.reference));
+                continue;
+            };
+            let mut line = format!("{} ({}): \"{}\"", first.number, first.name, named.nickname);
+            if let Some(old) = first.nickname.as_ref().filter(|n| **n != named.nickname) {
+                line.push_str(&format!(", instead of \"{old}\""));
+            }
+            for part in parts {
+                part.nickname = Some(named.nickname.clone());
+            }
+            report.push(line);
+        }
+        report
+    }
+
     /// `3666 "Kings Large Castle", 5135 "Pirates Ship"`.
     pub fn label(&self) -> String {
         self.sets
@@ -323,6 +379,56 @@ mod tests {
             .filter(|(_, p)| p.number == number)
             .map(|(_, p)| p.quantity)
             .collect()
+    }
+
+    #[test]
+    fn parses_nicknames() {
+        let parse = |raw| NamedPart::parse(raw).unwrap();
+        assert_eq!(
+            parse(" 30 06 368 = Coco "),
+            NamedPart {
+                reference: "30 06 368".into(),
+                nickname: "Coco".into()
+            }
+        );
+        assert_eq!(parse("ref. 3006368=Captain Hook").nickname, "Captain Hook");
+        // Only the first = separates: the name may hold one.
+        assert_eq!(parse("30 06 368=A=B").nickname, "A=B");
+        for raw in [
+            "",
+            "30 06 368",
+            "30 06 368=",
+            "=Coco",
+            "abc=Coco",
+            "1=Co\"co",
+        ] {
+            assert!(NamedPart::parse(raw).is_err(), "{raw}");
+        }
+    }
+
+    #[test]
+    fn nicknames_go_to_every_copy() {
+        let mut boxes = boxes();
+        boxes.sets[0].parts[1].nickname = Some("Polly".into());
+        let named = |reference: &str, nickname: &str| NamedPart {
+            reference: reference.into(),
+            nickname: nickname.into(),
+        };
+        let report = boxes.name_parts(&[
+            named("3007640", "Pike"),
+            named("30 06 368", "Coco"),
+            named("30 99 999", "Ghost"),
+        ]);
+        assert_eq!(
+            report,
+            [
+                "30 07 640 (Halberd): \"Pike\"",
+                "30 06 368 (Parrot): \"Coco\", instead of \"Polly\"",
+                "30 99 999: not in the boxes, ignored",
+            ]
+        );
+        let nicknames: Vec<_> = boxes.parts().map(|(_, p)| p.nickname.as_deref()).collect();
+        assert_eq!(nicknames, [Some("Pike"), Some("Coco"), None, Some("Pike")]);
     }
 
     #[test]

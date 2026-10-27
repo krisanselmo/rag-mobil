@@ -117,6 +117,8 @@ vont sur `stderr` (`rag-mobil 3666 > histoire.md` fonctionne).
 | `--star REF` | — | Pièce préférée de l'enfant, au cœur de l'histoire ; répétable (voir ci-dessous) |
 | `--missing REF[:N]` | — | Pièce absente de la boîte : toutes les copies, ou N ; répétable |
 | `--missing-file` / `RAG_MOBIL_MISSING_FILE` | — | Pièces absentes, une par ligne (voir ci-dessous) |
+| `--nickname REF=NOM` | — | Le nom que l'enfant a donné à une figurine ou une pièce ; répétable (voir ci-dessous) |
+| `--nickname-file` / `RAG_MOBIL_NICKNAME_FILE` | — | Surnoms, un par ligne, valables pour toutes les boîtes (voir ci-dessous) |
 | `--reviews N` / `RAG_MOBIL_REVIEWS` | `1` | Méthodes `planned` et `interactive` : tours de relecture de fidélité (0 à 3), chacun suivi d'une réécriture ; ils s'arrêtent à la première relecture qui ne trouve rien |
 | `--no-review` | off | Comme `--reviews 0` : saute la relecture de fidélité |
 | `--include-all` | off | Garde aussi les notices papier dans le contexte |
@@ -202,6 +204,22 @@ sans ses étapes, puisque son déroulé dépend du lecteur.
 Une figurine ou une pièce que l'enfant a nommée (`nickname` dans l'inventaire : « Coco » pour un
 perroquet) garde ce nom dans toutes les histoires, saga ou non : le prompt le dit, et un plan qui la
 renomme est refusé.
+
+Le nom peut aussi être donné en ligne de commande, ou gardé dans un fichier qui sert pour toutes
+les boîtes : les pièces absentes des boîtes sont ignorées. La ligne de commande l'emporte sur le
+fichier, et les deux sur l'inventaire ; deux pièces ne peuvent pas porter le même nom. Chaque
+nom est signalé sur `stderr`, et `--inventory-json` l'affiche.
+
+```bash
+rag-mobil 3799 --nickname "30 06 198=Coco"            # le perroquet s'appelle Coco
+rag-mobil 3799 70145 --nickname-file nos-jouets.txt   # les noms, gardés dans un fichier
+```
+
+```text
+# nos-jouets.txt : une pièce par ligne, REF=NOM
+30 06 198 = Coco     # le perroquet
+30 13 020 = Pépin
+```
 
 ### Pièce préférée
 

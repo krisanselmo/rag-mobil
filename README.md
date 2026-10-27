@@ -80,6 +80,9 @@ rag-mobil 3799 --star "30 06 368"
 # The real box: the parrot is lost, and so are 2 of the 4 halberds
 rag-mobil 3666 --missing "30 06 368" --missing "30 07 640:2"
 
+# The child named the parrot "Coco" and the pirate "Pip"
+rag-mobil 3799 --nickname "30 06 198=Coco" --nickname "30 13 020=Pip"
+
 # Other providers
 rag-mobil 3666 -m gpt-5.4-mini
 rag-mobil 3666 -m ollama::llama3.2        # local, no API key
@@ -113,6 +116,8 @@ The story is printed on `stdout` (as Markdown); steps and progress messages go t
 | `--star REF` | — | The child's favorite piece, at the heart of the story; repeatable (see below) |
 | `--missing REF[:N]` | — | A piece missing from the box: every copy, or N; repeatable |
 | `--missing-file` / `RAG_MOBIL_MISSING_FILE` | — | Missing pieces, one per line (see below) |
+| `--nickname REF=NAME` | — | The name the child gave a figure or piece; repeatable (see below) |
+| `--nickname-file` / `RAG_MOBIL_NICKNAME_FILE` | — | Nicknames, one per line, for every box (see below) |
 | `--reviews N` / `RAG_MOBIL_REVIEWS` | `1` | `planned` and `interactive` methods: rounds of faithfulness review (0 to 3), each followed by a rewrite; they stop at the first review that finds nothing |
 | `--no-review` | off | Same as `--reviews 0`: skip the faithfulness review |
 | `--include-all` | off | Also keep paper instructions in the context |
@@ -193,6 +198,22 @@ its steps, since how it unfolds depends on the reader.
 A figure or piece the child named (`nickname` in the inventory: "Coco" for a parrot) keeps that
 name in every story, saga or not: the prompt says so, and a plan that renames the figure is
 refused.
+
+The name can also be given on the command line, or kept in a file that serves every box:
+pieces the boxes don't hold are skipped. The command line wins over the file, and both over the
+inventory; two pieces can't share a name. Each name is reported on `stderr`, and
+`--inventory-json` shows it.
+
+```bash
+rag-mobil 3799 --nickname "30 06 198=Coco"            # the parrot is Coco
+rag-mobil 3799 70145 --nickname-file our-toys.txt     # the names, kept in a file
+```
+
+```text
+# our-toys.txt: one piece per line, REF=NAME
+30 06 198 = Coco     # the parrot
+30 13 020 = Pip
+```
 
 ### Favorite piece
 

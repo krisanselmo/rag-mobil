@@ -11,7 +11,7 @@ use rag_mobil::generator::{
     LlmConfig, LlmGenerator, ReasoningEffort, ReplayGenerator, StoryGenerator, llm,
 };
 use rag_mobil::illustrate::{self, Illustrator};
-use rag_mobil::model::{Collection, MissingPart};
+use rag_mobil::model::{Collection, MissingPart, NamedPart, reference_key};
 use rag_mobil::retriever::{
     Answered, Cached, Fallback, HttpJson, InventorySource, JsonFile, PlaymoDb, cache, playmodb,
 };
@@ -197,6 +197,18 @@ struct Cli {
     /// lines and comments (#) are ignored.
     #[arg(long, env = "RAG_MOBIL_MISSING_FILE", value_name = "FILE")]
     missing_file: Option<PathBuf>,
+
+    /// The name the child gave a figure or piece (30 06 368=Coco): every
+    /// story calls it that. Repeatable; wins over --nickname-file and the
+    /// inventory.
+    #[arg(long, value_name = "REF=NAME", value_parser = NamedPart::parse)]
+    nickname: Vec<NamedPart>,
+
+    /// File of nicknames: one per line, in the --nickname format; blank
+    /// lines and comments (#) are ignored. Pieces not in the boxes are
+    /// skipped, so one file can serve every box.
+    #[arg(long, env = "RAG_MOBIL_NICKNAME_FILE", value_name = "FILE")]
+    nickname_file: Option<PathBuf>,
 
     /// Planned and interactive methods: no faithfulness review at the end
     /// (same as --reviews 0).
@@ -416,22 +428,52 @@ fn hint(err: &RagError) -> Option<String> {
     }
 }
 
-/// `--missing-file`: one missing part per line, `#` starting a comment.
-fn read_missing_file(path: &PathBuf) -> anyhow::Result<Vec<MissingPart>> {
+/// `--missing-file`, `--nickname-file`: one entry per line, `#` starting a
+/// comment.
+fn read_list_file<T>(
+    path: &PathBuf,
+    parse: impl Fn(&str) -> rag_mobil::Result<T>,
+) -> anyhow::Result<Vec<T>> {
     let text = std::fs::read_to_string(path).map_err(|source| RagError::Io {
         path: path.clone(),
         source,
     })?;
-    let mut missing = Vec::new();
+    let mut entries = Vec::new();
     for (n, line) in text.lines().enumerate() {
         let line = line.split('#').next().unwrap_or_default().trim();
         if !line.is_empty() {
-            let part = MissingPart::parse(line)
+            let entry = parse(line)
                 .map_err(|err| anyhow::anyhow!("{}, line {}: {err}", path.display(), n + 1))?;
-            missing.push(part);
+            entries.push(entry);
         }
     }
-    Ok(missing)
+    Ok(entries)
+}
+
+/// One nickname per piece, the last given winning (the command line after
+/// the file); two pieces can't share a name, or the story couldn't tell
+/// them apart.
+fn merge_nicknames(names: Vec<NamedPart>) -> anyhow::Result<Vec<NamedPart>> {
+    let mut merged: Vec<NamedPart> = Vec::with_capacity(names.len());
+    for named in names {
+        let key = reference_key(&named.reference);
+        merged.retain(|m| reference_key(&m.reference) != key);
+        merged.push(named);
+    }
+    for (i, a) in merged.iter().enumerate() {
+        if let Some(b) = merged[i + 1..]
+            .iter()
+            .find(|b| a.nickname.to_lowercase() == b.nickname.to_lowercase())
+        {
+            anyhow::bail!(
+                "--nickname: \"{}\" is given to both {} and {}",
+                a.nickname,
+                a.reference,
+                b.reference
+            );
+        }
+    }
+    Ok(merged)
 }
 
 async fn run(cli: Cli) -> anyhow::Result<()> {
@@ -497,10 +539,16 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
     };
 
     let mut missing = match &cli.missing_file {
-        Some(path) => read_missing_file(path)?,
+        Some(path) => read_list_file(path, MissingPart::parse)?,
         None => Vec::new(),
     };
     missing.extend(cli.missing);
+    let mut nicknames = match &cli.nickname_file {
+        Some(path) => read_list_file(path, NamedPart::parse)?,
+        None => Vec::new(),
+    };
+    nicknames.extend(cli.nickname);
+    let nicknames = merge_nicknames(nicknames)?;
     let (mut collection, origins) = source.fetch_all(&sets).await?;
     let offline = cli.inventory_json || cli.dry_run;
     if !offline {
@@ -509,6 +557,12 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
     if !missing.is_empty() {
         eprintln!("[rag-mobil] pieces missing from the box:");
         for line in collection.remove_missing(&missing) {
+            eprintln!("  - {line}");
+        }
+    }
+    if !nicknames.is_empty() {
+        eprintln!("[rag-mobil] nicknames:");
+        for line in collection.name_parts(&nicknames) {
             eprintln!("  - {line}");
         }
     }
@@ -813,5 +867,33 @@ impl Observer for Terminal {
                 references.join(", ")
             ),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn named(raw: &str) -> NamedPart {
+        NamedPart::parse(raw).unwrap()
+    }
+
+    #[test]
+    fn the_last_nickname_of_a_piece_wins() {
+        let merged = merge_nicknames(vec![
+            named("30 06 368=Polly"),
+            named("30 07 640=Pike"),
+            named("3006368=Coco"),
+        ])
+        .unwrap();
+        assert_eq!(merged, [named("30 07 640=Pike"), named("3006368=Coco")]);
+    }
+
+    #[test]
+    fn two_pieces_cannot_share_a_nickname() {
+        let err = merge_nicknames(vec![named("30 06 368=Coco"), named("30 07 640=coco")])
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("30 06 368 and 30 07 640"), "{err}");
     }
 }
