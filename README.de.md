@@ -146,7 +146,10 @@ dessen Zitate sind also immer exakt; im Text der Geschichte übernimmt das LLM s
 Code prüft sie** (Methoden `planned` und `interactive`): Eine Referenz, die keine Packung
 enthält, kommt zu den Befunden der Prüfung, damit die Neufassung sie korrigiert; ist sie nach
 der letzten Neufassung (oder mit `--no-review`) noch da, wird sie aus dem Text entfernt
-(Meldung auf `stderr`). Die Geschichte zitiert nie ein Teil, das nicht in der Packung ist.
+(Meldung auf `stderr`). Mit `--method direct` (und wenn ein Plan scheitert, Schreiben in
+einem einzigen Aufruf) gibt es keine Prüfung: Unbekannte Referenzen werden sofort entfernt,
+die Geschichte erscheint daher erst fertig geschrieben statt beim Schreiben. Die Geschichte
+zitiert nie ein Teil, das nicht in der Packung ist.
 
 ### Abenteuer zum Selbstwählen
 

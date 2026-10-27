@@ -146,7 +146,10 @@ citations sont toujours exactes ; dans le texte, c'est le LLM qui les recopie, e
 les vérifie** (méthodes `planned` et `interactive`) : une référence absente des boîtes
 s'ajoute aux écarts de la relecture, pour que la réécriture la corrige, et s'il en reste après
 la dernière réécriture (ou avec `--no-review`), elle est retirée du texte (message sur
-`stderr`). L'histoire ne cite jamais une pièce qui n'est pas dans la boîte.
+`stderr`). Avec `--method direct` (et quand un plan échoue, rédaction en un seul appel), il
+n'y a pas de relecture : les références inconnues sont retirées tout de suite, et l'histoire
+s'affiche donc une fois écrite plutôt qu'au fil de l'écriture. L'histoire ne cite jamais une
+pièce qui n'est pas dans la boîte.
 
 ### Histoire dont tu es le héros
 

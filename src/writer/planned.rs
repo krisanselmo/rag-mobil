@@ -11,7 +11,7 @@
 
 use serde::de::DeserializeOwned;
 
-use crate::augment::{StoryOptions, build_prompt};
+use crate::augment::StoryOptions;
 use crate::error::Result;
 use crate::generator::{Generation, StoryGenerator, TokenUsage};
 use crate::model::Collection;
@@ -19,7 +19,7 @@ use crate::writer::plan::{
     Issue, Review, StoryPlan, feature_stars, in_your_box, plan_schema, review_schema, sanitize,
     scene_setup, scene_setup_markdown, validate, validate_stars,
 };
-use crate::writer::{Observer, Step, WriterOptions, Written, citations, prompts};
+use crate::writer::{Observer, Step, WriterOptions, Written, citations, one_call, prompts};
 
 /// Aggregated stats over the calls of one story.
 #[derive(Default)]
@@ -114,8 +114,7 @@ pub(crate) async fn fall_back_to_direct<G: StoryGenerator, O: Observer>(
     observer: &mut O,
     mut tally: Tally,
 ) -> Result<Written> {
-    let prompt = build_prompt(boxes, options);
-    let generation = generator.generate(&prompt, |t| observer.text(t)).await?;
+    let generation = one_call(generator, boxes, options, observer).await?;
     tally.add(&generation);
     Ok(Written {
         generation: Generation {

@@ -141,7 +141,10 @@ method, the "In your box" section is written by code, so its citations are alway
 the story text, the LLM copies them, and **code checks them** (`planned` and `interactive`
 methods): a reference the boxes don't hold is added to the review's issues, for the rewrite to
 fix, and if one is still there after the last rewrite (or with `--no-review`), it is removed
-from the text (message on `stderr`). The story never cites a piece that isn't in the box.
+from the text (message on `stderr`). With `--method direct` (and when a plan fails, written
+in a single call), there is no review: unknown references are removed right away, so the story
+is shown once written instead of as it is written. The story never cites a piece that isn't in
+the box.
 
 ### Choose-your-own-adventure
 

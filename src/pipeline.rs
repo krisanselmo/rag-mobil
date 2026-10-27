@@ -250,6 +250,29 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn direct_method_removes_invented_citations_before_showing_the_story() {
+        let options = StoryOptions {
+            citations: true,
+            ..StoryOptions::default()
+        };
+        let generator = ScriptedGenerator::new(&[
+            "Redbeard [ref. 30 00 001] opens the old map [ref. 30 99 999].".into(),
+        ]);
+        let writer = WriterOptions {
+            method: WritingMethod::Direct,
+            ..WriterOptions::default()
+        };
+        let (story, recorder) = run_options(&generator, writer, &["5135"], &options).await;
+
+        let text = &story.written.generation.text;
+        assert_eq!(text, "Redbeard [ref. 30 00 001] opens the old map.");
+        // Held back, then shown once, without the invented reference.
+        assert_eq!(recorder.text, *text);
+        assert_eq!(recorder.steps, ["citations-dropped 30 99 999"]);
+        assert_eq!(story.written.calls, 1);
+    }
+
+    #[tokio::test]
     async fn planned_method_plans_drafts_and_reviews() {
         let generator = ScriptedGenerator::new(&[
             plan_json("30 00 001"),
