@@ -119,6 +119,28 @@ pub fn first_prompt(boxes: &Collection, options: &StoryOptions, method: WritingM
     }
 }
 
+/// The whole story in one call, streamed as it is written. With
+/// `--citations`, it is held back instead, to remove first the references
+/// the boxes don't hold: no review comes after to fix them.
+pub(crate) async fn one_call<G: StoryGenerator, O: Observer>(
+    generator: &G,
+    boxes: &Collection,
+    options: &StoryOptions,
+    observer: &mut O,
+) -> Result<Generation> {
+    let prompt = build_prompt(boxes, options);
+    if !options.citations {
+        return generator.generate(&prompt, |t| observer.text(t)).await;
+    }
+    let mut generation = generator.generate(&prompt, |_| {}).await?;
+    let mut texts = [std::mem::take(&mut generation.text)];
+    planned::drop_unknown_citations(&mut texts, boxes, options, observer);
+    let [text] = texts;
+    observer.text(&text);
+    generation.text = text;
+    Ok(generation)
+}
+
 pub async fn write<G: StoryGenerator, O: Observer>(
     generator: &G,
     boxes: &Collection,
@@ -128,8 +150,7 @@ pub async fn write<G: StoryGenerator, O: Observer>(
 ) -> Result<Written> {
     match writer.method {
         WritingMethod::Direct => {
-            let prompt = build_prompt(boxes, options);
-            let generation = generator.generate(&prompt, |t| observer.text(t)).await?;
+            let generation = one_call(generator, boxes, options, observer).await?;
             Ok(Written {
                 generation,
                 plan: None,

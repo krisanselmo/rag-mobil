@@ -112,7 +112,7 @@ vont sur `stderr` (`rag-mobil 3666 > histoire.md` fonctionne).
 | `--booklet FICHIER` (alias `--livret`) | — | Écrit aussi le livret (HTML, ou PDF si `.pdf`) : l'histoire reste en Markdown sur `stdout`, en un seul passage du LLM |
 | `--layout` / `RAG_MOBIL_LAYOUT` | `booklet` | `--format html` ou `pdf` : `booklet` (livret) ou `compact` (économe en papier) |
 | `--illustrate` / `RAG_MOBIL_ILLUSTRATE` | non | Livret : une image de couverture dessinée par un modèle d'image (voir plus bas) |
-| `--image-model` / `RAG_MOBIL_IMAGE_MODEL` | `gpt-image-1` | Modèle d'image de `--illustrate` : `gpt-image-…`, `dall-e-…` (OpenAI) ou `gemini-…` (Gemini) |
+| `--image-model` / `RAG_MOBIL_IMAGE_MODEL` | `gpt-image-1` | Modèle d'image de `--illustrate` : `gpt-image-…`, `dall-e-…` (OpenAI), `gemini-…` (Gemini), ou un modèle local : `openai::<modèle>`, `sd::<checkpoint>` (voir plus bas) |
 | `--browser-arg` | — | `--format pdf` : argument passé au navigateur (ex. `--no-sandbox`) ; répétable |
 | `--star REF` | — | Pièce préférée de l'enfant, au cœur de l'histoire ; répétable (voir ci-dessous) |
 | `--missing REF[:N]` | — | Pièce absente de la boîte : toutes les copies, ou N ; répétable |
@@ -146,7 +146,10 @@ citations sont toujours exactes ; dans le texte, c'est le LLM qui les recopie, e
 les vérifie** (méthodes `planned` et `interactive`) : une référence absente des boîtes
 s'ajoute aux écarts de la relecture, pour que la réécriture la corrige, et s'il en reste après
 la dernière réécriture (ou avec `--no-review`), elle est retirée du texte (message sur
-`stderr`). L'histoire ne cite jamais une pièce qui n'est pas dans la boîte.
+`stderr`). Avec `--method direct` (et quand un plan échoue, rédaction en un seul appel), il
+n'y a pas de relecture : les références inconnues sont retirées tout de suite, et l'histoire
+s'affiche donc une fois écrite plutôt qu'au fil de l'écriture. L'histoire ne cite jamais une
+pièce qui n'est pas dans la boîte.
 
 ### Histoire dont tu es le héros
 
@@ -305,6 +308,20 @@ reste un seul fichier.
 |---|---|---|
 | `gpt-image-1` (défaut), `gpt-image-…`, `dall-e-3` | OpenAI | `OPENAI_API_KEY` |
 | `gemini-2.5-flash-image`, `gemini-…` | Google Gemini | `GEMINI_API_KEY` |
+| `openai::<modèle>` + `RAG_MOBIL_OPENAI_IMAGE_BASE_URL` | un serveur d'images compatible OpenAI, local ou distant ([LocalAI](https://localai.io), `sd-server` de stable-diffusion.cpp…) | l'adresse du serveur ; `OPENAI_API_KEY` seulement s'il en demande une |
+| `sd::<checkpoint>` (p. ex. `sd::flux1-dev-bnb-nf4-v2`), ou `sd` pour celui chargé | [AUTOMATIC1111](https://github.com/AUTOMATIC1111/stable-diffusion-webui), [Forge](https://github.com/lllyasviel/stable-diffusion-webui-forge) ou SD.Next, en local et gratuit : Stable Diffusion, SDXL, Flux | la web UI lancée avec `--api`, sur `http://127.0.0.1:7860` ou `RAG_MOBIL_SD_BASE_URL` ; pas de clé |
+
+```bash
+# Une couverture dessinée sur ta propre machine, par Stable Diffusion ou Flux
+rag-mobil 3799 --illustrate --image-model sd::sd_xl_base_1.0 --format pdf > livret.pdf
+RAG_MOBIL_OPENAI_IMAGE_BASE_URL=http://localhost:8080 rag-mobil 3799 --illustrate \
+  --image-model openai::flux.1-schnell --format pdf > livret.pdf
+```
+
+Les modèles locaux dessinent en 1024×576 ; avec `sd::`, le texte est écarté par un prompt
+négatif, et l'échantillonneur, le nombre d'étapes et le CFG sont ceux de la web UI (à régler
+là-bas pour Flux). Le checkpoint nommé après `sd::` est chargé pour l'image, puis le précédent
+est rétabli.
 
 La clé est vérifiée avant tout appel au LLM. Une image qui échoue (quota, refus du filtre du
 fournisseur…) est signalée sur `stderr` : le livret sort sans elle. Avec `--replay DIR`, le
@@ -329,7 +346,7 @@ src/
 ├── saga.rs              --saga : épisodes précédents, continuité des personnages
 ├── html.rs              --format html : livret illustré (pulldown-cmark)
 ├── pdf.rs               --format pdf : le livret imprimé par Chrome sans interface
-├── illustrate.rs        --illustrate : l'image de couverture (OpenAI, Gemini, replay)
+├── illustrate.rs        --illustrate : l'image de couverture (OpenAI, Gemini, modèles locaux, replay)
 ├── retriever/           R — récupération
 │   ├── mod.rs           trait InventorySource
 │   ├── playmodb.rs      client HTTP (2 pages en parallèle)

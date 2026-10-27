@@ -1,5 +1,5 @@
-//! Drives `Illustrator` against local mocks of the OpenAI Images and Gemini
-//! APIs, to check the requests sent and how the picture is read back.
+//! Drives `Illustrator` against local mocks of the OpenAI Images, Gemini and
+//! Stable Diffusion web UI APIs, to check the requests sent and how the picture is read back.
 
 use std::sync::{Arc, Mutex};
 
@@ -56,7 +56,7 @@ fn openai(base_url: String, model: &str) -> Illustrator {
     Illustrator::OpenAi {
         client: reqwest::Client::new(),
         base_url,
-        key: "sk-test".into(),
+        key: Some("sk-test".into()),
         model: model.into(),
     }
 }
@@ -135,4 +135,83 @@ async fn gemini_images_come_from_inline_data() {
         body["generationConfig"]["imageConfig"]["aspectRatio"],
         "16:9"
     );
+}
+
+#[tokio::test]
+async fn openai_compatible_servers_need_no_key() {
+    let (url, recorded) = mock_server(200, json!({"data": [{"b64_json": "iVBORw=="}]})).await;
+    let local = Illustrator::OpenAi {
+        client: reqwest::Client::new(),
+        base_url: url,
+        key: None,
+        model: "flux.1-schnell".into(),
+    };
+    let picture = local.draw("a pirate").await.unwrap();
+    assert_eq!(picture.bytes, b"\x89PNG");
+    assert_eq!(picture.model, "flux.1-schnell");
+
+    let (head, body) = recorded.lock().unwrap().take().unwrap();
+    assert!(head.starts_with("post /v1/images/generations "));
+    assert!(!head.contains("authorization:"));
+    assert_eq!(body["response_format"], "b64_json");
+    assert_eq!(body["size"], "1024x576");
+}
+
+fn stable_diffusion(base_url: String, checkpoint: Option<&str>) -> Illustrator {
+    Illustrator::StableDiffusion {
+        client: reqwest::Client::new(),
+        base_url,
+        checkpoint: checkpoint.map(str::to_owned),
+    }
+}
+
+#[tokio::test]
+async fn stable_diffusion_web_ui_draws_with_the_chosen_checkpoint() {
+    let (url, recorded) = mock_server(200, json!({"images": ["iVBORw=="], "info": "{}"})).await;
+    let picture = stable_diffusion(url, Some("sd_xl_base_1.0"))
+        .draw("a pirate")
+        .await
+        .unwrap();
+    assert_eq!(picture.bytes, b"\x89PNG");
+    assert_eq!(picture.mime, "image/png");
+    assert_eq!(picture.model, "sd_xl_base_1.0");
+
+    let (head, body) = recorded.lock().unwrap().take().unwrap();
+    assert!(head.starts_with("post /sdapi/v1/txt2img "));
+    assert_eq!(body["prompt"], "a pirate");
+    assert!(body["negative_prompt"].as_str().unwrap().contains("text"));
+    assert_eq!(
+        (body["width"].clone(), body["height"].clone()),
+        (json!(1024), json!(576))
+    );
+    assert_eq!(
+        body["override_settings"]["sd_model_checkpoint"],
+        "sd_xl_base_1.0"
+    );
+}
+
+#[tokio::test]
+async fn stable_diffusion_web_ui_keeps_the_loaded_checkpoint() {
+    let (url, recorded) =
+        mock_server(200, json!({"images": ["data:image/png;base64,iVBORw=="]})).await;
+    let picture = stable_diffusion(url, None).draw("a pirate").await.unwrap();
+    assert_eq!(picture.bytes, b"\x89PNG");
+    assert_eq!(picture.model, "sd");
+    let (_, body) = recorded.lock().unwrap().take().unwrap();
+    assert!(body.get("override_settings").is_none());
+}
+
+#[tokio::test]
+async fn stable_diffusion_errors_carry_their_detail() {
+    let (url, _) = mock_server(404, json!({"detail": "Not Found"})).await;
+    match stable_diffusion(url, None)
+        .draw("a pirate")
+        .await
+        .unwrap_err()
+    {
+        RagError::Image(message) => {
+            assert!(message.contains("HTTP 404: Not Found"), "{message}");
+        }
+        other => panic!("unexpected error: {other}"),
+    }
 }

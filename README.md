@@ -108,7 +108,7 @@ The story is printed on `stdout` (as Markdown); steps and progress messages go t
 | `--booklet FILE` (alias `--livret`) | — | Also writes the booklet (HTML, or PDF for `.pdf`): the story stays Markdown on `stdout`, with a single LLM run |
 | `--layout` / `RAG_MOBIL_LAYOUT` | `booklet` | `--format html` or `pdf`: `booklet` or `compact` (saves paper) |
 | `--illustrate` / `RAG_MOBIL_ILLUSTRATE` | off | Booklet: a cover picture drawn by an image model (see below) |
-| `--image-model` / `RAG_MOBIL_IMAGE_MODEL` | `gpt-image-1` | Image model for `--illustrate`: `gpt-image-…`, `dall-e-…` (OpenAI) or `gemini-…` (Gemini) |
+| `--image-model` / `RAG_MOBIL_IMAGE_MODEL` | `gpt-image-1` | Image model for `--illustrate`: `gpt-image-…`, `dall-e-…` (OpenAI), `gemini-…` (Gemini), or a local model: `openai::<model>`, `sd::<checkpoint>` (see below) |
 | `--browser-arg` | — | `--format pdf`: argument passed to the browser (e.g. `--no-sandbox`); repeatable |
 | `--star REF` | — | The child's favorite piece, at the heart of the story; repeatable (see below) |
 | `--missing REF[:N]` | — | A piece missing from the box: every copy, or N; repeatable |
@@ -141,7 +141,10 @@ method, the "In your box" section is written by code, so its citations are alway
 the story text, the LLM copies them, and **code checks them** (`planned` and `interactive`
 methods): a reference the boxes don't hold is added to the review's issues, for the rewrite to
 fix, and if one is still there after the last rewrite (or with `--no-review`), it is removed
-from the text (message on `stderr`). The story never cites a piece that isn't in the box.
+from the text (message on `stderr`). With `--method direct` (and when a plan fails, written
+in a single call), there is no review: unknown references are removed right away, so the story
+is shown once written instead of as it is written. The story never cites a piece that isn't in
+the box.
 
 ### Choose-your-own-adventure
 
@@ -291,6 +294,19 @@ text in the picture. The picture is embedded in the page (`data:` address), whic
 |---|---|---|
 | `gpt-image-1` (default), `gpt-image-…`, `dall-e-3` | OpenAI | `OPENAI_API_KEY` |
 | `gemini-2.5-flash-image`, `gemini-…` | Google Gemini | `GEMINI_API_KEY` |
+| `openai::<model>` + `RAG_MOBIL_OPENAI_IMAGE_BASE_URL` | an OpenAI-compatible image server, local or remote ([LocalAI](https://localai.io), stable-diffusion.cpp's `sd-server`…) | the server's address; `OPENAI_API_KEY` only if it asks for one |
+| `sd::<checkpoint>` (e.g. `sd::flux1-dev-bnb-nf4-v2`), or `sd` for the loaded one | [AUTOMATIC1111](https://github.com/AUTOMATIC1111/stable-diffusion-webui), [Forge](https://github.com/lllyasviel/stable-diffusion-webui-forge) or SD.Next, local and free: Stable Diffusion, SDXL, Flux | the web UI started with `--api`, at `http://127.0.0.1:7860` or `RAG_MOBIL_SD_BASE_URL`; no key |
+
+```bash
+# A cover drawn on your own machine, by Stable Diffusion or Flux
+rag-mobil 3799 --illustrate --image-model sd::sd_xl_base_1.0 --format pdf > booklet.pdf
+RAG_MOBIL_OPENAI_IMAGE_BASE_URL=http://localhost:8080 rag-mobil 3799 --illustrate \
+  --image-model openai::flux.1-schnell --format pdf > booklet.pdf
+```
+
+Local models draw at 1024×576; with `sd::`, the text is kept out by a negative prompt, and
+the sampler, steps and CFG are the web UI's defaults (set them there for Flux). The checkpoint
+named after `sd::` is loaded for the picture, then the previous one is restored.
 
 The key is checked before any LLM call. A picture that fails (quota, refused by the provider's
 safety system…) is reported on `stderr`: the booklet comes out without it. With `--replay DIR`,
@@ -315,7 +331,7 @@ src/
 ├── saga.rs              --saga: previous episodes, character continuity
 ├── html.rs              --format html: illustrated booklet (pulldown-cmark)
 ├── pdf.rs               --format pdf: the booklet printed by headless Chrome
-├── illustrate.rs        --illustrate: the cover picture (OpenAI, Gemini, replay)
+├── illustrate.rs        --illustrate: the cover picture (OpenAI, Gemini, local models, replay)
 ├── retriever/           R — retrieval
 │   ├── mod.rs           InventorySource trait
 │   ├── playmodb.rs      HTTP client (2 pages in parallel)

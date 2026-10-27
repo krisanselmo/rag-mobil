@@ -167,7 +167,11 @@ struct Cli {
 
     /// Image model for --illustrate; the provider is inferred from the name:
     /// gpt-image-… or dall-e-… (OpenAI, OPENAI_API_KEY), gemini-…
-    /// (e.g. gemini-2.5-flash-image, GEMINI_API_KEY). With --replay, the
+    /// (e.g. gemini-2.5-flash-image, GEMINI_API_KEY), or a local model:
+    /// openai::<model> (an OpenAI-compatible server at
+    /// RAG_MOBIL_OPENAI_IMAGE_BASE_URL), sd::<checkpoint> or sd (AUTOMATIC1111,
+    /// Forge or SD.Next at RAG_MOBIL_SD_BASE_URL, default
+    /// http://127.0.0.1:7860). With --replay, the
     /// picture is read from DIR/illustration.{png,jpg,webp,svg}.
     #[arg(long, env = "RAG_MOBIL_IMAGE_MODEL", default_value = illustrate::DEFAULT_IMAGE_MODEL)]
     image_model: String,
