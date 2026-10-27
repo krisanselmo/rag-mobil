@@ -5,6 +5,8 @@
 //! |-------------------------------------|----------|------------------|
 //! | `gpt-image-…`, `dall-e-…`           | OpenAI   | `OPENAI_API_KEY` |
 //! | `gemini-…` (e.g. `gemini-2.5-flash-image`) | Gemini | `GEMINI_API_KEY` |
+//! | `openai::<model>` + `RAG_MOBIL_OPENAI_IMAGE_BASE_URL` | OpenAI-compatible server (LocalAI, stable-diffusion.cpp…) | `OPENAI_API_KEY` if set |
+//! | `sd::<checkpoint>`, or `sd` for the loaded one | AUTOMATIC1111, Forge, SD.Next (`RAG_MOBIL_SD_BASE_URL`) | none (local) |
 //!
 //! With `--replay DIR`, the prompt is written to `DIR/illustration.prompt.txt`
 //! and the picture read from `DIR/illustration.{png,jpg,jpeg,webp,svg}`.
@@ -27,6 +29,16 @@ pub const DEFAULT_IMAGE_MODEL: &str = "gpt-image-1";
 pub const OPENAI_IMAGE_BASE_URL_ENV: &str = "RAG_MOBIL_OPENAI_IMAGE_BASE_URL";
 /// Replaces `https://generativelanguage.googleapis.com` (tests).
 pub const GEMINI_BASE_URL_ENV: &str = "RAG_MOBIL_GEMINI_BASE_URL";
+/// A Stable Diffusion web UI with its API on (`--api`), for `sd::<checkpoint>`.
+pub const SD_BASE_URL_ENV: &str = "RAG_MOBIL_SD_BASE_URL";
+const SD_DEFAULT_BASE_URL: &str = "http://127.0.0.1:7860";
+/// Widescreen at sizes local models handle (multiples of 64), like the
+/// film still the prompt asks for.
+const LOCAL_WIDTH: u32 = 1024;
+const LOCAL_HEIGHT: u32 = 576;
+/// Stable Diffusion models follow a negative prompt better than a "no text" line.
+const SD_NEGATIVE_PROMPT: &str =
+    "text, letters, logo, watermark, signature, blurry, deformed, extra limbs, scary";
 /// Objects named in the prompt, at most: the picture is a shot, not an inventory.
 const MAX_OBJECTS: usize = 8;
 /// File name of the picture and its prompt, with `--replay`.
@@ -60,10 +72,11 @@ impl Illustration {
 
 /// Where pictures come from.
 pub enum Illustrator {
+    /// OpenAI, or an OpenAI-compatible server (no key needed then).
     OpenAi {
         client: reqwest::Client,
         base_url: String,
-        key: String,
+        key: Option<String>,
         model: String,
     },
     Gemini {
@@ -71,6 +84,13 @@ pub enum Illustrator {
         base_url: String,
         key: String,
         model: String,
+    },
+    /// The txt2img API of AUTOMATIC1111, Forge or SD.Next.
+    StableDiffusion {
+        client: reqwest::Client,
+        base_url: String,
+        /// `None`: the checkpoint loaded in the web UI.
+        checkpoint: Option<String>,
     },
     /// Prompt written to a file, picture read from another.
     Replay(PathBuf),
@@ -86,14 +106,14 @@ impl Illustrator {
                 .filter(|k| !k.trim().is_empty())
                 .ok_or_else(|| RagError::Image(format!("{env} is not set (image model {model})")))
         };
-        let base_url = |env: &str, default: &str| {
+        let set_url = |env: &str| {
             std::env::var(env)
                 .ok()
                 .filter(|u| !u.trim().is_empty())
-                .unwrap_or_else(|| default.to_owned())
-                .trim_end_matches('/')
-                .to_owned()
+                .map(|u| u.trim().trim_end_matches('/').to_owned())
         };
+        let base_url =
+            |env: &str, default: &str| set_url(env).unwrap_or_else(|| default.to_owned());
         let client = reqwest::Client::builder()
             .user_agent(crate::retriever::USER_AGENT)
             .build()?;
@@ -101,8 +121,33 @@ impl Illustrator {
             Ok(Self::OpenAi {
                 client,
                 base_url: base_url(OPENAI_IMAGE_BASE_URL_ENV, "https://api.openai.com"),
-                key: key("OPENAI_API_KEY")?,
+                key: Some(key("OPENAI_API_KEY")?),
                 model: model.to_owned(),
+            })
+        } else if let Some(name) = model.strip_prefix("openai::") {
+            let base_url = set_url(OPENAI_IMAGE_BASE_URL_ENV).ok_or_else(|| {
+                RagError::Image(format!(
+                    "{OPENAI_IMAGE_BASE_URL_ENV} is not set (image model {model}): \
+                     the address of the OpenAI-compatible server"
+                ))
+            })?;
+            Ok(Self::OpenAi {
+                client,
+                // The address may be given as for the LLM, with its /v1.
+                base_url: base_url.trim_end_matches("/v1").to_owned(),
+                key: key("OPENAI_API_KEY").ok(),
+                model: name.to_owned(),
+            })
+        } else if model == "sd" || model.starts_with("sd::") {
+            let checkpoint = model
+                .strip_prefix("sd::")
+                .map(str::trim)
+                .filter(|c| !c.is_empty())
+                .map(str::to_owned);
+            Ok(Self::StableDiffusion {
+                client,
+                base_url: base_url(SD_BASE_URL_ENV, SD_DEFAULT_BASE_URL),
+                checkpoint,
             })
         } else if model.starts_with("gemini") {
             Ok(Self::Gemini {
@@ -116,7 +161,8 @@ impl Illustrator {
             })
         } else {
             Err(RagError::Image(format!(
-                "unknown image model {model} (expected gpt-image-…, dall-e-… or gemini-…)"
+                "unknown image model {model} (expected gpt-image-…, dall-e-…, gemini-…, \
+                 openai::<model> or sd::<checkpoint>)"
             )))
         }
     }
@@ -130,15 +176,24 @@ impl Illustrator {
                 model,
             } => {
                 let mut body = json!({"model": model, "prompt": prompt, "n": 1});
-                if model.starts_with("dall-e") {
-                    // gpt-image always answers in base64, DALL·E only on request.
-                    body["response_format"] = json!("b64_json");
-                    body["size"] = json!("1792x1024");
-                } else {
+                if model.starts_with("gpt-image") {
                     body["size"] = json!("1536x1024");
+                } else {
+                    // gpt-image always answers in base64, DALL·E and local
+                    // servers only on request.
+                    body["response_format"] = json!("b64_json");
+                    body["size"] = json!(if model.starts_with("dall-e") {
+                        "1792x1024".to_owned()
+                    } else {
+                        format!("{LOCAL_WIDTH}x{LOCAL_HEIGHT}")
+                    });
                 }
                 let url = format!("{base_url}/v1/images/generations");
-                let answer = post(client.post(&url).bearer_auth(key), &url, &body).await?;
+                let mut request = client.post(&url);
+                if let Some(key) = key {
+                    request = request.bearer_auth(key);
+                }
+                let answer = post(request, &url, &body).await?;
                 let data = answer["data"][0]["b64_json"]
                     .as_str()
                     .ok_or_else(|| RagError::Image(format!("{url}: no image in the answer")))?;
@@ -177,6 +232,36 @@ impl Illustrator {
                     model: model.clone(),
                 })
             }
+            Self::StableDiffusion {
+                client,
+                base_url,
+                checkpoint,
+            } => {
+                let mut body = json!({
+                    "prompt": prompt,
+                    "negative_prompt": SD_NEGATIVE_PROMPT,
+                    "width": LOCAL_WIDTH,
+                    "height": LOCAL_HEIGHT,
+                    "batch_size": 1,
+                    "n_iter": 1,
+                });
+                if let Some(checkpoint) = checkpoint {
+                    // Loaded for this picture, the previous one restored after.
+                    body["override_settings"] = json!({"sd_model_checkpoint": checkpoint});
+                }
+                let url = format!("{base_url}/sdapi/v1/txt2img");
+                let answer = post(client.post(&url), &url, &body).await?;
+                let data = answer["images"][0]
+                    .as_str()
+                    .ok_or_else(|| RagError::Image(format!("{url}: no image in the answer")))?;
+                // Some forks send a `data:` address rather than bare base64.
+                let data = data.split_once("base64,").map_or(data, |(_, b64)| b64);
+                Ok(Illustration {
+                    bytes: decode(data)?,
+                    mime: "image/png".into(),
+                    model: checkpoint.clone().unwrap_or_else(|| "sd".into()),
+                })
+            }
             Self::Replay(dir) => replay(dir, prompt),
         }
     }
@@ -187,10 +272,16 @@ async fn post(request: reqwest::RequestBuilder, url: &str, body: &Value) -> Resu
     let status = response.status();
     let text = response.text().await?;
     if !status.is_success() {
-        // The provider's message says why (quota, safety system, model name…).
+        // The provider's message says why (quota, safety system, model name…):
+        // `error.message` for OpenAI and Gemini, `detail` or `error` for the
+        // Stable Diffusion web UIs.
         let message = serde_json::from_str::<Value>(&text)
             .ok()
-            .and_then(|v| v["error"]["message"].as_str().map(str::to_owned))
+            .and_then(|v| {
+                [&v["error"]["message"], &v["detail"], &v["error"]]
+                    .into_iter()
+                    .find_map(|m| m.as_str().map(str::to_owned))
+            })
             .unwrap_or(text);
         return Err(RagError::Image(format!(
             "{url}: HTTP {}: {}",
@@ -384,6 +475,23 @@ mod tests {
         assert_eq!(picture.mime, "image/svg+xml");
         assert_eq!(picture.data_url(), "data:image/svg+xml;base64,PHN2Zy8+");
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn local_models_need_no_key() {
+        match Illustrator::new("sd::flux1-dev-fp8").unwrap() {
+            Illustrator::StableDiffusion { checkpoint, .. } => {
+                assert_eq!(checkpoint.as_deref(), Some("flux1-dev-fp8"));
+            }
+            _ => panic!("expected the Stable Diffusion web UI"),
+        }
+        assert!(matches!(
+            Illustrator::new("sd").unwrap(),
+            Illustrator::StableDiffusion {
+                checkpoint: None,
+                ..
+            }
+        ));
     }
 
     #[test]

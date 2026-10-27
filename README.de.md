@@ -111,7 +111,7 @@ gehen nach `stderr` (`rag-mobil 3666 > story.md` funktioniert).
 | `--booklet FILE` (Alias `--livret`) | — | Schreibt zusätzlich das Heft (HTML, oder PDF bei `.pdf`): Die Geschichte bleibt als Markdown auf `stdout`, mit einem einzigen LLM-Durchlauf |
 | `--layout` / `RAG_MOBIL_LAYOUT` | `booklet` | `--format html` oder `pdf`: `booklet` oder `compact` (spart Papier) |
 | `--illustrate` / `RAG_MOBIL_ILLUSTRATE` | aus | Heft: ein Titelbild, gezeichnet von einem Bildmodell (siehe unten) |
-| `--image-model` / `RAG_MOBIL_IMAGE_MODEL` | `gpt-image-1` | Bildmodell für `--illustrate`: `gpt-image-…`, `dall-e-…` (OpenAI) oder `gemini-…` (Gemini) |
+| `--image-model` / `RAG_MOBIL_IMAGE_MODEL` | `gpt-image-1` | Bildmodell für `--illustrate`: `gpt-image-…`, `dall-e-…` (OpenAI), `gemini-…` (Gemini) oder ein lokales Modell: `openai::<modell>`, `sd::<checkpoint>` (siehe unten) |
 | `--browser-arg` | — | `--format pdf`: Argument für den Browser (z. B. `--no-sandbox`); wiederholbar |
 | `--star REF` | — | Das Lieblingsteil des Kindes, im Mittelpunkt der Geschichte; wiederholbar (siehe unten) |
 | `--missing REF[:N]` | — | Ein Teil, das in der Packung fehlt: alle Exemplare oder N; wiederholbar |
@@ -305,6 +305,20 @@ wird in die Seite eingebettet (`data:`-Adresse), die eine einzige Datei bleibt.
 |---|---|---|
 | `gpt-image-1` (Standard), `gpt-image-…`, `dall-e-3` | OpenAI | `OPENAI_API_KEY` |
 | `gemini-2.5-flash-image`, `gemini-…` | Google Gemini | `GEMINI_API_KEY` |
+| `openai::<modell>` + `RAG_MOBIL_OPENAI_IMAGE_BASE_URL` | ein OpenAI-kompatibler Bildserver, lokal oder entfernt ([LocalAI](https://localai.io), `sd-server` von stable-diffusion.cpp…) | die Adresse des Servers; `OPENAI_API_KEY` nur, wenn er einen verlangt |
+| `sd::<checkpoint>` (z. B. `sd::flux1-dev-bnb-nf4-v2`) oder `sd` für den geladenen | [AUTOMATIC1111](https://github.com/AUTOMATIC1111/stable-diffusion-webui), [Forge](https://github.com/lllyasviel/stable-diffusion-webui-forge) oder SD.Next, lokal und kostenlos: Stable Diffusion, SDXL, Flux | die Web-UI, gestartet mit `--api`, unter `http://127.0.0.1:7860` oder `RAG_MOBIL_SD_BASE_URL`; kein Schlüssel |
+
+```bash
+# A cover drawn on your own machine, by Stable Diffusion or Flux
+rag-mobil 3799 --illustrate --image-model sd::sd_xl_base_1.0 --format pdf > booklet.pdf
+RAG_MOBIL_OPENAI_IMAGE_BASE_URL=http://localhost:8080 rag-mobil 3799 --illustrate \
+  --image-model openai::flux.1-schnell --format pdf > booklet.pdf
+```
+
+Lokale Modelle zeichnen in 1024×576; mit `sd::` hält ein negativer Prompt Text aus dem Bild
+fern, Sampler, Schritte und CFG sind die Standardwerte der Web-UI (für Flux dort einstellen).
+Der nach `sd::` genannte Checkpoint wird für das Bild geladen, danach der vorherige
+wiederhergestellt.
 
 Der Schlüssel wird vor jedem LLM-Aufruf geprüft. Ein Bild, das fehlschlägt (Kontingent, vom
 Sicherheitsfilter des Anbieters abgelehnt…), wird auf `stderr` gemeldet: Das Heft erscheint
@@ -329,7 +343,7 @@ src/
 ├── saga.rs              --saga: previous episodes, character continuity
 ├── html.rs              --format html: illustrated booklet (pulldown-cmark)
 ├── pdf.rs               --format pdf: the booklet printed by headless Chrome
-├── illustrate.rs        --illustrate: the cover picture (OpenAI, Gemini, replay)
+├── illustrate.rs        --illustrate: the cover picture (OpenAI, Gemini, local models, replay)
 ├── retriever/           R — retrieval
 │   ├── mod.rs           InventorySource trait
 │   ├── playmodb.rs      HTTP client (2 pages in parallel)
