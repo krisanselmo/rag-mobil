@@ -83,7 +83,7 @@ mean "unknown". Unknown fields are ignored (you can add `"$schema"` or fields of
 | `category` | string | yes | Category, free text (see below). |
 | `components` | array of strings | yes | Sub-items of the piece (a figure's wig, hat, weapon…); `[]` if none. |
 | `image` | string or `null` | no | Absolute URL (`http` or `https`) of an image of the piece. The prompt doesn't read it: it's for whoever displays the inventory (PlaymoDB provides one for each piece). |
-| `nickname` | string or `null` | no | The name the child gave this figure or piece (`"Coco"` for a parrot): the story always calls it that. |
+| `nickname` | string or `null` | no | The name the child gave this figure or piece (`"Coco"` for a parrot): the story always calls it that. `--nickname` and `--nickname-file` set it without editing the inventory. |
 
 ## Categories
 

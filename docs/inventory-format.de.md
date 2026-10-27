@@ -85,7 +85,7 @@ Ein Test (`tests/inventory_schema.rs`) stellt sicher, dass es mit dem Code über
 | `category` | String | ja | Kategorie, freier Text (siehe unten). |
 | `components` | Array von Strings | ja | Unterteile des Teils (Perücke, Hut, Waffe einer Figur…); `[]`, wenn keine. |
 | `image` | String oder `null` | nein | Absolute URL (`http` oder `https`) eines Bilds des Teils. Der Prompt liest es nicht: Es ist für alle gedacht, die das Inventar anzeigen (PlaymoDB liefert eines für jedes Teil). |
-| `nickname` | String oder `null` | nein | Der Name, den das Kind dieser Figur oder diesem Teil gegeben hat (`"Coco"` für einen Papagei): Die Geschichte nennt es immer so. |
+| `nickname` | String oder `null` | nein | Der Name, den das Kind dieser Figur oder diesem Teil gegeben hat (`"Coco"` für einen Papagei): Die Geschichte nennt es immer so. `--nickname` und `--nickname-file` setzen ihn, ohne das Inventar zu ändern. |
 
 ## Kategorien
 

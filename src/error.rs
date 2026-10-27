@@ -14,6 +14,12 @@ pub enum RagError {
     )]
     InvalidMissingPart(String),
 
+    #[error(
+        "invalid nickname: \"{0}\" (expected: a reference, = and the name, \
+         e.g. 30 06 368=Coco)"
+    )]
+    InvalidNickname(String),
+
     /// The payload says which set and which source(s) were asked.
     #[error("set not found: {0}")]
     SetNotFound(String),
