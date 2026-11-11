@@ -1,6 +1,7 @@
 name: CI
 
-# Private repo: minutes are billed (Windows x2). Branch pushes run
+# Public repo: standard runners cost no minutes, but jobs are refused while the
+# account's monthly allowance is spent (all of 21-27 Oct 2026). Branch pushes run
 # only through their PR to avoid doubled runs; docs-only changes are skipped.
 on:
   push:
@@ -22,8 +23,8 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  # fmt, clippy, docs, tests and MSRV share one runner and one cache: each job is
-  # billed rounded up to the minute and would rebuild the dependencies on its own.
+  # fmt, clippy, docs, tests and MSRV share one runner and one cache: separate jobs
+  # would each rebuild the dependencies.
   linux:
     name: Linux (fmt, clippy, tests, docs, MSRV)
     runs-on: ubuntu-latest
@@ -47,7 +48,7 @@ jobs:
       - name: MSRV (1.88)
         run: cargo +1.88 check --all-targets --locked
 
-  # Windows runners are billed x2: only after merge to main, or on demand.
+  # Windows is the slowest runner: only after merge to main, or on demand.
   windows:
     name: Tests (Windows)
     if: github.event_name != 'pull_request'
